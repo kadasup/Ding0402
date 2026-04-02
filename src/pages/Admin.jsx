@@ -105,6 +105,7 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
     const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'unpublish' | 'closeOrder'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
+    
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
 
@@ -708,6 +709,40 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
     const [formImage, setFormImage] = useState('');
     const [formRemark, setFormRemark] = useState('');
 
+    // Load draft state from sessionStorage
+    useEffect(() => {
+        const draftStr = sessionStorage.getItem('menu_library_draft');
+        if (draftStr) {
+            try {
+                const draft = JSON.parse(draftStr);
+                if (draft.showAddForm) {
+                    setShowAddForm(draft.showAddForm);
+                    setEditingId(draft.editingId);
+                    setFormName(draft.formName || '');
+                    setFormCategory(draft.formCategory || 'chinese');
+                    setFormStoreInfo(draft.formStoreInfo || { name: '', address: '', phone: '' });
+                    setFormItems(draft.formItems || []);
+                    setFormImage(draft.formImage || '');
+                    setFormRemark(draft.formRemark || '');
+                }
+            } catch (e) {
+                console.error("Failed to parse library draft:", e);
+            }
+        }
+    }, []);
+
+    // Save draft state to sessionStorage
+    useEffect(() => {
+        sessionStorage.setItem('menu_library_draft', JSON.stringify({
+            showAddForm, editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark
+        }));
+    }, [showAddForm, editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark]);
+
+    // States for Add Item Modal
+    const [showAddItemModal, setShowAddItemModal] = useState(false);
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemPrice, setNewItemPrice] = useState('');
+
     // Scanning state for library batch upload
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
@@ -733,6 +768,17 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
         setFormStoreInfo({ name: '', address: '', phone: '' });
         setFormItems([]); setFormImage(''); setFormRemark('');
         setEditingId(null); setShowAddForm(false);
+    };
+
+    const handleConfirmAddItem = () => {
+        if (!newItemName.trim() || !newItemPrice) {
+            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '請填寫完整', message: '名稱和價格不能為空', buttonColor: '#D97706' });
+            return;
+        }
+        setFormItems([...formItems, { name: newItemName.trim(), price: Number(newItemPrice) }]);
+        setShowAddItemModal(false);
+        setNewItemName('');
+        setNewItemPrice('');
     };
 
     const startEdit = (menu) => {
@@ -1018,7 +1064,7 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
                             <div className="flex items-center justify-between ml-1">
                                <h4 className="font-black text-sm text-ac-brown">品項列表 ({formItems.length})</h4>
                                <button 
-                                  onClick={() => setFormItems([...formItems, { name: '', price: 0 }])} 
+                                  onClick={() => setShowAddItemModal(true)} 
                                   className="ac-btn secondary text-xs" 
                                   style={{ padding: '6px 14px', boxSize: 'border-box', height: 'auto', fontSize: '0.8rem' }}
                                >
@@ -1072,6 +1118,82 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
                 </div>
             )}
 
+            {/* Add Item Modal in Menu Library */}
+            {showAddItemModal && (
+                <div
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 2147483647, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+                    onClick={() => setShowAddItemModal(false)}
+                >
+                    <div
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                            background: '#fff', borderRadius: '20px', padding: '32px 28px 24px', maxWidth: '360px', width: '100%',
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.05)',
+                            animation: 'bounce 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        }}
+                    >
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>
+                            ➕
+                        </div>
+                        <h3 className="text-center" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1F2937', marginBottom: '16px' }}>手動新增品項</h3>
+                        
+                        <div className="flex flex-col gap-4 mb-6">
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-xs font-black text-gray-400 ml-1">品項名稱</span>
+                                <input 
+                                    className="ac-input" 
+                                    placeholder="例: 排骨便當" 
+                                    value={newItemName} 
+                                    onChange={e => setNewItemName(e.target.value)} 
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <span className="text-xs font-black text-gray-400 ml-1">價格</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-black text-ac-green text-xl pl-1">$</span>
+                                    <input 
+                                        type="number"
+                                        className="ac-input flex-grow w-full" 
+                                        placeholder="0" 
+                                        value={newItemPrice} 
+                                        onChange={e => setNewItemPrice(e.target.value)} 
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button
+                                onClick={() => setShowAddItemModal(false)}
+                                style={{
+                                    flex: 1, padding: '12px', borderRadius: '12px', border: '2px solid #E5E7EB',
+                                    background: '#fff', fontWeight: 800, fontSize: '0.95rem', color: '#6B7280',
+                                    cursor: 'pointer', transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={e => { e.target.style.background = '#F3F4F6'; }}
+                                onMouseLeave={e => { e.target.style.background = '#fff'; }}
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={handleConfirmAddItem}
+                                style={{
+                                    flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+                                    background: 'var(--ac-green)', fontWeight: 800, fontSize: '0.95rem', color: '#fff',
+                                    cursor: 'pointer', transition: 'all 0.2s',
+                                    boxShadow: `0 4px 12px rgba(16, 185, 129, 0.4)`
+                                }}
+                                onMouseEnter={e => { e.target.style.opacity = '0.85'; }}
+                                onMouseLeave={e => { e.target.style.opacity = '1'; }}
+                            >
+                                ✅ 確定新增
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Library List */}
             <div className="flex flex-col gap-3">
                 {filteredLibrary.length === 0 && (
@@ -1085,7 +1207,12 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
                         <div style={{ padding: '16px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
                                 <span className="font-bold" style={{ fontSize: '1.1rem', color: 'var(--ac-brown)' }}>{menu.name}</span>
-                                <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 'bold', color: '#fff', background: getCategoryColor(menu.category), whiteSpace: 'nowrap' }}>
+                                <span className="flex items-center px-3 py-1 rounded-lg border shadow-sm text-xs font-black transition-colors" style={{ 
+                                    color: getCategoryColor(menu.category), 
+                                    backgroundColor: getCategoryColor(menu.category) + '1A', // ~10% opacity
+                                    borderColor: getCategoryColor(menu.category) + '33', // ~20% opacity
+                                    whiteSpace: 'nowrap' 
+                                }}>
                                     {getCategoryLabel(menu.category)}
                                 </span>
                             </div>
