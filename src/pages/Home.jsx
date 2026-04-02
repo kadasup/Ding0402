@@ -1,0 +1,495 @@
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useDing } from '../context/DingContext';
+import { DialogBox, Button, Modal } from '../components/Components';
+import { ShoppingBag, History, User, Lock, Coffee, Loader } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import leafIcon from '../assets/img/leaf.svg';
+import bellsIcon from '../assets/img/bells.svg';
+import fossilIcon from '../assets/img/fossil.svg';
+import presentIcon from '../assets/img/present.svg';
+import turnipIcon from '../assets/img/turnip.svg';
+
+
+const Home = () => {
+    const { data, user, actions, getTodayOrders, loading } = useDing();
+    const [selectedMember, setSelectedMember] = useState(null);
+
+    // Safety check if data is not yet loaded or invalid
+
+
+    const [cart, setCart] = useState([]);
+    const [orders, setOrders] = useState([]);
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const [showModal, setShowModal] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [successModal, setSuccessModal] = useState(false);
+    const [deleteModal, setDeleteModal] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState(null);
+
+    // Refresh orders on mount
+    useEffect(() => {
+        if (getTodayOrders) {
+            getTodayOrders();
+            // Note: getTodayOrders in context returns array, doesn't return promise if not async. 
+            // Context definition: getTodayOrders = () => { ... return filtered ... }
+            // It is synchronous in current context!
+            setOrders(getTodayOrders());
+        }
+    }, [data.orders]);
+
+    useEffect(() => {
+        if (data.menu.image) setImageLoaded(false);
+    }, [data.menu.image]);
+
+    const handleMemberLogin = (e) => {
+        const name = e.target.value;
+        setSelectedMember(name);
+        setCart([]); // Clear cart when switching members
+        if (name) actions.loginMember(name);
+    };
+
+    const addToCart = (item) => {
+        // Check for existing items in cart (Limit: 1)
+        if (cart.length >= 1) {
+            setShowModal(true);
+            return;
+        }
+        setCart([...cart, item]);
+    };
+
+    const removeFromCart = (index) => {
+        const newCart = [...cart];
+        newCart.splice(index, 1);
+        setCart(newCart);
+    };
+
+    const executeOrder = () => {
+        actions.placeOrder(selectedMember, cart);
+        setCart([]);
+        setShowConfirmModal(false);
+        setTimeout(() => setSuccessModal(true), 200);
+    };
+
+    const confirmDelete = () => {
+        if (orderToDelete) {
+            actions.deleteOrder(orderToDelete);
+            setDeleteModal(false);
+            setOrderToDelete(null);
+        }
+    };
+
+    const submitOrder = () => {
+        if (cart.length === 0) return;
+
+        // Warn if user already ordered today
+        const alreadyOrdered = data.orders.some(o => o.member === selectedMember && o.date.startsWith(new Date().toISOString().split('T')[0]));
+        if (alreadyOrdered) {
+            setShowConfirmModal(true);
+            return;
+        }
+
+        executeOrder();
+    };
+
+    // Safety check: Only show full-page loader if initial data hasn't arrived yet.
+    // We check !data.menu.lastUpdated because that is null initially and populated after first fetch.
+    const isInitialLoad = loading && (!data.menu || !data.menu.lastUpdated);
+
+
+
+    // Filter history for current user (Safe access)
+    const myHistory = (data.orders || []).filter(o => o.member === selectedMember);
+    const totalSpent = myHistory.reduce((sum, o) => sum + o.total, 0);
+
+    // Filter ONLY today's orders for the "My Today's Orders" section
+    const todayStr = new Date().toISOString().split('T')[0];
+    const myTodayOrders = myHistory.filter(o => o.date && o.date.startsWith(todayStr));
+
+
+
+    return (
+        <div className="flex flex-col gap-4 max-w-4xl mx-auto pb-40">
+            {/* Header / Announcement */}
+            <div className="flex flex-col items-center mb-6 relative">
+                {/* Integrated Header Signboard */}
+                <div className="bg-[#F9E076] px-12 py-4 rounded-[3rem] transform -rotate-2 border-[6px] border-white shadow-xl z-10 flex items-center gap-6 relative">
+
+                    {/* Left Leaf */}
+                    <img src={leafIcon} className="w-14 h-14 animate-bounce" alt="leaf" />
+
+                    <div className="flex flex-col items-center leading-none">
+                        <h1 className="text-5xl font-black text-[#7C6044] tracking-widest drop-shadow-sm -mb-2">
+                            自由543
+                        </h1>
+                        <span className="text-xl font-bold text-white tracking-[0.2em] drop-shadow-md">
+                            Ding Bento
+                        </span>
+                    </div>
+
+                    {/* Right Leaf */}
+                    <img src={leafIcon} className="w-14 h-14 animate-bounce icon-flip" alt="leaf" />
+                </div>
+
+                <div className="absolute right-0 top-0">
+                    <Link to="/admin">
+                        <Button variant="secondary" className="text-sm px-4 py-2">
+                            <Lock size={16} /> 管理員
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+
+            <div className="max-w-3xl mx-auto w-full">
+                <DialogBox title="公佈欄" className="mb-2 bg-ac-panel relative overflow-visible">
+
+                    <div className="p-2 text-center">
+                        <span className="inline-block bg-white text-ac-orange px-4 py-1 rounded-full border-2 border-ac-orange font-black text-lg tracking-widest shadow-sm rotate-1">
+                            📢 最新公告
+                        </span>
+                    </div>
+                    <div className="p-6 text-center text-xl font-bold text-ac-brown min-h-[60px] flex items-center justify-center whitespace-pre-line">
+                        {data.announcement}
+                    </div>
+                </DialogBox>
+            </div>
+
+            {/* Shop Closed / Loading / Store Info Logic */}
+            {isInitialLoad ? (
+                <div className="max-w-3xl mx-auto w-full">
+                    <div className="p-12 text-center opacity-70 bg-white rounded-3xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center min-h-[300px]">
+                        <Loader className="animate-spin mb-4 text-ac-green" size={48} />
+                        <h2 className="text-xl font-bold text-ac-brown mb-2">菜單努力加載中....</h2>
+                        <p className="text-sm text-gray-400">請稍候...</p>
+                    </div>
+                </div>
+            ) : (
+                <>
+                    {/* Shop Closed Message (Shown if not posted) */}
+                    {!data.menu.posted && (
+                        <div className="max-w-3xl mx-auto w-full">
+                            <div className="py-16 text-center bg-white rounded-3xl border-2 border-dashed border-gray-300" style={{ opacity: 0.8 }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🍃</div>
+                                <h2 className="text-2xl font-black text-ac-brown mb-2" style={{ letterSpacing: '0.1em' }}>菜單尚未上架</h2>
+                                <p className="text-gray-400 font-medium">菜單還沒準備好，請稍後再來！</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Store Info Card (Vertical Layout Redesign) */}
+                    {data.menu.posted && (
+                        <div className="bg-white rounded-3xl overflow-hidden shadow-xl mb-4 border-4 border-ac-brown relative max-w-3xl mx-auto w-full animate-pop">
+                            {/* Header: Store Info */}
+                            <div className="bg-[#F9E076] p-4 text-center border-b-4 border-ac-brown border-dashed">
+                                <h2 className="text-3xl font-black text-ac-brown mb-2 tracking-wide drop-shadow-sm">
+                                    {data.menu.storeInfo?.name || "今日店家"}
+                                </h2>
+                                <div className="flex flex-col gap-1 text-sm font-bold text-[#7C6044]">
+                                    {data.menu.storeInfo?.phone && (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span>📞</span>
+                                            <span>{data.menu.storeInfo.phone}</span>
+                                        </div>
+                                    )}
+                                    {data.menu.storeInfo?.address && (
+                                        <div className="flex items-center justify-center gap-2">
+                                            <span>📍</span>
+                                            <span>{data.menu.storeInfo.address}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Remark Section */}
+                            {data.menu.remark && (
+                                <div className="bg-[#FFFBEB] p-4 text-center border-b-4 border-ac-brown border-dashed animate-pop">
+                                    <div className="inline-block bg-white text-ac-orange px-3 py-1 rounded-full border border-ac-orange font-black text-xs mb-2 shadow-sm">
+                                        📢 貼心提醒 / 公告
+                                    </div>
+                                    <div className="text-ac-brown font-bold text-base leading-relaxed whitespace-pre-line px-4">
+                                        {data.menu.remark}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Body: Menu List (Simple List) */}
+                            <div className="p-6 bg-[#FFF8E7]">
+                                <div className="text-center mb-4">
+                                    <div className="inline-flex items-center justify-center bg-ac-green text-white px-6 py-1 rounded-full shadow-md hover:scale-105 transition-transform cursor-default">
+                                        <span className="font-bold text-lg tracking-widest leading-none pt-[2px]">今日菜單</span>
+                                    </div>
+                                    {selectedMember && (
+                                        <p className="text-sm text-ac-brown mt-2 animate-bounce-subtle">
+                                            👇 點擊下方品項即可加入購物車
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div style={{ maxWidth: '320px', width: '100%', margin: '0 auto' }} className="flex flex-col">
+                                    {(data.menu.items || []).map((item, idx) => (
+                                        <React.Fragment key={idx}>
+                                            <div
+                                                onClick={() => selectedMember && addToCart(item)}
+                                                style={{
+                                                    paddingRight: selectedMember ? '60px' : '10px',
+                                                    paddingLeft: selectedMember ? '10px' : '0'
+                                                }}
+                                                className={`flex justify-between items-end py-2 transition-all duration-200 relative group
+                                                    ${selectedMember ? 'cursor-pointer hover:bg-yellow-50 -mx-2 rounded-lg' : ''}
+                                                `}
+                                            >
+                                                <span className="font-bold text-xl text-gray-800 leading-tight group-hover:text-ac-green transition-colors relative z-10 bg-[#FFF8E7] group-hover:bg-yellow-50 pr-2">
+                                                    {item.name}
+                                                </span>
+
+                                                {/* Dotted Leader (Visual connection inside item) */}
+                                                <div className="flex-grow border-b-4 border-dotted border-gray-300 mb-2 mx-1 opacity-50 relative -z-0"></div>
+
+                                                <div className="flex items-center gap-2 relative z-10 bg-[#FFF8E7] group-hover:bg-yellow-50 pl-2">
+                                                    <span className="font-bold text-xl text-ac-orange whitespace-nowrap">
+                                                        ${item.price}
+                                                    </span>
+                                                </div>
+                                                {selectedMember && (
+                                                    <div
+                                                        style={{ right: '5px', width: '40px', height: '40px', top: '50%', transform: 'translateY(-50%)' }}
+                                                        className="absolute flex items-center justify-center rounded-full bg-ac-green text-white opacity-0 group-hover:opacity-100 transition-all shadow-md"
+                                                    >
+                                                        <span className="font-bold text-lg">+1</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            {/* Explicit Dashed Separator (Only between items, not after last) */}
+                                            {idx < (data.menu.items || []).length - 1 && (
+                                                <div style={{ borderBottom: '2px dashed #A0A0A0', width: '100%', margin: '8px 0' }}></div>
+                                            )}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+
+                                {/* Footer: Closing Time */}
+                                {data.menu.closingTime && (
+                                    <div className="mt-6 text-center">
+                                        <span className="inline-block bg-white border-2 border-red-200 text-red-500 px-4 py-1 rounded-lg font-bold text-sm shadow-sm">
+                                            {(() => {
+                                                const cTime = data.menu.closingTime || '';
+                                                try {
+                                                    const dateObj = new Date(cTime);
+                                                    if (isNaN(dateObj.getTime())) throw new Error('Invalid Date');
+
+                                                    // Format Date: MM/DD
+                                                    const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                                                    const d = dateObj.getDate().toString().padStart(2, '0');
+                                                    const dateStr = `${m}/${d}`;
+
+                                                    // Format Time: HH:mm (24h)
+                                                    const h = dateObj.getHours().toString().padStart(2, '0');
+                                                    const min = dateObj.getMinutes().toString().padStart(2, '0');
+                                                    const timeStr = `${h}:${min}`;
+
+                                                    const today = new Date();
+                                                    const isToday = dateObj.toDateString() === today.toDateString();
+
+                                                    return `⏰ 結單時間：${isToday ? '今天' : dateStr} ${timeStr}`;
+                                                } catch (e) {
+                                                    return `⏰ 結單時間：${cTime}`;
+                                                }
+                                            })()}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Member Selection */}
+                    <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
+                        <DialogBox title="請問你是？">
+                            <div className="flex flex-col items-center gap-4 py-4 relative z-10">
+                                <div className="flex items-center gap-2 w-full max-w-md">
+                                    <User className="text-ac-green" />
+                                    <select
+                                        value={selectedMember}
+                                        onChange={handleMemberLogin}
+                                        className="ac-input"
+                                    >
+                                        <option value="">-- 選擇你的名字 --</option>
+                                        {data.members.map(m => (
+                                            <option key={m} value={m}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {selectedMember && (
+                                    <div className="flex flex-col w-full max-w-md gap-2 animate-slide-up">
+                                        <div className="flex justify-between w-full text-sm text-ac-brown bg-ac-panel p-3 rounded-xl">
+                                            <span>歷史總單量: {myHistory.length}</span>
+                                            <span>累積消費: ${totalSpent}</span>
+                                        </div>
+
+                                        {/* Today's Orders & Delete Section */}
+                                        {myTodayOrders.length > 0 && (
+                                            <div className="bg-white p-3 rounded-xl border border-dashed border-ac-green mt-6 relative flex flex-col items-center">
+                                                <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-4 border-2 border-white transform -rotate-1">
+                                                    <span className="font-bold text-sm tracking-widest leading-none pt-[1px] block whitespace-nowrap">今日已點</span>
+                                                </div>
+                                                <div className="flex flex-col gap-3 w-full px-2">
+                                                    {myTodayOrders.map(order => (
+                                                        <div key={order.id} className="flex justify-between items-center bg-white border border-ac-green rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="font-black text-lg text-ac-brown leading-tight tracking-wide">
+                                                                    {order.items.map(i => i.name).join(', ')}
+                                                                </span>
+                                                                <span className="font-bold text-ac-orange text-base">
+                                                                    ${order.total}
+                                                                </span>
+                                                            </div>
+                                                            <Button variant="danger" onClick={() => {
+                                                                setOrderToDelete(order.id);
+                                                                setDeleteModal(true);
+                                                            }} className="px-3 py-1.5 text-sm rounded-full shadow-sm hover:scale-105 active:scale-95 transition-transform">
+                                                                取消
+                                                            </Button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </DialogBox>
+                    </div>
+
+                    {/* Cart Section (Fixed via Portal - Optimized) */}
+                    {selectedMember && data.menu.posted && createPortal(
+                        <div style={{ position: 'fixed', bottom: '30px', right: '30px', left: 'auto', zIndex: 99999, display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ width: '300px', maxWidth: '90vw' }} className="transition-all duration-300 transform translate-y-0 animate-pop">
+                                <div style={{ backgroundColor: '#FDFBF7', borderRadius: '24px' }} className="shadow-2xl border-4 border-[#78B159] ring-4 ring-[#FDFBF7] overflow-hidden">
+
+                                    {/* Header / Toggle */}
+                                    <div
+                                        style={{ backgroundColor: '#78B159' }}
+                                        className="text-white py-3 px-5 flex items-center justify-start gap-6 cursor-pointer active:brightness-90 transition-colors"
+                                        onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl">🍱</span>
+                                            <span className="font-bold text-lg tracking-widest">已加餐點</span>
+                                            {cart.length > 0 ? (
+                                                <span className="bg-ac-orange text-white text-xs font-bold px-2 py-1 rounded-full">{cart.length}</span>
+                                            ) : (
+                                                <span className="text-xs text-ac-green bg-white/10 px-2 py-1 rounded-full">空</span>
+                                            )}
+                                        </div>
+                                        <div className="font-bold text-lg tracking-wider">
+                                            總計 <span className="text-[#F9E076] text-xl drop-shadow-sm">${cart.reduce((s, i) => s + i.price, 0)}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Content (Only show if items exist or user clicks header to expand - keeping simple expanded view for now per request) */}
+                                    {cart.length > 0 && (
+                                        <div style={{ backgroundColor: '#FFF0F5' }} className="p-2 max-h-[40vh] overflow-y-auto animate-slide-up">
+                                            <div className="flex flex-col gap-2">
+                                                {cart.map((item, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center bg-white/80 border border-dashed border-red-200 p-2 rounded-xl shadow-sm">
+                                                        <span className="font-bold text-gray-700 pl-2">{item.name}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold text-gray-400 text-sm">${item.price}</span>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); removeFromCart(idx); }}
+                                                                className="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center hover:bg-red-50 rounded-full transition-colors"
+                                                            >
+                                                                x
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                <div className="pt-2 px-1">
+                                                    <Button onClick={submitOrder} className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all">
+                                                        送出訂單 🚀
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {cart.length === 0 && (
+                                        <div className="py-2 text-center text-gray-400 text-sm bg-yellow-50/30">
+                                            ( 購物車還是空的喔 )
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>,
+                        document.body
+                    )}
+
+
+                    <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
+                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
+                            <h3 className="text-xl font-bold text-ac-brown">提醒</h3>
+                            <p className="text-ac-text leading-relaxed">一次只能加一個品項喔！<br />若要更換，請先刪除「已加餐點」中的項目。</p>
+                            <Button onClick={() => setShowModal(false)}>
+                                好，我知道了
+                            </Button>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)}>
+                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
+                            <h3 className="text-xl font-bold text-ac-brown">重複點餐確認</h3>
+                            <p className="text-ac-text leading-relaxed">
+                                哎呀！{selectedMember}，你今天不是已經點過了嗎？<br />
+                                確定要再加點嗎？<br />
+                            </p>
+                            <div className="flex gap-4">
+                                <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
+                                    再想想
+                                </Button>
+                                <Button onClick={executeOrder}>
+                                    確定加點
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={successModal} onClose={() => setSuccessModal(false)}>
+                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
+                            <h3 className="text-xl font-bold text-ac-brown">點餐成功！</h3>
+                            <div className="text-4xl animate-bounce">🍃</div>
+                            <p className="text-ac-text leading-relaxed">
+                                您的餐點已送出！<br />
+                                請耐心等候美味便當送到喔！
+                            </p>
+                            <Button onClick={() => setSuccessModal(false)}>
+                                太棒了！
+                            </Button>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)}>
+                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
+                            <h3 className="text-xl font-bold text-ac-brown">取消訂單</h3>
+                            <p className="text-ac-text leading-relaxed">
+                                確定要取消這筆訂單嗎？<br />
+                                <span className="text-sm text-gray-500">(這筆訂單會直接刪除喔)</span>
+                            </p>
+                            <div className="flex gap-4">
+                                <Button variant="secondary" onClick={() => setDeleteModal(false)}>
+                                    再想想
+                                </Button>
+                                <Button variant="danger" onClick={confirmDelete}>
+                                    確定刪除
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
+                </>
+            )}
+        </div>
+    );
+};
+
+export default Home;
