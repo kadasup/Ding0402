@@ -1,0 +1,13 @@
+{
+  "members": [
+    "aa",
+    "bb"
+  ],
+  "orders": [],
+  "menu": {
+    "items": [],
+    "posted": false,
+    "lastUpdated": null
+  },
+  "announcement": "歡迎來到 Ding 訂便當系統！🍱 (來自後端 API)"
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader } from 'lucide-react';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, X, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
@@ -13,7 +13,15 @@ import turnipIcon from '../assets/img/turnip.svg';
 
 const Home = () => {
     const { data, user, actions, getTodayOrders, loading } = useDing();
-    const [selectedMember, setSelectedMember] = useState(null);
+    const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
+
+    // 讓重新整理時，若有記憶角色，能同步至全局 context
+    useEffect(() => {
+        if (selectedMember) {
+            actions.loginMember(selectedMember);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Safety check if data is not yet loaded or invalid
 
@@ -21,11 +29,12 @@ const Home = () => {
     const [cart, setCart] = useState([]);
     const [orders, setOrders] = useState([]);
     const [imageLoaded, setImageLoaded] = useState(false);
-    const [showModal, setShowModal] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
     const [deleteModal, setDeleteModal] = useState(false);
     const [orderToDelete, setOrderToDelete] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Refresh orders on mount
     useEffect(() => {
@@ -42,19 +51,22 @@ const Home = () => {
         if (data.menu.image) setImageLoaded(false);
     }, [data.menu.image]);
 
-    const handleMemberLogin = (e) => {
-        const name = e.target.value;
+    const handleMemberLogin = (name) => {
+        setSearchTerm('');
         setSelectedMember(name);
         setCart([]); // Clear cart when switching members
-        if (name) actions.loginMember(name);
+        if (name) {
+            localStorage.setItem('ding_member', name);
+            actions.loginMember(name);
+        } else {
+            localStorage.removeItem('ding_member');
+            actions.loginMember(null);
+        }
     };
 
+    const filteredMembers = (data?.members || []).filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
+
     const addToCart = (item) => {
-        // Check for existing items in cart (Limit: 1)
-        if (cart.length >= 1) {
-            setShowModal(true);
-            return;
-        }
         setCart([...cart, item]);
     };
 
@@ -105,6 +117,21 @@ const Home = () => {
     // Filter ONLY today's orders for the "My Today's Orders" section
     const todayStr = new Date().toISOString().split('T')[0];
     const myTodayOrders = myHistory.filter(o => o.date && o.date.startsWith(todayStr));
+    const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
+
+    // Calculate Today's Most Popular (Global)
+    const allTodayOrders = (data.orders || []).filter(o => o.date && o.date.startsWith(todayStr));
+    const itemCounts = {};
+    allTodayOrders.forEach(order => {
+        (order.items || []).forEach(item => {
+            itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+        });
+    });
+    const maxCount = Math.max(0, ...Object.values(itemCounts));
+    const mostPopularItems = Object.entries(itemCounts)
+        .filter(([_, count]) => count === maxCount && count > 0)
+        .map(([name]) => name);
+    const isFirstOrderToday = allTodayOrders.length === 0;
 
 
 
@@ -153,6 +180,7 @@ const Home = () => {
                     </div>
                 </DialogBox>
             </div>
+
 
             {/* Shop Closed / Loading / Store Info Logic */}
             {isInitialLoad ? (
@@ -302,36 +330,107 @@ const Home = () => {
                         </div>
                     )}
 
-                    {/* Member Selection */}
-                    <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
-                        <DialogBox title="請問你是？">
-                            <div className="flex flex-col items-center gap-4 py-4 relative z-10">
-                                <div className="flex items-center gap-2 w-full max-w-md">
-                                    <User className="text-ac-green" />
-                                    <select
-                                        value={selectedMember}
-                                        onChange={handleMemberLogin}
-                                        className="ac-input"
-                                    >
-                                        <option value="">-- 選擇你的名字 --</option>
-                                        {data.members.map(m => (
-                                            <option key={m} value={m}>{m}</option>
+                    {/* Today's Most Popular Section */}
+                    <div className="max-w-3xl mx-auto w-full mt-4 mb-4">
+                        <div className="bg-white p-4 rounded-xl border border-dashed border-[#F9E076] relative flex flex-col items-center z-10 shadow-sm animate-pop">
+                            {/* Sub-header chip style */}
+                            <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-3 border-2 border-white transform rotate-1">
+                                <span className="font-bold text-sm tracking-widest leading-none pt-[1px] block whitespace-nowrap">今日最多人點 🔥</span>
+                            </div>
+                            
+                            <div className="text-xl font-black text-ac-brown text-center">
+                                {isFirstOrderToday ? (
+                                    <span className="text-ac-green block py-2">還沒有人點餐，您是今天第一筆！✨</span>
+                                ) : (
+                                    <div className="flex flex-wrap justify-center gap-2">
+                                        {mostPopularItems.map((name, i) => (
+                                            <span key={name} className="inline-block bg-orange-50 text-ac-orange px-3 py-1 rounded-lg border border-orange-100 shadow-sm">
+                                                {name}
+                                            </span>
                                         ))}
-                                    </select>
+                                        <div className="w-full text-sm font-bold text-gray-400 mt-1">
+                                            ( 目前熱銷 {maxCount} 份 )
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+            {/* Member Selection */}
+                    <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
+                        <DialogBox title="選擇角色">
+                            <div className="flex flex-col items-center gap-4 py-4 relative z-10 w-full">
+                                <div className="flex items-center gap-2 w-full max-w-md relative z-50">
+                                    <User className="text-ac-green shrink-0" />
+                                    <div className="relative w-full">
+                                        <input
+                                            type="text"
+                                            placeholder="-- 搜尋或選擇你的角色 --"
+                                            value={selectedMember && !isDropdownOpen ? selectedMember : searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setIsDropdownOpen(true);
+                                            }}
+                                            onFocus={() => {
+                                                setIsDropdownOpen(true);
+                                                setSearchTerm('');
+                                            }}
+                                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
+                                            className="ac-input w-full pr-20 cursor-text"
+                                        />
+                                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                            <ChevronDown className="text-gray-400" size={20} />
+                                        </div>
+                                        
+                                        {(selectedMember || searchTerm) && (
+                                            <button 
+                                                onMouseDown={(e) => { 
+                                                    e.preventDefault(); 
+                                                    e.stopPropagation(); 
+                                                    handleMemberLogin(''); 
+                                                    if (searchTerm) setIsDropdownOpen(true);
+                                                }}
+                                                className="absolute right-12 top-1/2 -translate-y-1/2 ac-clear-btn z-20"
+                                                title="清除內容"
+                                            >
+                                                <Trash2 size={18} strokeWidth={2.5} />
+                                            </button>
+                                        )}
+
+                                        {isDropdownOpen && (
+                                            <ul className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl max-h-60 overflow-y-auto overflow-x-hidden left-0 top-full">
+                                                {filteredMembers.length > 0 ? (
+                                                    filteredMembers.map(m => (
+                                                        <li 
+                                                            key={m}
+                                                            className={`px-4 py-3 hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold border-b border-gray-100 last:border-0 ${selectedMember === m ? 'bg-[#FFF8E7]' : ''}`}
+                                                            onMouseDown={() => {
+                                                                handleMemberLogin(m);
+                                                                setIsDropdownOpen(false);
+                                                            }}
+                                                        >
+                                                            {m}
+                                                        </li>
+                                                    ))
+                                                ) : (
+                                                    <li className="px-4 py-3 text-gray-400 text-center cursor-default">找不到相符的角色</li>
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {selectedMember && (
-                                    <div className="flex flex-col w-full max-w-md gap-2 animate-slide-up">
-                                        <div className="flex justify-between w-full text-sm text-ac-brown bg-ac-panel p-3 rounded-xl">
-                                            <span>歷史總單量: {myHistory.length}</span>
-                                            <span>累積消費: ${totalSpent}</span>
-                                        </div>
-
+                                    <div className="flex flex-col w-full max-w-md gap-2 animate-slide-up relative z-10">
                                         {/* Today's Orders & Delete Section */}
                                         {myTodayOrders.length > 0 && (
-                                            <div className="bg-white p-3 rounded-xl border border-dashed border-ac-green mt-6 relative flex flex-col items-center">
-                                                <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-4 border-2 border-white transform -rotate-1">
+                                            <div className="bg-white p-3 rounded-xl border border-dashed border-ac-green mt-6 relative flex flex-col items-center z-10">
+                                                <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-1 border-2 border-white transform -rotate-1">
                                                     <span className="font-bold text-sm tracking-widest leading-none pt-[1px] block whitespace-nowrap">今日已點</span>
+                                                </div>
+                                                <div className="mb-4 text-ac-orange font-black text-lg">
+                                                    應繳金額：${myTodayTotal}
                                                 </div>
                                                 <div className="flex flex-col gap-3 w-full px-2">
                                                     {myTodayOrders.map(order => (
@@ -427,15 +526,6 @@ const Home = () => {
                     )}
 
 
-                    <Modal isOpen={showModal} onClose={() => setShowModal(false)}>
-                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
-                            <h3 className="text-xl font-bold text-ac-brown">提醒</h3>
-                            <p className="text-ac-text leading-relaxed">一次只能加一個品項喔！<br />若要更換，請先刪除「已加餐點」中的項目。</p>
-                            <Button onClick={() => setShowModal(false)}>
-                                好，我知道了
-                            </Button>
-                        </div>
-                    </Modal>
 
                     <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)}>
                         <div className="flex flex-col items-center gap-4 text-center animate-pop">

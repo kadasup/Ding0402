@@ -116,6 +116,31 @@ body {
   box-shadow: 0 4px 0 #c94646;
 }
 
+.ac-clear-btn {
+  width: 34px;
+  height: 34px;
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: none;
+  padding: 0;
+}
+
+.ac-clear-btn:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+}
+
+.ac-clear-btn:active {
+  transform: scale(0.85);
+}
+
 .ac-input {
   background: #fff;
   border: 3px solid #ddd;
@@ -477,6 +502,26 @@ body {
   right: 0px;
 }
 
+.right-10 {
+  right: 2.5rem;
+}
+
+.right-12 {
+  right: 3rem;
+}
+
+.right-14 {
+  right: 3.5rem;
+}
+
+.top-1\/2 {
+  top: 50%;
+}
+
+.-translate-y-1\/2 {
+  transform: translateY(-50%);
+}
+
 .top-4 {
   top: 1rem;
 }
@@ -491,6 +536,30 @@ body {
 
 .z-10 {
   z-index: 10;
+}
+
+.z-20 {
+  z-index: 20;
+}
+
+.z-30 {
+  z-index: 30;
+}
+
+.z-40 {
+  z-index: 40;
+}
+
+.z-50 {
+  z-index: 50;
+}
+
+.z-0 {
+  z-index: 0;
+}
+
+.z-\[999\] {
+  z-index: 999;
 }
 
 .cursor-pointer {
