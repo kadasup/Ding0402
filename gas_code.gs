@@ -87,30 +87,51 @@ function doPost(e) {
       }
       return handleResponse({ success: true });
 
-    case 'addMenuHistory': // 歸檔歷史紀錄
+    case 'addMenuHistory': // 🚀 歸檔歷史紀錄 (修正索引對齊截圖)
       var histSheet = getOrCreateSheet('History');
       histSheet.appendRow([
-        new Date(),
-        params.name,
-        JSON.stringify(params.items),
-        params.image || '',
-        JSON.stringify(params.storeInfo || {})
+        new Date().getTime(),          // A: ID (數字字串/Timestamp) [0]
+        params.name,                   // B: Name [1]
+        JSON.stringify(params.items),  // C: ItemsJSON [2]
+        params.image || '',            // D: Image [3]
+        JSON.stringify(params.storeInfo || {}) // E: StoreInfoJSON [4]
       ]);
       return handleResponse({ success: true });
 
-    case 'updateMenuLibrary': // 儲存至菜單庫
+    case 'addMenuLibrary': // 🚀 新增至菜單庫 (修正索引對齊截圖)
       var libSheet = getOrCreateSheet('Library');
       libSheet.appendRow([
-        Utilities.getUuid(),
-        params.name,
-        params.category,
-        JSON.stringify(params.items),
-        params.image || '',
-        JSON.stringify(params.storeInfo || {}),
-        params.remark || '',
-        false // 是否為最愛
+        params.id || Utilities.getUuid(), // A: ID [0]
+        params.name,                       // B: Name [1]
+        params.category,                   // C: Category [2]
+        JSON.stringify(params.storeInfo || {}), // D: StoreInfoJSON [3]
+        JSON.stringify(params.items || []),     // E: ItemsJSON [4]
+        params.image || '',                // F: Image [5]
+        params.remark || params.tags || '', // G: TagsJSON/Remark [6]
+        params.isFavorite || false         // H: IsFavorite [7]
       ]);
       return handleResponse({ success: true });
+      
+    case 'updateMenuLibrary': // 🚀 更新菜單庫已有項目 (修正索引對齊截圖)
+      var libSheet = getOrCreateSheet('Library');
+      var libRows = libSheet.getDataRange().getValues();
+      var foundIndex = -1;
+      for (var i = 1; i < libRows.length; i++) {
+        if (libRows[i][0] === params.id) {
+          foundIndex = i + 1;
+          break;
+        }
+      }
+      if (foundIndex !== -1) {
+        if (params.name) libSheet.getRange(foundIndex, 2).setValue(params.name);
+        if (params.category) libSheet.getRange(foundIndex, 3).setValue(params.category);
+        if (params.storeInfo) libSheet.getRange(foundIndex, 4).setValue(JSON.stringify(params.storeInfo));
+        if (params.items) libSheet.getRange(foundIndex, 5).setValue(JSON.stringify(params.items));
+        if (params.image !== undefined) libSheet.getRange(foundIndex, 6).setValue(params.image);
+        if (params.remark || params.tags) libSheet.getRange(foundIndex, 7).setValue(params.remark || params.tags);
+        return handleResponse({ success: true });
+      }
+      return handleResponse({ error: "找不到該菜單 ID: " + params.id });
       
     case 'deleteMenuLibrary': // 刪除菜單庫項目
       var libSheet = getOrCreateSheet('Library');
@@ -228,16 +249,21 @@ function getLibraryList() {
   var rows = sheet.getDataRange().getValues();
   var lib = [];
   for (var i = 1; i < rows.length; i++) {
-    var itemsStr = rows[i][3];
-    var storeStr = rows[i][5];
+    var storeStr = rows[i][3]; // D: StoreInfoJSON [3]
+    var itemsStr = rows[i][4]; // E: ItemsJSON [4]
     var itemsArr = [];
     var storeObj = {};
     try { itemsArr = JSON.parse(itemsStr); } catch(e){}
     try { storeObj = JSON.parse(storeStr); } catch(e){}
     lib.push({
-      id: rows[i][0], name: rows[i][1], category: rows[i][2],
-      items: itemsArr, image: rows[i][4],
-      storeInfo: storeObj, remark: rows[i][6], isFavorite: rows[i][7]
+      id: rows[i][0],              // A: ID [0]
+      name: rows[i][1],            // B: Name [1]
+      category: rows[i][2],        // C: Category [2]
+      items: itemsArr,
+      image: rows[i][5],           // F: Image [5]
+      storeInfo: storeObj,
+      remark: rows[i][6],          // G: TagsJSON [6] (當作備註)
+      isFavorite: rows[i][7] === true || String(rows[i][7]).toUpperCase() === 'TRUE' // H: IsFavorite [7]
     });
   }
   return lib;
@@ -251,15 +277,28 @@ function getHistoryList() {
   for (var i = 1; i < rows.length; i++) {
     var itemsArr = [];
     var storeObj = {};
-    try { itemsArr = JSON.parse(rows[i][2]); } catch(e){}
-    try { storeObj = JSON.parse(rows[i][4]); } catch(e){}
+    try { itemsArr = JSON.parse(rows[i][2]); } catch(e){} // C: ItemsJSON [2]
+    try { storeObj = JSON.parse(rows[i][4]); } catch(e){} // E: StoreInfoJSON [4]
+    
+    // Convert A [0] to a valid Date ISO string for frontend sorting
+    var rowDate = rows[i][0];
+    var isoDate = null;
+    try {
+      // If timestamp (1765...)
+      if (/^\d{13}$/.test(String(rowDate))) {
+        isoDate = new Date(Number(rowDate)).toISOString();
+      } else {
+        isoDate = new Date(rowDate).toISOString();
+      }
+    } catch(e) { isoDate = new Date().toISOString(); }
+
     hist.push({
-      date: rows[i][0],
-      name: rows[i][1],
+      date: isoDate,        // 前端用於排序與分組
+      name: rows[i][1],     // B: Name [1]
       items: itemsArr,
-      image: rows[i][3],
+      image: rows[i][3],    // D: Image [3]
       storeInfo: storeObj,
-      id: "hist_" + i
+      id: rows[i][0]        // A: ID [0]
     });
   }
   return hist;

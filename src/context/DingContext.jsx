@@ -78,35 +78,30 @@ export const DingProvider = ({ children }) => {
       if (json.menuHistory === undefined) json.menuHistory = [];
       if (json.menuLibrary === undefined) json.menuLibrary = [];
 
-      if (json && json.menu) {
+      // ALWAYS update data if we got a valid JSON, even if some parts are missing
+      if (json) {
         const now = Date.now();
         const timeSinceUpdate = now - lastMenuUpdate.current;
         
-        // PROTECTIVE LOGIC: If we have a pending menu state update,
-        // check if server has caught up. If not, keep local state.
-        if (pendingMenuState.current !== null) {
+        // PROTECTIVE LOGIC: Only apply for 'menu' if we have a pending local update
+        if (json.menu && pendingMenuState.current !== null) {
           const serverMatchesExpected = json.menu.posted === pendingMenuState.current;
           if (serverMatchesExpected || timeSinceUpdate > 30000) {
-            // Server caught up OR timeout (30s) - accept server data
-            console.log("Server synced with local state, accepting server data");
             pendingMenuState.current = null;
             lastMenuUpdate.current = 0;
             setData(json);
           } else {
-            // Server hasn't caught up yet - keep local menu state
-            console.log(`GAS lag protection: server posted=${json.menu.posted}, expected=${pendingMenuState.current}, keeping local (${Math.round(timeSinceUpdate/1000)}s ago)`);
             setData(prev => ({
               ...json,
-              menu: prev.menu, // Keep our optimistic/local state
-              menuHistory: prev.menuHistory // Keep our optimistic history
+              menu: prev.menu,
+              menuHistory: prev.menuHistory
             }));
           }
         } else {
           setData(json);
         }
       } else {
-        console.error("Invalid data format received:", json);
-        setData(prev => ({ ...prev, announcement: "伺服器資料異常，請稍後再試。" }));
+        console.error("Invalid data format received (null or empty):", json);
       }
     } catch (err) {
       console.error("GAS Fetch Error:", err);

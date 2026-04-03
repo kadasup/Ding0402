@@ -11,6 +11,13 @@ const Admin = () => {
     const [password, setPassword] = useState('');
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
 
+    // Debugging trace
+    useEffect(() => {
+        console.log("Ding DATA Updated:", data);
+        console.log("Found menuLibrary:", data?.menuLibrary?.length, "items");
+        console.log("Found menuHistory:", data?.menuHistory?.length, "entries");
+    }, [data]);
+
 
 
     // Auto-login for admin (No password required)
@@ -1502,23 +1509,26 @@ const SettingsManager = () => {
                         </Button>
                     </div>
                 </div>
+                    <div className="mt-4 pt-4 border-t border-blue-200 flex flex-col gap-4">
+                        <div className="bg-white p-3 rounded-xl border text-xs font-mono">
+                            <p className="font-bold text-gray-400 mb-1 border-b pb-1">現有資料狀態</p>
+                            <ul className="list-disc ml-4 text-gray-600 gap-1 flex flex-col">
+                                <li>人員: {data?.members?.length || 0} 位</li>
+                                <li>菜單庫: {data?.menuLibrary?.length || 0} 筆</li>
+                                <li>歷史紀錄: {data?.menuHistory?.length || 0} 筆</li>
+                                <li>今天訂單: {data?.orders?.length || 0} 筆</li>
+                            </ul>
+                        </div>
+                        <DebugConnection url={urlInput} />
+                    </div>
+                </div>
 
-                <div className="mt-4 pt-4 border-t border-blue-200">
-                    <p className="text-xs text-blue-800 mb-2">
-                        後端版本檢查: <span className="font-bold">{data?.sysVersion || '未知 (可能是舊版)'}</span>
-                        {(!data?.sysVersion || !data.sysVersion.startsWith('3.2')) && <span className="text-red-500 ml-2 font-bold">(注意：版本不符或無法連線)</span>}
-                    </p>
-
-                    <DebugConnection url={urlInput} />
+                <div className="text-center text-xs text-gray-400 mt-10">
+                    Ding Lunch System v1.2 (Security Patch)
                 </div>
             </div>
-
-            <div className="text-center text-xs text-gray-400 mt-10">
-                Ding Lunch System v1.1
-            </div>
-        </div>
-    );
-};
+        );
+    };
 
 const DebugConnection = ({ url }) => {
     const [log, setLog] = useState(null);
