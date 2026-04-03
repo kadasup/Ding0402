@@ -1486,18 +1486,27 @@ const SettingsManager = () => {
                 </p>
                 <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-gray-500">Web App URL</label>
-                    <input
-                        className="ac-input font-mono text-xs"
-                        value={urlInput}
-                        readOnly
-                        style={{ opacity: 0.7, cursor: 'not-allowed', background: '#f3f4f6' }}
-                    />
+                    <div className="flex gap-2">
+                        <input
+                            className="ac-input font-mono text-xs flex-1"
+                            value={urlInput}
+                            onChange={(e) => setUrlInput(e.target.value)}
+                            placeholder="貼上您的 Google Apps Script Web App URL"
+                        />
+                        <Button
+                            onClick={() => actions.updateGasUrl(urlInput)}
+                            variant="primary"
+                            className="text-xs py-1 px-4"
+                        >
+                            儲存 URL
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="mt-4 pt-4 border-t border-blue-200">
                     <p className="text-xs text-blue-800 mb-2">
                         後端版本檢查: <span className="font-bold">{data?.sysVersion || '未知 (可能是舊版)'}</span>
-                        {data?.sysVersion !== '3.1' && <span className="text-red-500 ml-2 font-bold">(注意：版本不符或無法連線)</span>}
+                        {(!data?.sysVersion || !data.sysVersion.startsWith('3.2')) && <span className="text-red-500 ml-2 font-bold">(注意：版本不符或無法連線)</span>}
                     </p>
 
                     <DebugConnection url={urlInput} />

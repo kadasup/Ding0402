@@ -153,6 +153,9 @@ export const DingProvider = ({ children }) => {
   const updateGasUrl = (newUrl) => {
     setGasUrl(newUrl);
     localStorage.setItem('ding_gas_url', newUrl);
+    // Reset protective locks to force a fresh fetch from the new URL
+    pendingMenuState.current = null;
+    lastMenuUpdate.current = 0;
     alert('GAS URL 已更新，正在重新連線...');
   };
 

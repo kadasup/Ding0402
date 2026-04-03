@@ -138,6 +138,7 @@ function doPost(e) {
       updateWorksheetObject('Settings', 'announcement', params.text);
       return handleResponse({ success: true });
 
+
     case 'ocrMenu': // 🚀 AI 影像辨識代理服務 (核心安全性)
       try {
         var scriptProps = PropertiesService.getScriptProperties();
@@ -189,7 +190,8 @@ function getData() {
     orders: getOrdersData(),
     members: getMembersList(),
     announcement: getWorksheetObject('Settings', 'announcement') || "歡迎使用自由543訂便當系統！",
-    library: getLibraryList()
+    menuLibrary: getLibraryList(),
+    menuHistory: getHistoryList()
   };
 }
 
@@ -239,6 +241,28 @@ function getLibraryList() {
     });
   }
   return lib;
+}
+
+function getHistoryList() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('History');
+  if (!sheet) return [];
+  var rows = sheet.getDataRange().getValues();
+  var hist = [];
+  for (var i = 1; i < rows.length; i++) {
+    var itemsArr = [];
+    var storeObj = {};
+    try { itemsArr = JSON.parse(rows[i][2]); } catch(e){}
+    try { storeObj = JSON.parse(rows[i][4]); } catch(e){}
+    hist.push({
+      date: rows[i][0],
+      name: rows[i][1],
+      items: itemsArr,
+      image: rows[i][3],
+      storeInfo: storeObj,
+      id: "hist_" + i
+    });
+  }
+  return hist;
 }
 
 function handleResponse(data) {
