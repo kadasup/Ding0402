@@ -360,3 +360,8 @@ function handleOcr(params) {
     }
   } catch (err) { return handleResponse({ error: err.toString() }); }
 }
+// 🚀 關鍵授權修正：請在 GAS 編輯器選取此函式並按「執行」，以解除權限鎖定
+function authTrigger() {
+  var response = UrlFetchApp.fetch("https://google.com");
+  Logger.log("授權成功！目前狀態碼：" + response.getResponseCode());
+}
