@@ -1517,6 +1517,9 @@ const SettingsManager = () => {
                                 <li>菜單庫: {data?.menuLibrary?.length || 0} 筆</li>
                                 <li>歷史紀錄: {data?.menuHistory?.length || 0} 筆</li>
                                 <li>今天訂單: {data?.orders?.length || 0} 筆</li>
+                                <li className="text-[10px] text-blue-500 mt-1 border-t pt-1">
+                                    偵測分頁: {data?.debugSheets?.join(', ') || '載入中...'}
+                                </li>
                             </ul>
                         </div>
                         <DebugConnection url={urlInput} />

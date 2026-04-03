@@ -212,7 +212,9 @@ function getData() {
     members: getMembersList(),
     announcement: getWorksheetObject('Settings', 'announcement') || "歡迎使用自由543訂便當系統！",
     menuLibrary: getLibraryList(),
-    menuHistory: getHistoryList()
+    menuHistory: getHistoryList(),
+    // 診斷資訊：列出目前試算表所有分頁名稱
+    debugSheets: SpreadsheetApp.getActiveSpreadsheet().getSheets().map(s => s.getName())
   };
 }
 
@@ -244,27 +246,40 @@ function getMembersList() {
 }
 
 function getLibraryList() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Library');
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 容錯匹配：尋找名稱完全一致或去掉空格後一致的工作表
+  var sheet = ss.getSheetByName('Library') || 
+              ss.getSheets().find(s => s.getName().trim() === 'Library');
+              
   if (!sheet) return [];
   var rows = sheet.getDataRange().getValues();
   var lib = [];
+  if (rows.length <= 1) return []; // 只有標題列
+  
   for (var i = 1; i < rows.length; i++) {
-    var storeStr = rows[i][3]; // D: StoreInfoJSON [3]
-    var itemsStr = rows[i][4]; // E: ItemsJSON [4]
-    var itemsArr = [];
-    var storeObj = {};
-    try { itemsArr = JSON.parse(itemsStr); } catch(e){}
-    try { storeObj = JSON.parse(storeStr); } catch(e){}
-    lib.push({
-      id: rows[i][0],              // A: ID [0]
-      name: rows[i][1],            // B: Name [1]
-      category: rows[i][2],        // C: Category [2]
-      items: itemsArr,
-      image: rows[i][5],           // F: Image [5]
-      storeInfo: storeObj,
-      remark: rows[i][6],          // G: TagsJSON [6] (當作備註)
-      isFavorite: rows[i][7] === true || String(rows[i][7]).toUpperCase() === 'TRUE' // H: IsFavorite [7]
-    });
+    try {
+      var storeStr = rows[i][3]; 
+      var itemsStr = rows[i][4]; 
+      var itemsArr = [];
+      var storeObj = {};
+      try { itemsArr = JSON.parse(itemsStr); } catch(e){ itemsArr = []; }
+      try { storeObj = JSON.parse(storeStr); } catch(e){ storeObj = {}; }
+      
+      if (!rows[i][1]) continue; // 略過店名為空的列
+      
+      lib.push({
+        id: String(rows[i][0] || ""),     
+        name: rows[i][1],           
+        category: rows[i][2],       
+        items: itemsArr,
+        image: rows[i][5],          
+        storeInfo: storeObj,
+        remark: rows[i][6],         
+        isFavorite: rows[i][7] === true || String(rows[i][7]).toUpperCase() === 'TRUE'
+      });
+    } catch(err) {
+      // 略過單一錯誤列
+    }
   }
   return lib;
 }
