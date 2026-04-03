@@ -127,7 +127,10 @@ function doPost(e) {
         if (params.storeInfo) libSheet.getRange(foundIndex, 4).setValue(JSON.stringify(params.storeInfo));
         if (params.items) libSheet.getRange(foundIndex, 5).setValue(JSON.stringify(params.items));
         if (params.image !== undefined) libSheet.getRange(foundIndex, 6).setValue(params.image);
-        if (params.remark || params.tags) libSheet.getRange(foundIndex, 7).setValue(params.remark || params.tags);
+        if (params.remark || params.tags) {
+           libSheet.getRange(foundIndex, 7).setValue(params.remark || params.tags);
+           libSheet.getRange(foundIndex, 11).setValue(params.remark || params.tags); // 🚀 同步更新到 Column K
+        }
         return handleResponse({ success: true });
       }
       return handleResponse({ error: "找不到該菜單 ID" });
@@ -193,7 +196,7 @@ function getLibraryList() {
         storeInfo: JSON.parse(rows[i][3] || "{}"),
         items: JSON.parse(rows[i][4] || "[]"),
         image: rows[i][5],          
-        remark: rows[i][6],         
+        remark: rows[i][10] || rows[i][6], // 🚀 對齊截圖：優先從 Column K (Index 10) 讀取備註
         isFavorite: rows[i][7] === true || String(rows[i][7]).toUpperCase() === 'TRUE'
       });
     } catch(e){}
