@@ -271,6 +271,8 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         } else {
             showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '未辨識到品項', message: '請確認照片品質後重試。', buttonColor: '#D97706' });
         }
+        // 🚀 增加延遲到 3.5 秒，給 GAS 更多處理時間，減少資料被舊版本覆蓋的機率
+        setTimeout(actions.fetchData, 3500);
 
         e.target.value = '';
     };
@@ -299,7 +301,7 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
             const name = storeInfo.name ? storeInfo.name : '未輸入';
             const autoSaveName = `${dateStr} 下架封存 ${name}`;
-            actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo);
+            actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
             // Clear all draft data upon unpublishing as requested
             const emptyItems = [];
@@ -329,7 +331,7 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         const name = storeInfo.name ? storeInfo.name : '未輸入';
         const autoSaveName = `${dateStr} 結單封存 ${name}`;
-        actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo);
+        actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
         // Unpost
         setIsPosted(false);
@@ -838,7 +840,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
             confirmText: '確定載入', confirmColor: '#2563EB'
         });
         if (ok) {
-            actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {});
+            // 🚀 修正：加上 menu.remark，確保載入今日時備註也會同步
+            actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '');
             await showAlert({ icon: '✅', title: '已載入至今日菜單！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 移動到今日菜單', buttonColor: '#2563EB' });
             setActiveTab('menu');
         }

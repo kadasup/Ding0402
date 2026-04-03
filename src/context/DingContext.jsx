@@ -50,10 +50,12 @@ export const DingProvider = ({ children }) => {
       const res = await fetch(`${gasUrl}?t=${Date.now()}`);
       const json = await res.json();
       
-      // 指數保護邏輯：避免伺服器舊資料覆蓋本地剛送出的狀態
+      // 🚀 強度保護：避免伺服器剛收到指令但還沒寫入 Sheet 時回傳的舊資料覆蓋本地狀態
       const now = Date.now();
-      if (pendingMenuState.current !== null && (now - lastMenuUpdate.current < 20000)) {
-          // 伺服器狀態與預期不符時，暫時保留本地狀態
+      if (now - lastMenuUpdate.current < 8000) {
+          // 在 8 秒內（剛點擊載入今日或上架），我們信任本地最新的 menu 資料
+          json.menu = { ...json.menu, ...data.menu }; 
+      } else if (pendingMenuState.current !== null && (now - lastMenuUpdate.current < 20000)) {
           if (json.menu.posted !== pendingMenuState.current) {
                json.menu = { ...json.menu, posted: pendingMenuState.current };
           } else {
@@ -78,7 +80,8 @@ export const DingProvider = ({ children }) => {
         mode: "no-cors",
         body: JSON.stringify({ action, ...payload })
       });
-      setTimeout(fetchData, 2000);
+      // 🚀 增加延遲到 4 秒，給 GAS 充足的 IO 時間，減少「刪除完又跑回來」或「載入今日沒反應」的問題
+      setTimeout(fetchData, 4000); 
     } catch (err) { console.error("GAS Action Error:", err); }
   };
 
