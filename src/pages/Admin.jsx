@@ -1480,8 +1480,29 @@ const SettingsManager = () => {
         setUrlInput(gasUrl);
     }, [gasUrl]);
 
+    // Connection Check for UI warning
+    const isDisconnected = !gasUrl || data.announcement === "載入中...";
+
     return (
         <div className="p-4 flex flex-col gap-6">
+            {isDisconnected && (
+                <div className="bg-red-50 border-2 border-red-200 p-6 rounded-2xl animate-pulse">
+                    <div className="flex items-center gap-4 text-red-600 mb-2">
+                        <span className="text-3xl">⚠️</span>
+                        <h2 className="text-xl font-black">偵測到失聯狀態！</h2>
+                    </div>
+                    <p className="text-sm text-red-700 mb-4">
+                        目前的 GitHub Pages 尚未連線至您的 Google Apps Script 後端，請往下捲動到「系統設定」貼上您的 Web App URL。
+                    </p>
+                    <button 
+                        onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+                        className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-red-700 transition-colors"
+                    >
+                         👇 前往設定連線
+                    </button>
+                </div>
+            )}
+
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <h3 className="font-bold text-blue-800 mb-2">📡 Google Apps Script連線設定</h3>
                 <div style={{ background: '#F0FDF4', border: '1px solid #22C55E', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
