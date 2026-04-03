@@ -209,12 +209,37 @@ function getHistoryList() {
   var sheet = ss.getSheetByName('MenuHistory') || ss.getSheetByName('History');
   if (!sheet) return [];
   var rows = sheet.getDataRange().getValues();
+  if (rows.length <= 1) return [];
+  
   return rows.slice(1).map(function(r){
     try {
-      var rowDate = r[0];
-      var isoDate = (rowDate instanceof Date) ? rowDate.toISOString() : new Date(Number(rowDate) || Date.now()).toISOString();
-      return { id: r[0], name: r[1], items: JSON.parse(r[2] || "[]"), image: r[3], storeInfo: JSON.parse(r[4] || "{}"), date: isoDate };
-    } catch(e){ return null; }
+      var idVal = String(r[0] || "");
+      if (!idVal) return null;
+      
+      var nameVal = r[1] || "未命名紀錄";
+      var itemsArr = [];
+      try { itemsArr = JSON.parse(r[2] || "[]"); } catch(e){ itemsArr = []; }
+      
+      var imageVal = (r.length > 3) ? r[3] : "";
+      var storeObj = {};
+      try { storeObj = (r.length > 4) ? JSON.parse(r[4] || "{}") : {}; } catch(e){ storeObj = {}; }
+      
+      // 🚀 解析時間：處理格式如 "1774968654980_136"
+      var tsPart = idVal.split('_')[0];
+      var tsNumber = Number(tsPart);
+      var isoDate = (!isNaN(tsNumber) && tsNumber > 0) ? new Date(tsNumber).toISOString() : new Date().toISOString();
+      
+      return { 
+        id: idVal, 
+        name: nameVal, 
+        items: itemsArr, 
+        image: imageVal, 
+        storeInfo: storeObj, 
+        date: isoDate 
+      };
+    } catch(e){ 
+      return null; 
+    }
   }).filter(Boolean).sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
 }
 
