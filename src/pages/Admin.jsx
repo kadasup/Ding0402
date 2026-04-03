@@ -909,7 +909,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 if (remark) {
                     combinedRemark = combinedRemark ? combinedRemark + '\n' + remark : remark;
                 }
-            } catch (err) { console.error(`File ${i + 1} error:`, err); }
+            } catch (err) { 
+                console.error(`File ${i + 1} error:`, err); 
+                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識失敗', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
+            }
         }
         if (allItems.length > 0) setFormItems(prev => [...prev, ...allItems]);
         setFormStoreInfo(latestStore);
@@ -1018,10 +1021,17 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                         </div>
 
                         {formImage && (
-                            <div className="text-center relative group py-2">
-                                <div className="relative inline-block">
-                                   <img src={formImage} className="max-h-40 mx-auto rounded-2xl shadow-lg border-4 border-white ring-1 ring-gray-100" />
-                                   <button onClick={() => setFormImage('')} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all ring-4 ring-white">
+                            <div className="text-center relative py-2">
+                                <div className="relative inline-block max-w-full">
+                                   <img 
+                                        src={formImage} 
+                                        className="rounded-2xl shadow-lg border-4 border-white ring-1 ring-gray-100 object-contain mx-auto" 
+                                        style={{ maxHeight: '300px', maxWidth: '100%' }}
+                                    />
+                                   <button 
+                                        onClick={() => setFormImage('')} 
+                                        className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all ring-4 ring-white z-20"
+                                    >
                                       <Plus size={20} style={{ transform: 'rotate(45deg)' }} />
                                    </button>
                                 </div>

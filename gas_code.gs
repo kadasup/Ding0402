@@ -298,18 +298,40 @@ function updateWorksheetObject(sheetName, key, obj) {
 function handleOcr(params) {
   try {
     var props = PropertiesService.getScriptProperties();
+    var apiEndpoint = props.getProperty('AZURE_ENDPOINT');
+    var apiKey = props.getProperty('AZURE_API_KEY');
+    
+    if (!apiEndpoint || !apiKey) return handleResponse({ error: "GAS 尚未設定 AZURE_ENDPOINT 或 AZURE_API_KEY" });
+
     var payload = {
       messages: [{ role: "user", content: [
-        { type: "text", text: "Please analyze this menu image. Return JSON ONLY with: items(array of {name, price}), storeInfo(obj with {name, phone, address}), remark(strong details)." },
+        { type: "text", text: "Please analyze this menu image. Return JSON ONLY with: items(array of {name, price}), storeInfo(obj with {name, phone, address}), remark(string with menu details). Ensure output is pure valid JSON." },
         { type: "image_url", image_url: { url: params.image } }
       ]}],
       max_completion_tokens: 1500
     };
-    var response = UrlFetchApp.fetch(props.getProperty('AZURE_ENDPOINT'), {
-      method: 'post', contentType: 'application/json', headers: { 'api-key': props.getProperty('AZURE_API_KEY') },
+    
+    var response = UrlFetchApp.fetch(apiEndpoint, {
+      method: 'post', contentType: 'application/json', headers: { 'api-key': apiKey },
       payload: JSON.stringify(payload), muteHttpExceptions: true
     });
-    var resText = response.getContentText().replace(/```json/g, '').replace(/```/g, '').trim();
-    return ContentService.createTextOutput(resText).setMimeType(ContentService.MimeType.JSON);
+    
+    var fullText = response.getContentText();
+    var resJson;
+    try {
+      resJson = JSON.parse(fullText);
+      if (resJson.error) return handleResponse({ error: "Azure API Error: " + resJson.error.message });
+      
+      var aiContent = resJson.choices[0].message.content;
+      // 🚀 更強大的 JSON 提取：尋找 { ... } 區塊
+      var jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        var cleanJson = jsonMatch[0];
+        return ContentService.createTextOutput(cleanJson).setMimeType(ContentService.MimeType.JSON);
+      }
+      return ContentService.createTextOutput(aiContent).setMimeType(ContentService.MimeType.JSON);
+    } catch(e) {
+      return handleResponse({ error: "解析 AI 回傳失敗: " + e.toString(), raw: fullText });
+    }
   } catch (err) { return handleResponse({ error: err.toString() }); }
 }
