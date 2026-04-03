@@ -219,13 +219,13 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 600;
+                const MAX_WIDTH = 1500; // 🚀 提高解析度確保小字清晰
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
+                resolve(canvas.toDataURL('image/jpeg', 0.85)); // 🚀 提高品質
             };
             img.src = base64;
         });
@@ -889,13 +889,13 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 const img = new Image();
                 await new Promise(r => { img.onload = r; img.src = base64Orig; });
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800; // Efficient size for OCR
+                const MAX_WIDTH = 1500; // 🚀 提高解析度確保小字清晰
                 const scale = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // Slightly lower quality for much smaller size
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85); // 🚀 提高品質
 
                 if (i === 0) {
                     setFormImage(compressedBase64); // Show preview for the first image

@@ -305,10 +305,10 @@ function handleOcr(params) {
 
     var payload = {
       messages: [{ role: "user", content: [
-        { type: "text", text: "Please analyze this menu image. Return JSON ONLY with: items(array of {name, price}), storeInfo(obj with {name, phone, address}), remark(string with menu details). Ensure output is pure valid JSON." },
+        { type: "text", text: "辨識這份菜單圖片。請務必使用【繁體中文】回傳 JSON。格式要求：items(陣列，包含 {name, price})、storeInfo(物件，包含 {name, phone, address})、remark(字串，包含詳細備註)。請仔細辨識所有小項與價格，確保輸出為純 JSON 格式。" },
         { type: "image_url", image_url: { url: params.image } }
       ]}],
-      max_completion_tokens: 1500
+      max_completion_tokens: 2000
     };
     
     var response = UrlFetchApp.fetch(apiEndpoint, {
