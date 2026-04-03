@@ -78,9 +78,9 @@ const Admin = () => {
                     >
                         <div>
                             <div style={{ display: activeTab === 'menu' ? 'block' : 'none' }}>
-                                <MenuManager data={data} actions={actions} apiKey={apiKey} onApiKeySave={handleApiKeySave} setActiveTab={setActiveTab} />
+                                <MenuManager data={data} actions={actions} setActiveTab={setActiveTab} />
                             </div>
-                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} apiKey={apiKey} setActiveTab={setActiveTab} /></div>}
+                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
                             {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} getTodayOrders={getTodayOrders} /></div>}
                             {activeTab === 'public' && <div key="public" className="animate-pop"><NoticeManager data={data} actions={actions} /></div>}
@@ -95,7 +95,7 @@ const Admin = () => {
 
 // Sub-components for cleaner file
 
-const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
+const MenuManager = ({ data, actions, setActiveTab }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const [draftItems, setDraftItems] = useState(data.menu.items || []);
@@ -110,6 +110,7 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
     
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
+    const { gasUrl } = useDing();
 
     // Sync from global data on first load
     const [hasInitialized, setHasInitialized] = useState(false);
@@ -167,49 +168,33 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
             setDraftItems(items);
             setMenuImage(image);
             setStoreInfo(store);
-            // Persist to global state so data survives tab switches
-            await actions.updateMenu(items, isPosted, closingTime, image, store);
-            showAlert({ icon: '✅', title: '已載入至今日菜單！', message: '菜單已載入，可直接查看並上架。' });
         }
-    };
-
-    const handleApiKeySave = (val) => {
-        onApiKeySave(val);
     };
 
     const callAzureVision = async (base64Image) => {
         try {
-            const azureUrl = import.meta.env.VITE_AZURE_ENDPOINT || "";
-            const response = await fetch(azureUrl, {
+            if (!gasUrl) throw new Error("尚未設定 GAS URL，無法使用 AI 辨識");
+
+            const response = await fetch(gasUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': apiKey
-                },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                { type: "text", text: "Please analyze this menu image. \n1. Extract all menu items and their prices as an array named 'items' (each with 'name' and 'price'). \n2. Extract store information: 'name', 'phone', and 'address' as an object named 'storeInfo'. \nReturn ONLY a valid JSON object containing both 'items' and 'storeInfo'. Handle Traditional Chinese characters correctly. Do not include markdown formatting (like ```json), just the raw JSON." },
-                                { type: "image_url", image_url: { url: base64Image } }
-                            ]
-                        }
-                    ],
-                    max_completion_tokens: 1000
+                    action: 'ocrMenu',
+                    image: base64Image
                 })
             });
-            const resData = await response.json();
-            if (resData.error) throw new Error(resData.error.message);
-            let content = resData.choices[0].message.content;
-            content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            const result = JSON.parse(content);
+
+            if (!response.ok) throw new Error(`GAS Proxy Error: ${response.status}`);
+            
+            const result = await response.json();
+            if (result.error) throw new Error(result.error);
+            
             return {
                 items: result.items || [],
                 storeInfo: result.storeInfo || { name: '', address: '', phone: '' }
             };
         } catch (error) {
-            console.error("Azure OpenAI Error:", error);
+            console.error("AI Vision Proxy Error:", error);
             throw error;
         }
     };
@@ -256,38 +241,20 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
             try {
                 const base64 = await processFileToBase64(files[i]);
                 const resized = await resizeImage(base64);
-                if (i === 0) {
-                    latestImage = resized;
-                    setMenuImage(resized);
-                }
-
-                if (apiKey) {
-                    const { items, storeInfo: newStoreInfo } = await callAzureVision(base64);
-                    allItems = [...allItems, ...items];
-                    if (newStoreInfo.name) latestStoreInfo.name = newStoreInfo.name;
-                    if (newStoreInfo.phone) latestStoreInfo.phone = newStoreInfo.phone;
-                    if (newStoreInfo.address) latestStoreInfo.address = newStoreInfo.address;
-                } else {
-                    const { data: { text } } = await Tesseract.recognize(files[i], 'chi_tra');
-                    const lines = text.split('\n');
-                    const priceRegex = /(\d+)/;
-                    lines.forEach(line => {
-                        const cleanLine = line.trim();
-                        if (cleanLine.length < 2) return;
-                        const priceMatch = cleanLine.match(priceRegex);
-                        if (priceMatch) {
-                            const price = parseInt(priceMatch[0], 10);
-                            const name = cleanLine.replace(priceRegex, '').replace(/[$.]/g, '').trim();
-                            if (name && price > 0) allItems.push({ name, price });
-                        }
-                    });
-                }
+                if (i === 0) latestImage = resized;
+                
+                const { items, storeInfo: newStoreInfo } = await callAzureVision(resized);
+                allItems = [...allItems, ...items];
+                if (newStoreInfo.name) latestStoreInfo.name = newStoreInfo.name;
+                if (newStoreInfo.phone) latestStoreInfo.phone = newStoreInfo.phone;
+                if (newStoreInfo.address) latestStoreInfo.address = newStoreInfo.address;
             } catch (err) {
                 console.error(`File ${i + 1} error:`, err);
             }
         }
 
         if (allItems.length > 0) setDraftItems(allItems);
+        setMenuImage(latestImage);
         setStoreInfo(latestStoreInfo);
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
@@ -719,12 +686,13 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
 // ========================
 // Menu Library Manager
 // ========================
-const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
+const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const { gasUrl } = useDing();
 
     // Add/Edit form state
     const [formName, setFormName] = useState('');
@@ -1509,9 +1477,9 @@ const SettingsManager = () => {
         <div className="p-4 flex flex-col gap-6">
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
                 <h3 className="font-bold text-blue-800 mb-2">📡 Google Apps Script連線設定</h3>
-                <div style={{ background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🔒</span>
-                    <span style={{ fontSize: '0.8rem', color: '#92400E', fontWeight: 'bold' }}>設定已鎖定（僅供檢視）</span>
+                <div style={{ background: '#F0FDF4', border: '1px solid #22C55E', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🔗</span>
+                    <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 'bold' }}>系統連線設定</span>
                 </div>
                 <p className="text-sm text-blue-600 mb-4">
                     如果您重新部署了 GAS 專案，Web App URL 可能會改變。請在此更新，以確保系統能正確連線。
