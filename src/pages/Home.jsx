@@ -128,7 +128,8 @@ const Home = () => {
         if (cart.length === 0) return;
 
         // Warn if user already ordered today
-        const alreadyOrdered = data.orders.some(o => o.member === selectedMember && o.date.startsWith(new Date().toISOString().split('T')[0]));
+        const todayStr = new Date().toISOString().split('T')[0];
+        const alreadyOrdered = data.orders.some(o => o.member === selectedMember && String(o.date).startsWith(todayStr));
         if (alreadyOrdered) {
             setShowConfirmModal(true);
             return;
@@ -149,12 +150,12 @@ const Home = () => {
 
     // Filter ONLY today's orders for the "My Today's Orders" section
     const todayStr = new Date().toISOString().split('T')[0];
-    const myTodayOrders = myHistory.filter(o => o.date && o.date.startsWith(todayStr));
+    const myTodayOrders = myHistory.filter(o => o.date && String(o.date).startsWith(todayStr));
     const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
 
     // Calculate Today's Most Popular (Global) - Filtered by current menu items
     const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
-    const allTodayOrders = (data.orders || []).filter(o => o.date && o.date.startsWith(todayStr));
+    const allTodayOrders = (data.orders || []).filter(o => o.date && String(o.date).startsWith(todayStr));
     const itemCounts = {};
     allTodayOrders.forEach(order => {
         (order.items || []).forEach(item => {

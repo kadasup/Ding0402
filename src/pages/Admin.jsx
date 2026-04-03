@@ -1420,7 +1420,7 @@ const StatsManager = ({ data, getTodayOrders }) => {
         // Handle timezone issues roughly or just compare string prefix YYYY-MM-DD
         // The GAS date is ISO.
         if (!o.date) return false;
-        return o.date.startsWith(selectedDate);
+        return String(o.date).startsWith(selectedDate);
     });
 
     const orders = filteredOrders;
