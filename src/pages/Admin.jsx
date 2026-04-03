@@ -903,18 +903,18 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
 
                 if (i === 0) setFormImage(dataUrl);
 
-                const { items, storeInfo: si, remark, error, aiResponse } = await callAzureVision(pureBase64);
-                if (items.length > 0) {
-                    allItems = [...allItems, ...items];
-                    if (si.name) latestStore.name = si.name;
-                    if (si.phone) latestStore.phone = si.phone;
-                    if (si.address) latestStore.address = si.address;
-                    if (remark) {
-                       combinedRemark = combinedRemark ? combinedRemark + '\n' + remark : remark;
+                const visionRes = await callAzureVision(pureBase64);
+                if (visionRes.items && visionRes.items.length > 0) {
+                    allItems = [...allItems, ...visionRes.items];
+                    if (visionRes.storeInfo.name) latestStore.name = visionRes.storeInfo.name;
+                    if (visionRes.storeInfo.phone) latestStore.phone = visionRes.storeInfo.phone;
+                    if (visionRes.storeInfo.address) latestStore.address = visionRes.storeInfo.address;
+                    if (visionRes.remark) {
+                       combinedRemark = combinedRemark ? combinedRemark + '\n' + visionRes.remark : visionRes.remark;
                     }
                 } else {
-                    // 🚀 診斷：存入 AI 回傳的細節
-                    combinedRemark = `【AI 回報】\n${error || aiResponse || '無內容'}`;
+                    // 🚀 關鍵：直接序列化整個回傳物件
+                    combinedRemark = `【原始診斷資料】\n${JSON.stringify(visionRes, null, 2)}`;
                 }
             } catch (err) { 
                 console.error(`File ${i + 1} error:`, err); 
