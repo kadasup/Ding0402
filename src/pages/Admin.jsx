@@ -865,7 +865,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         return { 
             items: result.items || [], 
             storeInfo: result.storeInfo || {}, 
-            remark: result.remark || '' 
+            remark: result.remark || '',
+            error: result.error, // 補上
+            aiResponse: result.aiResponse || result.raw // 診斷用
         };
     };
 
@@ -920,7 +922,18 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         if (combinedRemark !== formRemark) setFormRemark(combinedRemark);
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
-        showAlert({ icon: allItems.length > 0 ? '✅' : '⚠️', iconBg: allItems.length > 0 ? '#D1FAE5' : '#FEF3C7', title: allItems.length > 0 ? `辨識完成！${allItems.length} 個品項` : '未辨識到品項', buttonColor: allItems.length > 0 ? 'var(--ac-green)' : '#D97706' });
+        
+        if (allItems.length > 0) {
+            showAlert({ icon: '✅', iconBg: '#D1FAE5', title: `辨識完成！${allItems.length} 個品項`, buttonColor: 'var(--ac-green)' });
+        } else {
+            // 🚀 診斷：顯示為什麼沒有品項
+            showAlert({ 
+                icon: '⚠️', iconBg: '#FEF3C7', 
+                title: '未辨識到品項', 
+                message: 'AI 好像沒有在圖片中看到菜單品項或是回傳格式不對。',
+                buttonColor: '#D97706' 
+            });
+        }
         e.target.value = '';
     };
 

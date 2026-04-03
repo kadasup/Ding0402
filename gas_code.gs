@@ -326,25 +326,28 @@ function handleOcr(params) {
 
     try {
       var resJson = JSON.parse(fullText);
-      if (resJson.error) return handleResponse({ error: "Azure 核心錯誤: " + resJson.error.message });
+      if (resJson.error) return handleResponse({ error: "Azure 核心報錯: " + resJson.error.message });
       
       var aiContent = resJson.choices[0].message.content;
       
-      // 🚀 強力 JSON 提取與清理
       var jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-         var cleanJsonStr = jsonMatch[0];
-         var parsed = JSON.parse(cleanJsonStr);
-         return handleResponse({
-            items: parsed.items || [],
-            storeInfo: parsed.storeInfo || {},
-            remark: parsed.remark || "",
-            success: true
-         });
+         try {
+           var cleanJsonStr = jsonMatch[0];
+           var parsed = JSON.parse(cleanJsonStr);
+           return handleResponse({
+              items: parsed.items || [],
+              storeInfo: parsed.storeInfo || {},
+              remark: parsed.remark || "",
+              success: true
+           });
+         } catch(e) {
+           return handleResponse({ error: "JSON 解析錯誤", aiResponse: aiContent });
+         }
       }
-      return handleResponse({ error: "AI 未能產出有效 JSON", aiResponse: aiContent });
+      return handleResponse({ error: "AI 未回傳格式化資料", aiResponse: aiContent });
     } catch(e) {
-      return handleResponse({ error: "解析失敗: " + e.toString(), raw: fullText });
+      return handleResponse({ error: "API 響應解析失敗", raw: fullText });
     }
   } catch (err) { return handleResponse({ error: err.toString() }); }
 }
