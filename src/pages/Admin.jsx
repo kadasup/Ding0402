@@ -897,13 +897,13 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85); // 🚀 提高品質
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85); 
+                // 🚀 去掉 Data URL 前綴，只送純 Base64
+                const pureBase64 = dataUrl.split(',')[1];
 
-                if (i === 0) {
-                    setFormImage(compressedBase64); // Show preview for the first image
-                }
+                if (i === 0) setFormImage(dataUrl);
 
-                const { items, storeInfo: si, remark, error, aiResponse } = await callAzureVision(compressedBase64);
+                const { items, storeInfo: si, remark, error, aiResponse } = await callAzureVision(pureBase64);
                 if (items.length > 0) {
                     allItems = [...allItems, ...items];
                     if (si.name) latestStore.name = si.name;

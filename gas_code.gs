@@ -303,10 +303,16 @@ function handleOcr(params) {
     
     if (!apiEndpoint || !apiKey) return handleResponse({ error: "GAS 尚未設定 AZURE_ENDPOINT 或 AZURE_API_KEY" });
 
+    // 🚀 相容性處理：確保傳給 Azure 的是完整的 Data URL 格式
+    var imagePayload = params.image;
+    if (imagePayload && !imagePayload.startsWith('data:')) {
+      imagePayload = 'data:image/jpeg;base64,' + imagePayload;
+    }
+
     var payload = {
       messages: [{ role: "user", content: [
-        { type: "text", text: "辨識這份菜單圖片。請務必使用【繁體中文】回傳 JSON。格式：{ \"items\": [{ \"name\": \"...\", \"price\": 0 }], \"storeInfo\": { \"name\": \"...\", \"phone\": \"...\", \"address\": \"...\" }, \"remark\": \"...\" }。請確保輸出為純 JSON，不要有 Markdown 標記。" },
-        { type: "image_url", image_url: { url: params.image } }
+        { type: "text", text: "你好，請幫我詳細解析這張菜單圖片。請辨識所有菜名與價格。回傳格式必須為純 JSON，內容包含：items(陣列，每個物件有 name 和 price)、storeInfo(物件，包含 name, phone, address)、remark(字串，其他公告資訊)。若沒看到店名或電話請填空字串。請務必使用繁體中文。" },
+        { type: "image_url", image_url: { url: imagePayload } }
       ]}],
       max_completion_tokens: 2000,
       temperature: 0
