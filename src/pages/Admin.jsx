@@ -866,8 +866,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
             items: result.items || [], 
             storeInfo: result.storeInfo || {}, 
             remark: result.remark || '',
-            error: result.error, // 補上
-            aiResponse: result.aiResponse || result.raw // 診斷用
+            error: result.error,
+            aiResponse: result.aiResponse || result.raw
         };
     };
 
@@ -903,13 +903,18 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                     setFormImage(compressedBase64); // Show preview for the first image
                 }
 
-                const { items, storeInfo: si, remark } = await callAzureVision(compressedBase64);
-                allItems = [...allItems, ...items];
-                if (si.name) latestStore.name = si.name;
-                if (si.phone) latestStore.phone = si.phone;
-                if (si.address) latestStore.address = si.address;
-                if (remark) {
-                    combinedRemark = combinedRemark ? combinedRemark + '\n' + remark : remark;
+                const { items, storeInfo: si, remark, error, aiResponse } = await callAzureVision(compressedBase64);
+                if (items.length > 0) {
+                    allItems = [...allItems, ...items];
+                    if (si.name) latestStore.name = si.name;
+                    if (si.phone) latestStore.phone = si.phone;
+                    if (si.address) latestStore.address = si.address;
+                    if (remark) {
+                       combinedRemark = combinedRemark ? combinedRemark + '\n' + remark : remark;
+                    }
+                } else {
+                    // 🚀 診斷：存入 AI 回傳的細節
+                    combinedRemark = `【AI 回報】\n${error || aiResponse || '無內容'}`;
                 }
             } catch (err) { 
                 console.error(`File ${i + 1} error:`, err); 
@@ -926,11 +931,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         if (allItems.length > 0) {
             showAlert({ icon: '✅', iconBg: '#D1FAE5', title: `辨識完成！${allItems.length} 個品項`, buttonColor: 'var(--ac-green)' });
         } else {
-            // 🚀 診斷：顯示為什麼沒有品項
             showAlert({ 
                 icon: '⚠️', iconBg: '#FEF3C7', 
                 title: '未辨識到品項', 
-                message: 'AI 好像沒有在圖片中看到菜單品項或是回傳格式不對。',
+                message: combinedRemark || 'AI 回傳內容為空，請檢查您的 OpenAI/Azure 服務狀態或金鑰設定。',
                 buttonColor: '#D97706' 
             });
         }
