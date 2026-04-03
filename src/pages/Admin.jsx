@@ -219,7 +219,7 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1500; // 🚀 提高解析度確保小字清晰
+                const MAX_WIDTH = 1000; // 🚀 適中解析度，避免超過 GAS 限制
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
@@ -891,7 +891,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 const img = new Image();
                 await new Promise(r => { img.onload = r; img.src = base64Orig; });
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1500; // 🚀 提高解析度確保小字清晰
+                const MAX_WIDTH = 1000; // 🚀 適中解析度，避免超過 GAS 限制
                 const scale = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scale;
