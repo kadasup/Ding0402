@@ -305,10 +305,11 @@ function handleOcr(params) {
 
     var payload = {
       messages: [{ role: "user", content: [
-        { type: "text", text: "辨識這份菜單圖片。請務必使用【繁體中文】回傳 JSON。格式要求：items(陣列，包含 {name, price})、storeInfo(物件，包含 {name, phone, address})、remark(字串，包含詳細備註)。請仔細辨識所有小項與價格，確保輸出為純 JSON 格式。" },
+        { type: "text", text: "辨識這份菜單圖片。請務必使用【繁體中文】回傳 JSON。格式：{ \"items\": [{ \"name\": \"...\", \"price\": 0 }], \"storeInfo\": { \"name\": \"...\", \"phone\": \"...\", \"address\": \"...\" }, \"remark\": \"...\" }。請確保輸出為純 JSON，不要有 Markdown 標記。" },
         { type: "image_url", image_url: { url: params.image } }
       ]}],
-      max_completion_tokens: 2000
+      max_completion_tokens: 2000,
+      temperature: 0
     };
     
     var response = UrlFetchApp.fetch(apiEndpoint, {
@@ -316,22 +317,34 @@ function handleOcr(params) {
       payload: JSON.stringify(payload), muteHttpExceptions: true
     });
     
+    var code = response.getResponseCode();
     var fullText = response.getContentText();
-    var resJson;
+
+    if (code !== 200) {
+      return handleResponse({ error: "Azure API 錯誤 (" + code + ")", raw: fullText });
+    }
+
     try {
-      resJson = JSON.parse(fullText);
-      if (resJson.error) return handleResponse({ error: "Azure API Error: " + resJson.error.message });
+      var resJson = JSON.parse(fullText);
+      if (resJson.error) return handleResponse({ error: "Azure 核心錯誤: " + resJson.error.message });
       
       var aiContent = resJson.choices[0].message.content;
-      // 🚀 更強大的 JSON 提取：尋找 { ... } 區塊
+      
+      // 🚀 強力 JSON 提取與清理
       var jsonMatch = aiContent.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        var cleanJson = jsonMatch[0];
-        return ContentService.createTextOutput(cleanJson).setMimeType(ContentService.MimeType.JSON);
+         var cleanJsonStr = jsonMatch[0];
+         var parsed = JSON.parse(cleanJsonStr);
+         return handleResponse({
+            items: parsed.items || [],
+            storeInfo: parsed.storeInfo || {},
+            remark: parsed.remark || "",
+            success: true
+         });
       }
-      return ContentService.createTextOutput(aiContent).setMimeType(ContentService.MimeType.JSON);
+      return handleResponse({ error: "AI 未能產出有效 JSON", aiResponse: aiContent });
     } catch(e) {
-      return handleResponse({ error: "解析 AI 回傳失敗: " + e.toString(), raw: fullText });
+      return handleResponse({ error: "解析失敗: " + e.toString(), raw: fullText });
     }
   } catch (err) { return handleResponse({ error: err.toString() }); }
 }
