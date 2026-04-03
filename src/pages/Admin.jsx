@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
-import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock } from 'lucide-react';
+import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
@@ -959,22 +959,26 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
                 <div className="flex flex-wrap items-center gap-3 bg-gray-50/50 p-2 rounded-2xl border border-gray-100/50">
                     <button 
                         onClick={() => setShowFavOnly(!showFavOnly)} 
-                        className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-red-200 ${showFavOnly ? 'bg-red-50 text-red-600 border border-transparent shadow-[inset_0_2px_4px_rgba(239,68,68,0.1)]' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 shadow-sm hover:shadow'}`}
+                        className={`group flex items-center justify-center gap-3 px-6 h-12 rounded-full text-base font-black transition-all shadow-md border ${showFavOnly ? 'bg-red-50 text-red-600 border-red-200 ring-4 ring-red-100 shadow-inner' : 'bg-white text-gray-700 border-gray-200 hover:border-ac-orange hover:text-ac-orange hover:shadow-lg'}`}
                     >
-                        <Heart size={14} style={{ fill: showFavOnly ? '#ef4444' : 'none' }} /> 
-                        {showFavOnly ? '只看最愛' : '最愛'}
+                        <Heart 
+                            size={20} 
+                            className={showFavOnly ? 'text-red-500 animate-pulse' : 'text-gray-400 group-hover:text-red-400 transition-colors'} 
+                            style={{ fill: showFavOnly ? '#ef4444' : 'none' }}
+                        /> 
+                        <span className="whitespace-nowrap">{showFavOnly ? '最愛菜單模式' : '最愛'}</span>
                     </button>
-                    <div className="relative">
+                    <div className="relative group">
                         <select 
-                            className="appearance-none bg-white border border-gray-200 text-gray-600 text-sm font-bold rounded-full px-4 py-1.5 pr-8 shadow-sm outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300 hover:bg-gray-50 hover:shadow transition-all cursor-pointer"
+                            className="appearance-none bg-white border-2 border-gray-100 text-gray-700 text-base font-black rounded-full pl-6 pr-12 h-12 shadow-md outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-400 hover:border-ac-blue hover:text-ac-blue hover:shadow-lg transition-all cursor-pointer min-w-[160px]"
                             value={filterCategory} 
                             onChange={e => setFilterCategory(e.target.value)}
                         >
-                            <option value="all">全部分類</option>
+                            <option value="all">📂 全部分類</option>
                             {MENU_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                         </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                            <span className="text-[10px]">▼</span>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400 group-hover:text-ac-blue transition-colors">
+                            <ChevronDown size={18} strokeWidth={3} />
                         </div>
                     </div>
                     <span className="text-xs font-bold text-gray-500 ml-auto bg-white px-3 py-1 rounded-full border border-gray-200 shadow-sm">

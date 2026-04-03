@@ -521,12 +521,19 @@ const Home = () => {
                                                                     ${order.total}
                                                                 </span>
                                                             </div>
-                                                            <Button variant="danger" onClick={() => {
-                                                                setOrderToDelete(order.id);
-                                                                setDeleteModal(true);
-                                                            }} className="px-3 py-1.5 text-sm rounded-full shadow-sm hover:scale-105 active:scale-95 transition-transform">
-                                                                取消
-                                                            </Button>
+                                                            
+                                                            {data?.menu?.posted ? (
+                                                                <Button variant="danger" onClick={() => {
+                                                                    setOrderToDelete(order.id);
+                                                                    setDeleteModal(true);
+                                                                }} className="px-3 py-1.5 text-sm rounded-full shadow-sm hover:scale-105 active:scale-95 transition-transform">
+                                                                    取消
+                                                                </Button>
+                                                            ) : (
+                                                                <div className="px-3 py-1.5 text-xs font-bold text-gray-400 bg-gray-50 rounded-full border border-gray-200">
+                                                                    已結單
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
