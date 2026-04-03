@@ -445,29 +445,42 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
             </div>
 
             {/* Closing Time Setting */}
-            <div className="p-5 rounded-2xl border shadow-sm flex flex-col items-center justify-center gap-3" style={{ background: '#EFF6FF', borderLeft: '4px solid #60A5FA' }}>
-                <span className="font-black text-gray-800 text-base flex items-center gap-2"><Clock size={18} /> 設定結單時間</span>
-                <div className="flex gap-3">
-                    <select
-                        className="ac-input py-2 px-3 text-sm w-auto border shadow-sm rounded-lg"
-                        style={{ background: '#fff' }}
-                        value={datePart}
-                        onChange={(e) => updateDateTime(e.target.value, timePart)}
-                    >
-                        {getNext3Days().map(d => (
-                            <option key={d.value} value={d.value}>{d.label}</option>
-                        ))}
-                    </select>
-                    <select
-                        className="ac-input py-2 px-3 text-sm w-auto border shadow-sm rounded-lg"
-                        style={{ background: '#fff' }}
-                        value={timePart}
-                        onChange={(e) => updateDateTime(datePart, e.target.value)}
-                    >
-                        {getWholeHours().map(h => (
-                            <option key={h} value={h}>{h}</option>
-                        ))}
-                    </select>
+            <div className="p-5 rounded-2xl border shadow-sm flex flex-col items-center gap-4" style={{ background: '#EFF6FF', borderLeft: '4px solid #60A5FA' }}>
+                <div className="flex items-center gap-2">
+                    <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
+                        <Clock size={18} />
+                    </span>
+                    <span className="font-black text-gray-800 text-base">設定結單時間</span>
+                </div>
+                
+                <div className="flex flex-wrap justify-center gap-3 w-full">
+                    <div className="flex flex-col gap-1 flex-1 max-w-[160px]">
+                        <span className="text-[10px] font-bold text-blue-400 ml-1 uppercase tracking-wider">日期</span>
+                        <select
+                            className="ac-input py-2 px-3 text-sm border shadow-sm rounded-lg cursor-pointer"
+                            style={{ background: '#fff', width: '100%', height: '42px' }}
+                            value={datePart}
+                            onChange={(e) => updateDateTime(e.target.value, timePart)}
+                        >
+                            {getNext3Days().map(d => (
+                                <option key={d.value} value={d.value}>{d.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                    
+                    <div className="flex flex-col gap-1 flex-1 max-w-[120px]">
+                        <span className="text-[10px] font-bold text-blue-400 ml-1 uppercase tracking-wider">時間</span>
+                        <select
+                            className="ac-input py-2 px-3 text-sm border shadow-sm rounded-lg cursor-pointer"
+                            style={{ background: '#fff', width: '100%', height: '42px' }}
+                            value={timePart}
+                            onChange={(e) => updateDateTime(datePart, e.target.value)}
+                        >
+                            {getWholeHours().map(h => (
+                                <option key={h} value={h}>{h}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
             </div>
 

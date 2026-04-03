@@ -910,3 +910,27 @@ body {
   border: 2px solid transparent;
   background-clip: content-box;
 }
+
+.ac-scroll-top {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  border-radius: 50% !important;
+  background-color: #78B159 !important;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
+  border: 2px solid white !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  padding: 0 !important;
+}
+
+.bg-hot-yellow {
+  background-color: #FFD700 !important;
+}
+
+.border-pop-orange {
+  border-color: rgba(244, 162, 97, 0.3) !important;
+}

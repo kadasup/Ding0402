@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, X, Trash2 } from 'lucide-react';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
@@ -35,6 +35,39 @@ const Home = () => {
     const [orderToDelete, setOrderToDelete] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [showScrollTop, setShowScrollTop] = useState(false);
+
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(window.scrollY > 300);
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+    const [randomItem, setRandomItem] = useState(null);
+    const [isRolling, setIsRolling] = useState(false);
+    const [showRandomModal, setShowRandomModal] = useState(false);
+
+    const startRandomPick = () => {
+        const items = data.menu.items || [];
+        if (items.length === 0) return;
+        
+        setShowRandomModal(true);
+        setIsRolling(true);
+        setRandomItem(null);
+        
+        // Rolling animation for 2 seconds
+        let count = 0;
+        const interval = setInterval(() => {
+            const randomIndex = Math.floor(Math.random() * items.length);
+            setRandomItem(items[randomIndex]);
+            count++;
+            if (count > 20) {
+                clearInterval(interval);
+                setIsRolling(false);
+            }
+        }, 80);
+    };
 
     // Refresh orders on mount
     useEffect(() => {
@@ -294,6 +327,56 @@ const Home = () => {
                                         </React.Fragment>
                                     ))}
                                 </div>
+                                
+                                {/* Integrated Most Popular Section */}
+                                {!isFirstOrderToday && (
+                                    <div className="mt-12 pt-8 border-t-2 border-dashed border-gray-300 w-full animate-pop">
+                                        <div className="flex justify-center mb-4">
+                                            <div className="bg-hot-yellow text-ac-brown px-6 py-1 rounded-full shadow-md border-2 border-white transform -rotate-1">
+                                                <span className="font-black text-sm tracking-widest leading-none block whitespace-nowrap">今日最多人點 🔥</span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap justify-center gap-4">
+                                            {mostPopularItems.map((name) => {
+                                                const menuItem = (data.menu.items || []).find(i => {
+                                                    const menuName = i.name.trim().toLowerCase().replace(/[抄炒]/g, 'C');
+                                                    const popName = name.trim().toLowerCase().replace(/[抄炒]/g, 'C');
+                                                    
+                                                    // Exact after normalization
+                                                    if (menuName.replace(/\s/g, '') === popName.replace(/\s/g, '')) return true;
+                                                    
+                                                    // Partial match as fallback
+                                                    if (menuName.includes(popName) || popName.includes(menuName)) return true;
+                                                    
+                                                    return false;
+                                                });
+                                                return (
+                                                    <button 
+                                                        key={name} 
+                                                        onClick={() => selectedMember && menuItem && addToCart(menuItem)}
+                                                        className={`
+                                                            group relative flex flex-col items-center justify-center
+                                                            min-w-[100px] px-4 py-2.5 rounded-xl border-2 transition-all duration-300
+                                                            ${selectedMember 
+                                                                ? 'cursor-pointer hover:bg-orange-50 hover:border-ac-orange hover:-translate-y-1 shadow-sm hover:shadow-md' 
+                                                                : 'cursor-default opacity-90'}
+                                                            bg-white border-orange-100/30
+                                                        `}
+                                                    >
+                                                        <span className="text-base font-black text-ac-brown whitespace-nowrap">
+                                                            {name}
+                                                        </span>
+                                                        {selectedMember && (
+                                                            <span className="text-[9px] font-black text-ac-orange mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                快速按我 +
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Footer: Closing Time */}
                                 {data.menu.closingTime && (
@@ -330,32 +413,6 @@ const Home = () => {
                         </div>
                     )}
 
-                    {/* Today's Most Popular Section */}
-                    <div className="max-w-3xl mx-auto w-full mt-4 mb-4">
-                        <div className="bg-white p-4 rounded-xl border border-dashed border-[#F9E076] relative flex flex-col items-center z-10 shadow-sm animate-pop">
-                            {/* Sub-header chip style */}
-                            <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-3 border-2 border-white transform rotate-1">
-                                <span className="font-bold text-sm tracking-widest leading-none pt-[1px] block whitespace-nowrap">今日最多人點 🔥</span>
-                            </div>
-                            
-                            <div className="text-xl font-black text-ac-brown text-center">
-                                {isFirstOrderToday ? (
-                                    <span className="text-ac-green block py-2">還沒有人點餐，您是今天第一筆！✨</span>
-                                ) : (
-                                    <div className="flex flex-wrap justify-center gap-2">
-                                        {mostPopularItems.map((name, i) => (
-                                            <span key={name} className="inline-block bg-orange-50 text-ac-orange px-3 py-1 rounded-lg border border-orange-100 shadow-sm">
-                                                {name}
-                                            </span>
-                                        ))}
-                                        <div className="w-full text-sm font-bold text-gray-400 mt-1">
-                                            ( 目前熱銷 {maxCount} 份 )
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
 
             {/* Member Selection */}
                     <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
@@ -423,18 +480,28 @@ const Home = () => {
 
                                 {selectedMember && (
                                     <div className="flex flex-col w-full max-w-md gap-2 animate-slide-up relative z-10">
+                                        
+                                        {/* "What to eat?" Trigger Button */}
+                                        {myTodayOrders.length === 0 && (
+                                            <div className="mt-4 flex justify-center">
+                                                <button 
+                                                    onClick={startRandomPick}
+                                                    className="inline-flex items-center gap-2 bg-[#FFFBEB] hover:bg-[#F9E076] text-ac-brown px-6 py-2 rounded-full border-2 border-dashed border-[#F9E076] font-bold transition-all hover:scale-105 active:scale-95 group shadow-sm"
+                                                >
+                                                    <span className="text-xl group-hover:rotate-12 transition-transform">🤔</span>
+                                                    <span>不知道今天要吃什麼？</span>
+                                                </button>
+                                            </div>
+                                        )}
                                         {/* Today's Orders & Delete Section */}
                                         {myTodayOrders.length > 0 && (
-                                            <div className="bg-white p-3 rounded-xl border border-dashed border-ac-green mt-6 relative flex flex-col items-center z-10">
-                                                <div className="bg-[#F9E076] text-ac-brown px-6 py-1 rounded-full shadow-sm mb-1 border-2 border-white transform -rotate-1">
+                                            <div className="bg-[#F0FFF4] p-3 rounded-xl border border-dashed border-ac-green mt-6 relative flex flex-col items-center z-10 shadow-inner">
+                                                <div className="bg-white text-ac-brown px-6 py-1 rounded-full shadow-sm mb-4 border-2 border-white transform -rotate-1">
                                                     <span className="font-bold text-sm tracking-widest leading-none pt-[1px] block whitespace-nowrap">今日已點</span>
-                                                </div>
-                                                <div className="mb-4 text-ac-orange font-black text-lg">
-                                                    應繳金額：${myTodayTotal}
                                                 </div>
                                                 <div className="flex flex-col gap-3 w-full px-2">
                                                     {myTodayOrders.map(order => (
-                                                        <div key={order.id} className="flex justify-between items-center bg-white border border-ac-green rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                                                        <div key={order.id} className="flex justify-between items-center bg-white border border-ac-green/30 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
 
                                                             <div className="flex flex-col gap-1">
                                                                 <span className="font-black text-lg text-ac-brown leading-tight tracking-wide">
@@ -452,6 +519,11 @@ const Home = () => {
                                                             </Button>
                                                         </div>
                                                     ))}
+                                                </div>
+                                                <div className="mt-4 pt-3 border-t-2 border-dashed border-ac-green/30 w-full text-center">
+                                                    <div className="text-ac-orange font-black text-xl">
+                                                        應繳金額：${myTodayTotal}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
@@ -559,6 +631,55 @@ const Home = () => {
                         </div>
                     </Modal>
 
+                    {/* Random Pick Modal */}
+                    <Modal isOpen={showRandomModal} onClose={() => !isRolling && setShowRandomModal(false)}>
+                        <div className="flex flex-col items-center justify-center p-4 min-h-[300px]">
+                            {isRolling ? (
+                                <div className="flex flex-col items-center gap-6">
+                                    <div className="text-6xl animate-bounce">🎲</div>
+                                    <h3 className="text-2xl font-black text-ac-brown tracking-widest">正在為您挑選好料...</h3>
+                                    <div className="bg-white border-4 border-ac-green p-4 rounded-2xl w-64 h-20 flex items-center justify-center overflow-hidden relative">
+                                        <div className="text-2xl font-bold text-ac-green whitespace-nowrap animate-pulse">
+                                            {randomItem?.name || "???"}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-6 animate-pop">
+                                    <div className="text-6xl">✨</div>
+                                    <h3 className="text-xl font-bold text-gray-500">決定好啦！今天就吃...</h3>
+                                    <div className="bg-[#FFF8E7] border-4 border-ac-orange p-6 rounded-[2rem] shadow-xl transform rotate-2 max-w-xs w-full text-center">
+                                        <div className="text-3xl font-black text-ac-brown mb-2 leading-tight">
+                                            {randomItem?.name}
+                                        </div>
+                                        <div className="text-xl font-bold text-ac-orange">
+                                            ${randomItem?.price}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
+                                        <Button 
+                                            onClick={() => {
+                                                addToCart(randomItem);
+                                                setShowRandomModal(false);
+                                            }}
+                                            className="w-full py-3 text-lg justify-center shadow-lg transform hover:scale-105 active:scale-95"
+                                        >
+                                            看起來很棒，加點！🚀
+                                        </Button>
+                                        <Button 
+                                            variant="secondary" 
+                                            onClick={startRandomPick}
+                                            className="w-full py-2 text-sm justify-center opacity-70"
+                                        >
+                                            不太想吃這個，重新選一次 🎲
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </Modal>
+
                     <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)}>
                         <div className="flex flex-col items-center gap-4 text-center animate-pop">
                             <h3 className="text-xl font-bold text-ac-brown">取消訂單</h3>
@@ -578,6 +699,19 @@ const Home = () => {
                     </Modal>
                 </>
             )}
+
+            {/* Scroll to Top Button */}
+            {showScrollTop && (
+                <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="fixed bottom-10 ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
+                    style={{ left: '0', right: '0', margin: '0 auto' }}
+                    title="回到頂部"
+                >
+                    <ChevronUp size={24} color="white" strokeWidth={3} />
+                </button>
+            )}
+
         </div>
     );
 };
