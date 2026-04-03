@@ -152,12 +152,17 @@ const Home = () => {
     const myTodayOrders = myHistory.filter(o => o.date && o.date.startsWith(todayStr));
     const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
 
-    // Calculate Today's Most Popular (Global)
+    // Calculate Today's Most Popular (Global) - Filtered by current menu items
+    const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
     const allTodayOrders = (data.orders || []).filter(o => o.date && o.date.startsWith(todayStr));
     const itemCounts = {};
     allTodayOrders.forEach(order => {
         (order.items || []).forEach(item => {
-            itemCounts[item.name] = (itemCounts[item.name] || 0) + 1;
+            const name = item.name.trim();
+            // Only count if it's in the CURRENT menu
+            if (currentMenuItemNames.has(name)) {
+                itemCounts[name] = (itemCounts[name] || 0) + 1;
+            }
         });
     });
     const maxCount = Math.max(0, ...Object.values(itemCounts));
@@ -170,33 +175,38 @@ const Home = () => {
 
     return (
         <div className="flex flex-col gap-4 max-w-4xl mx-auto pb-40">
+            {/* Admin Portal Entry (Fixed to avoid overlap) */}
+            <Link 
+                to="/admin" 
+                className="ac-admin-link hover:scale-105 active:scale-95 transition-all"
+                style={{ position: 'fixed', top: '24px', right: '24px', left: 'auto', zIndex: 99999, opacity: 0.8 }}
+                title="進入後台"
+            >
+                <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
+                    <Lock size={18} /> 
+                    <span className="font-bold tracking-widest hidden sm:inline">管理員</span>
+                </Button>
+            </Link>
+
             {/* Header / Announcement */}
-            <div className="flex flex-col items-center mb-6 relative">
+            <div className="flex flex-col items-center mb-6 relative px-4">
                 {/* Integrated Header Signboard */}
-                <div className="bg-[#F9E076] px-12 py-4 rounded-[3rem] transform -rotate-2 border-[6px] border-white shadow-xl z-10 flex items-center gap-6 relative">
+                <div className="bg-[#F9E076] px-6 py-3 sm:px-12 sm:py-4 rounded-[2.5rem] sm:rounded-[3rem] transform -rotate-2 border-[4px] sm:border-[6px] border-white shadow-xl z-10 flex items-center gap-3 sm:gap-6 relative max-w-[calc(100vw-2rem)]">
 
                     {/* Left Leaf */}
-                    <img src={leafIcon} className="w-14 h-14 animate-bounce" alt="leaf" />
+                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce shrink-0" alt="leaf" />
 
                     <div className="flex flex-col items-center leading-none">
-                        <h1 className="text-5xl font-black text-[#7C6044] tracking-widest drop-shadow-sm -mb-2">
+                        <h1 className="text-3xl sm:text-5xl font-black text-[#7C6044] tracking-widest drop-shadow-sm -mb-1 sm:-mb-2 whitespace-nowrap">
                             自由543
                         </h1>
-                        <span className="text-xl font-bold text-white tracking-[0.2em] drop-shadow-md">
+                        <span className="text-sm sm:text-xl font-bold text-white tracking-[0.2em] drop-shadow-md">
                             Ding Bento
                         </span>
                     </div>
 
                     {/* Right Leaf */}
-                    <img src={leafIcon} className="w-14 h-14 animate-bounce icon-flip" alt="leaf" />
-                </div>
-
-                <div className="absolute right-0 top-0">
-                    <Link to="/admin">
-                        <Button variant="secondary" className="text-sm px-4 py-2">
-                            <Lock size={16} /> 管理員
-                        </Button>
-                    </Link>
+                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce icon-flip shrink-0" alt="leaf" />
                 </div>
             </div>
 

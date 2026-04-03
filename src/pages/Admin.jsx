@@ -27,16 +27,24 @@ const Admin = () => {
 
     return (
         <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-2">
-                    <img src={leafIcon} className="w-8 h-8 opacity-80" />
-                    <h1 className="text-3xl font-bold text-ac-green dashed-underline">後台管理</h1>
-                </div>
-                <div className="flex gap-2">
-                    <Link to="/"><Button variant="secondary">返回主頁</Button></Link>
-                    <Button onClick={actions.logout} variant="danger">登出</Button>
-                </div>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 px-2">
+            <div className="flex items-center gap-2">
+                <img src={leafIcon} className="w-8 h-8 opacity-80" />
+                <h1 className="text-2xl sm:text-3xl font-bold text-ac-green underline decoration-dashed decoration-2 underline-offset-8">
+                    後台管理
+                </h1>
             </div>
+            <div className="flex gap-2 w-full sm:w-auto justify-center">
+                <Link to="/" className="flex-1 sm:flex-none">
+                    <Button variant="secondary" className="w-full text-sm py-2 px-4 shadow-sm">
+                        <ArrowLeft size={16} /> 返回主頁
+                    </Button>
+                </Link>
+                <Button onClick={actions.logout} variant="danger" className="flex-1 sm:flex-none text-sm py-2 px-4 shadow-sm">
+                    <X size={16} /> 登出
+                </Button>
+            </div>
+        </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 {/* Sidebar Nav */}
@@ -324,10 +332,25 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
             const name = storeInfo.name ? storeInfo.name : '未輸入';
             const autoSaveName = `${dateStr} 下架封存 ${name}`;
             actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo);
-        }
 
-        setIsPosted(status);
-        await actions.updateMenu(draftItems, status, closingTime, menuImage, storeInfo, menuRemark);
+            // Clear all draft data upon unpublishing as requested
+            const emptyItems = [];
+            const emptyImage = '';
+            const emptyStore = { name: '', address: '', phone: '' };
+            const emptyRemark = '';
+            
+            setDraftItems(emptyItems);
+            setMenuImage(emptyImage);
+            setStoreInfo(emptyStore);
+            setMenuRemark(emptyRemark);
+            setIsPosted(false);
+            
+            // Sync empty state to global context
+            await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark);
+        } else {
+            setIsPosted(true);
+            await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark);
+        }
     };
 
 
@@ -361,12 +384,7 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
     };
 
     const getWholeHours = () => {
-        const hours = [];
-        for (let i = 0; i < 24; i++) {
-            const h = i.toString().padStart(2, '0');
-            hours.push(`${h}:00`);
-        }
-        return hours;
+        return ["09:00", "12:00", "17:00"];
     };
 
     // Parse existing closingTime (YYYY-MM-DD HH:mm) or default
@@ -453,12 +471,12 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
                     <span className="font-black text-gray-800 text-base">設定結單時間</span>
                 </div>
                 
-                <div className="flex flex-wrap justify-center gap-3 w-full">
-                    <div className="flex flex-col gap-1 flex-1 max-w-[160px]">
-                        <span className="text-[10px] font-bold text-blue-400 ml-1 uppercase tracking-wider">日期</span>
+                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 w-full">
+                    <div className="flex flex-col gap-1 w-full sm:w-[160px]">
+                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">🗓️ 日期選擇</span>
                         <select
-                            className="ac-input py-2 px-3 text-sm border shadow-sm rounded-lg cursor-pointer"
-                            style={{ background: '#fff', width: '100%', height: '42px' }}
+                            className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
+                            style={{ background: '#fff', width: '100%' }}
                             value={datePart}
                             onChange={(e) => updateDateTime(e.target.value, timePart)}
                         >
@@ -468,11 +486,11 @@ const MenuManager = ({ data, actions, apiKey, onApiKeySave, setActiveTab }) => {
                         </select>
                     </div>
                     
-                    <div className="flex flex-col gap-1 flex-1 max-w-[120px]">
-                        <span className="text-[10px] font-bold text-blue-400 ml-1 uppercase tracking-wider">時間</span>
+                    <div className="flex flex-col gap-1 w-full sm:w-[130px]">
+                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">⏰ 時間選擇</span>
                         <select
-                            className="ac-input py-2 px-3 text-sm border shadow-sm rounded-lg cursor-pointer"
-                            style={{ background: '#fff', width: '100%', height: '42px' }}
+                            className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
+                            style={{ background: '#fff', width: '100%' }}
                             value={timePart}
                             onChange={(e) => updateDateTime(datePart, e.target.value)}
                         >
