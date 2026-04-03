@@ -133,7 +133,7 @@ export const DingProvider = ({ children }) => {
         method: "POST",
         mode: "no-cors",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action, data: payload })
+        body: JSON.stringify({ action, ...payload })
       });
 
       // Increase wait time for GAS to finish spreadsheet writing.
@@ -288,7 +288,10 @@ export const DingProvider = ({ children }) => {
   const getTodayOrders = () => {
     if (!data.orders) return [];
     const today = new Date().toISOString().split('T')[0];
-    return data.orders.filter(o => o.date && o.date.startsWith(today));
+    return data.orders.filter(o => {
+      const orderDate = o.date ? String(o.date) : '';
+      return orderDate.startsWith(today);
+    });
   };
 
   return (
