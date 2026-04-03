@@ -1,0 +1,54 @@
+# 🍱 自由543：GitHub Pages 自動部署工作流
+# 當您 push 到 main 分支時，會自動編譯並發佈網頁
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["main"] # 如果您的預設分支是 master，請改為 master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build_site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+        # 這裡會讀取您的 GitHub Secrets 環境變數
+        env:
+          VITE_GAS_URL: ${{ secrets.VITE_GAS_URL }}
+          VITE_AZURE_API_KEY: ${{ secrets.VITE_AZURE_API_KEY }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Vite 預設輸出的資料夾是 dist
+          path: './dist'
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

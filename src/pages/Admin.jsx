@@ -12,12 +12,9 @@ const Admin = () => {
     const [password, setPassword] = useState('');
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
     
-    const [apiKey, setApiKey] = useState(localStorage.getItem('openai_key') || import.meta.env.VITE_AZURE_API_KEY || '');
+    // We move the sensitive API logic to GAS backend for higher security
+    const gasUrl = useDing().gasUrl; 
 
-    const handleApiKeySave = (val) => {
-        setApiKey(val);
-        localStorage.setItem('openai_key', val);
-    };
 
     // Auto-login for admin (No password required)
     if (user?.role !== 'admin') {
@@ -876,33 +873,31 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
     };
 
     const callAzureVision = async (base64Image) => {
-        const azureUrl = import.meta.env.VITE_AZURE_ENDPOINT || "";
-        const response = await fetch(azureUrl, {
+        // Now using GAS as a secure proxy to call Azure
+        const response = await fetch(gasUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'api-key': apiKey },
             body: JSON.stringify({
-                messages: [{ role: "user", content: [
-                    { type: "text", text: "Please analyze this menu image. \n1. Extract all menu items and their prices as an array named 'items' (each with 'name' and 'price'). \n2. Extract store information: 'name', 'phone', and 'address' as an object named 'storeInfo'. \n3. Extract any announcements, special notices, or extra details (rules, hours, discounts) as a single string named 'remark'. \nReturn ONLY a valid JSON object containing 'items', 'storeInfo', and 'remark'. Handle Traditional Chinese characters correctly. Do not include markdown formatting, just the raw JSON." },
-                    { type: "image_url", image_url: { url: base64Image } }
-                ]}],
-                max_completion_tokens: 1000
+                action: 'ocrMenu',
+                image: base64Image
             })
         });
-        const resData = await response.json();
-        if (resData.error) throw new Error(resData.error.message);
-        let content = resData.choices[0].message.content;
-        content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-        const result = JSON.parse(content);
-        return { items: result.items || [], storeInfo: result.storeInfo || {}, remark: result.remark || '' };
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        return { 
+            items: result.items || [], 
+            storeInfo: result.storeInfo || {}, 
+            remark: result.remark || '' 
+        };
     };
 
     const handleLibraryUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (!files.length) return;
-        if (!apiKey) {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '需要 Azure API Key', message: '請先在系統設定中配置 API Key 才能使用 AI 辨識。', buttonColor: '#D97706' });
-            return;
-        }
+        
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
         let allItems = [];
@@ -912,17 +907,26 @@ const MenuLibraryManager = ({ data, actions, apiKey, setActiveTab }) => {
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
             try {
-                const base64 = await new Promise(r => { const rd = new FileReader(); rd.onload = ev => r(ev.target.result); rd.readAsDataURL(files[i]); });
+                // Optimize image before sending to GAS Proxy
+                const base64Orig = await new Promise(r => { const rd = new FileReader(); rd.onload = ev => r(ev.target.result); rd.readAsDataURL(files[i]); });
+                
+                // Create a resized version to save bandwidth and speed up proxying
+                const img = new Image();
+                await new Promise(r => { img.onload = r; img.src = base64Orig; });
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800; // Efficient size for OCR
+                const scale = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scale;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6); // Slightly lower quality for much smaller size
+
                 if (i === 0) {
-                    const img = new Image();
-                    await new Promise(r => { img.onload = r; img.src = base64; });
-                    const canvas = document.createElement('canvas');
-                    const s = 600 / img.width;
-                    canvas.width = 600; canvas.height = img.height * s;
-                    canvas.getContext('2d').drawImage(img, 0, 0, 600, img.height * s);
-                    setFormImage(canvas.toDataURL('image/jpeg', 0.7));
+                    setFormImage(compressedBase64); // Show preview for the first image
                 }
-                const { items, storeInfo: si, remark } = await callAzureVision(base64);
+
+                const { items, storeInfo: si, remark } = await callAzureVision(compressedBase64);
                 allItems = [...allItems, ...items];
                 if (si.name) latestStore.name = si.name;
                 if (si.phone) latestStore.phone = si.phone;
