@@ -488,7 +488,7 @@ const Home = () => {
                                                     onClick={startRandomPick}
                                                     className="inline-flex items-center gap-2 bg-[#FFFBEB] hover:bg-[#F9E076] text-ac-brown px-6 py-2 rounded-full border-2 border-dashed border-[#F9E076] font-bold transition-all hover:scale-105 active:scale-95 group shadow-sm"
                                                 >
-                                                    <span className="text-xl group-hover:rotate-12 transition-transform">🤔</span>
+                                                    <span className="text-xl group-hover:rotate-12 transition-transform animate-pulse" style={{ textShadow: '0 0 10px rgba(249, 224, 118, 0.5)' }}>✨</span>
                                                     <span>不知道今天要吃什麼？</span>
                                                 </button>
                                             </div>
@@ -648,7 +648,7 @@ const Home = () => {
                                 <div className="flex flex-col items-center gap-6 animate-pop">
                                     <div className="text-6xl">✨</div>
                                     <h3 className="text-xl font-bold text-gray-500">決定好啦！今天就吃...</h3>
-                                    <div className="bg-[#FFF8E7] border-4 border-ac-orange p-6 rounded-[2rem] shadow-xl transform rotate-2 max-w-xs w-full text-center">
+                                    <div className="border-4 border-ac-orange p-6 rounded-[2rem] shadow-xl transform rotate-2 max-w-xs w-full text-center" style={{ backgroundColor: '#FFF8E7' }}>
                                         <div className="text-3xl font-black text-ac-brown mb-2 leading-tight">
                                             {randomItem?.name}
                                         </div>
