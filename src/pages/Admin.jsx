@@ -931,6 +931,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         if (allItems.length > 0) {
             showAlert({ icon: '✅', iconBg: '#D1FAE5', title: `辨識完成！${allItems.length} 個品項`, buttonColor: 'var(--ac-green)' });
         } else {
+            // 🚀 極限診斷：強迫瀏覽器中斷並彈出視窗
+            window.alert("--- 診斷視窗 ---\n" + (combinedRemark || "警告：未獲得任何診斷資料！"));
             showAlert({ 
                 icon: '⚠️', iconBg: '#FEF3C7', 
                 title: '未辨識到品項', 
