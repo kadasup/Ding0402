@@ -5,15 +5,12 @@ import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loa
 import { Link } from 'react-router-dom';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
-import Tesseract from 'tesseract.js';
 
 const Admin = () => {
-    const { user, data, actions, getTodayOrders } = useDing(); // Destructure getTodayOrders
+    const { user, data, actions, getTodayOrders, gasUrl } = useDing(); 
     const [password, setPassword] = useState('');
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
-    
-    // We move the sensitive API logic to GAS backend for higher security
-    const gasUrl = useDing().gasUrl; 
+
 
 
     // Auto-login for admin (No password required)
