@@ -858,16 +858,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         });
         const result = await response.json();
         
-        if (result.error) {
-            throw new Error(result.error);
-        }
-        
+        // 🚀 不要在這裡 throw，讓呼叫端決定怎麼顯示
         return { 
             items: result.items || [], 
             storeInfo: result.storeInfo || {}, 
             remark: result.remark || '',
-            error: result.error,
-            aiResponse: result.aiResponse || result.raw
+            error: result.error || null,
+            raw: result.raw || null,
+            aiResponse: result.aiResponse || null
         };
     };
 
@@ -904,21 +902,25 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 if (i === 0) setFormImage(dataUrl);
 
                 const visionRes = await callAzureVision(pureBase64);
+                
+                // 🚀 強制紀錄診斷資料到 combinedRemark
+                combinedRemark = `【原始診斷資料】\n${JSON.stringify(visionRes, null, 2)}`;
+                
                 if (visionRes.items && visionRes.items.length > 0) {
                     allItems = [...allItems, ...visionRes.items];
                     if (visionRes.storeInfo.name) latestStore.name = visionRes.storeInfo.name;
                     if (visionRes.storeInfo.phone) latestStore.phone = visionRes.storeInfo.phone;
                     if (visionRes.storeInfo.address) latestStore.address = visionRes.storeInfo.address;
                     if (visionRes.remark) {
-                       combinedRemark = combinedRemark ? combinedRemark + '\n' + visionRes.remark : visionRes.remark;
+                       // 成功的內容累積在裡面，但上面已經有診斷資料備份了
                     }
-                } else {
-                    // 🚀 關鍵：直接序列化整個回傳物件
-                    combinedRemark = `【原始診斷資料】\n${JSON.stringify(visionRes, null, 2)}`;
+                } else if (visionRes.error) {
+                    showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識發生錯誤', message: visionRes.error, buttonColor: '#DC2626' });
                 }
             } catch (err) { 
                 console.error(`File ${i + 1} error:`, err); 
-                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識失敗', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
+                combinedRemark = `【程式執行錯誤】\n${err.message}`;
+                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: '程式執行崩潰', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
             }
         }
         if (allItems.length > 0) setFormItems(prev => [...prev, ...allItems]);
