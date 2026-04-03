@@ -37,9 +37,13 @@ export const DingProvider = ({ children }) => {
   const [user, setUser] = useState(null); // { name, role: 'admin' | 'member' }
   const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(false);
-  const [gasUrl, setGasUrl] = useState(localStorage.getItem('ding_gas_url') || DEFAULT_GAS_URL);
-  const lastMenuUpdate = React.useRef(0); // Timestamp of last local menu update
-  const pendingMenuState = React.useRef(null); // Track expected posted state
+  const envGasUrl = import.meta.env.VITE_GAS_URL || "";
+  const [gasUrl, setGasUrl] = useState(() => {
+    const saved = localStorage.getItem('ding_gas_url');
+    // If saved is exactly "null", "undefined", or empty, fallback to env
+    if (!saved || saved === "null" || saved === "undefined" || saved === "") return envGasUrl;
+    return saved;
+  });
 
   // 1. Fetch Data from GAS
   const fetchData = async () => {
