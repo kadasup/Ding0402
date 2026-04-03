@@ -103,10 +103,18 @@ export const DingProvider = ({ children }) => {
       callGAS('updateMember', { oldName, newName });
     },
     updateMenu: (items, posted, closingTime, image, storeInfo, remark) => {
+      const nowStr = new Date().toISOString();
       lastMenuUpdate.current = Date.now();
       pendingMenuState.current = posted;
-      setData(prev => ({ ...prev, menu: { ...prev.menu, items, posted, closingTime, image, storeInfo, remark } }));
-      callGAS('updateMenu', { items, posted, closingTime, image, storeInfo, remark });
+      setData(prev => ({ 
+        ...prev, 
+        menu: { 
+          ...prev.menu, 
+          items, posted, closingTime, image, storeInfo, remark,
+          lastUpdated: nowStr // 🚀 關鍵修正：補上時間指標，讓 Admin 組件偵測到變化
+        } 
+      }));
+      callGAS('updateMenu', { items, posted, closingTime, image, storeInfo, remark, lastUpdated: nowStr });
     },
     addMenuHistory: (name, items, image, storeInfo) => {
       callGAS('addMenuHistory', { name, items, image, storeInfo });
