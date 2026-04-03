@@ -311,15 +311,18 @@ function handleOcr(params) {
 
     var payload = {
       messages: [{ role: "user", content: [
-        { type: "text", text: "你好，請幫我詳細解析這張菜單圖片。請辨識所有菜名與價格。回傳格式必須為純 JSON，內容包含：items(陣列，每個物件有 name 和 price)、storeInfo(物件，包含 name, phone, address)、remark(字串，其他公告資訊)。若沒看到店名或電話請填空字串。請務必使用繁體中文。" },
-        { type: "image_url", image_url: { url: imagePayload } }
+        { type: "text", text: "辨識這份菜單圖片。回傳 JSON 格式：{ \"items\": [{ \"name\": \"...\", \"price\": 0 }], \"storeInfo\": { \"name\": \"...\", \"phone\": \"...\", \"address\": \"...\" }, \"remark\": \"...\" }。請確保價格為數字，若沒看到店訊則填空，使用繁體中文。" },
+        { type: "image_url", image_url: { url: imagePayload, detail: "high" } } // 🚀 加入 detail: high 確保辨識小字
       ]}],
       max_completion_tokens: 2000,
       temperature: 0
     };
     
     var response = UrlFetchApp.fetch(apiEndpoint, {
-      method: 'post', contentType: 'application/json', headers: { 'api-key': apiKey },
+      method: 'post', contentType: 'application/json', headers: { 
+        'api-key': apiKey,
+        'Ocp-Apim-Subscription-Key': apiKey // 🚀 雙重相容性處理
+      },
       payload: JSON.stringify(payload), muteHttpExceptions: true
     });
     
