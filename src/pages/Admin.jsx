@@ -902,25 +902,18 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 if (i === 0) setFormImage(dataUrl);
 
                 const visionRes = await callAzureVision(pureBase64);
-                
-                // 🚀 強制紀錄診斷資料到 combinedRemark
-                combinedRemark = `【原始診斷資料】\n${JSON.stringify(visionRes, null, 2)}`;
-                
                 if (visionRes.items && visionRes.items.length > 0) {
                     allItems = [...allItems, ...visionRes.items];
                     if (visionRes.storeInfo.name) latestStore.name = visionRes.storeInfo.name;
                     if (visionRes.storeInfo.phone) latestStore.phone = visionRes.storeInfo.phone;
                     if (visionRes.storeInfo.address) latestStore.address = visionRes.storeInfo.address;
                     if (visionRes.remark) {
-                       // 成功的內容累積在裡面，但上面已經有診斷資料備份了
+                       combinedRemark = combinedRemark ? combinedRemark + '\n' + visionRes.remark : visionRes.remark;
                     }
-                } else if (visionRes.error) {
-                    showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識發生錯誤', message: visionRes.error, buttonColor: '#DC2626' });
                 }
             } catch (err) { 
                 console.error(`File ${i + 1} error:`, err); 
-                combinedRemark = `【程式執行錯誤】\n${err.message}`;
-                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: '程式執行崩潰', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
+                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識失敗', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
             }
         }
         if (allItems.length > 0) setFormItems(prev => [...prev, ...allItems]);
@@ -933,12 +926,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         if (allItems.length > 0) {
             showAlert({ icon: '✅', iconBg: '#D1FAE5', title: `辨識完成！${allItems.length} 個品項`, buttonColor: 'var(--ac-green)' });
         } else {
-            // 🚀 極限診斷：強迫瀏覽器中斷並彈出視窗
-            window.alert("--- 診斷視窗 ---\n" + (combinedRemark || "警告：未獲得任何診斷資料！"));
             showAlert({ 
                 icon: '⚠️', iconBg: '#FEF3C7', 
                 title: '未辨識到品項', 
-                message: combinedRemark || 'AI 回傳內容為空，請檢查您的 OpenAI/Azure 服務狀態或金鑰設定。',
+                message: 'AI 好像沒有在圖片中看到菜單品項或是回傳格式不對。',
                 buttonColor: '#D97706' 
             });
         }
