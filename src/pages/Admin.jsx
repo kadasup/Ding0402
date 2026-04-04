@@ -198,7 +198,8 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             
             return {
                 items: result.items || [],
-                storeInfo: result.storeInfo || { name: '', address: '', phone: '' }
+                storeInfo: result.storeInfo || { name: '', address: '', phone: '' },
+                remark: result.remark || ''
             };
         } catch (error) {
             console.error("AI Vision Proxy Error:", error);
@@ -239,9 +240,10 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
 
-        let allItems = [];
-        let latestStoreInfo = { ...storeInfo };
-        let latestImage = menuImage;
+        let allItems = []; // 🚀 每次上傳新文件時，先清空臨時列表，避免舊品項殘留
+        let latestStoreInfo = { name: '', address: '', phone: '' }; // 🚀 清空店家資訊
+        let latestImage = '';
+        let combinedRemark = ''; // 🚀 清空備註
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
@@ -250,27 +252,32 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
                 const resized = await resizeImage(base64);
                 if (i === 0) latestImage = resized;
                 
-                const { items, storeInfo: newStoreInfo } = await callAzureVision(resized);
+                const { items, storeInfo: newStoreInfo, remark: newRemark } = await callAzureVision(resized);
                 allItems = [...allItems, ...items];
                 if (newStoreInfo.name) latestStoreInfo.name = newStoreInfo.name;
                 if (newStoreInfo.phone) latestStoreInfo.phone = newStoreInfo.phone;
                 if (newStoreInfo.address) latestStoreInfo.address = newStoreInfo.address;
+                if (newRemark) {
+                    combinedRemark = combinedRemark ? combinedRemark + '\n' + newRemark : newRemark;
+                }
             } catch (err) {
                 console.error(`File ${i + 1} error:`, err);
             }
         }
 
-        if (allItems.length > 0) setDraftItems(allItems);
-        setMenuImage(latestImage);
-        setStoreInfo(latestStoreInfo);
-        setIsScanning(false);
-        setScanProgress({ current: 0, total: 0 });
-
         if (allItems.length > 0) {
-            showAlert({ icon: '✅', title: '辨識完成！', message: `共辨識 ${files.length} 張照片，${allItems.length} 個品項。` });
+            setDraftItems(allItems);
+            setMenuImage(latestImage);
+            setStoreInfo(latestStoreInfo);
+            setMenuRemark(combinedRemark); // 🚀 同步更新備註欄位
+            showAlert({ icon: '✅', title: '辨識完成！', message: `共辨識 ${files.length} 張照片，新增了 ${allItems.length} 個品項。` });
         } else {
             showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '未辨識到品項', message: '請確認照片品質後重試。', buttonColor: '#D97706' });
         }
+        
+        setIsScanning(false);
+        setScanProgress({ current: 0, total: 0 });
+        
         // 🚀 增加延遲到 3.5 秒，給 GAS 更多處理時間，減少資料被舊版本覆蓋的機率
         setTimeout(actions.fetchData, 3500);
 
@@ -875,9 +882,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
-        let allItems = [];
-        let latestStore = { ...formStoreInfo };
-        let combinedRemark = formRemark;
+        let allItems = []; // 🚀 每次上傳新文件時，先清空臨時列表，避免舊品項殘留
+        let latestStore = { name: '', address: '', phone: '' }; // 🚀 清空店家資訊
+        let combinedRemark = ''; // 🚀 清空備註
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
