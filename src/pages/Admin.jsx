@@ -923,10 +923,15 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                 showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識失敗', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
             }
         }
-        if (allItems.length > 0) setFormItems(prev => [...prev, ...allItems]);
+
+        // 🚀 修復：直接覆蓋而非使用 prev，確保舊資料不會接在後面
+        if (allItems.length > 0) setFormItems(allItems);
         setFormStoreInfo(latestStore);
         if (latestStore.name && !formName) setFormName(latestStore.name);
-        if (combinedRemark !== formRemark) setFormRemark(combinedRemark);
+        
+        // 🚀 修復：過濾掉診斷 JSON 資料，只保留純文字備註內容
+        const cleanRemark = combinedRemark.replace(/【原始診斷資料】\s*\{[\s\S]*\}/g, '').trim();
+        setFormRemark(cleanRemark);
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
         
