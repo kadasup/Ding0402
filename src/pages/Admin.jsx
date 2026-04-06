@@ -119,24 +119,32 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
     const { gasUrl } = useDing();
 
-    // Sync from global data on first load
+    // Sync from global data on first load OR when local draft is empty but global data exists
     const [hasInitialized, setHasInitialized] = useState(false);
     useEffect(() => {
-        if (data.menu && data.menu.lastUpdated && !hasInitialized) {
+        const hasData = data.menu && (data.menu.lastUpdated || (data.menu.items && data.menu.items.length > 0) || data.menu.image);
+        if (hasData && !hasInitialized) {
             setIsPosted(data.menu.posted);
-            if (data.menu.items) setDraftItems(data.menu.items);
-            if (data.menu.closingTime) setClosingTime(data.menu.closingTime);
-            if (data.menu.image) setMenuImage(data.menu.image);
-            if (data.menu.storeInfo) setStoreInfo(data.menu.storeInfo);
-            if (data.menu.remark !== undefined) setMenuRemark(data.menu.remark || '');
+            setDraftItems(data.menu.items || []);
+            setClosingTime(data.menu.closingTime || '');
+            setMenuImage(data.menu.image || '');
+            setStoreInfo(data.menu.storeInfo || { name: '', address: '', phone: '' });
+            setMenuRemark(data.menu.remark || '');
             setHasInitialized(true);
             lastSyncRef.current = data.menu.lastUpdated;
         }
     }, [data.menu, hasInitialized]);
 
     // Detect external data changes (e.g. from library "載入今日")
+    const isSyncingRef = React.useRef(false); 
     useEffect(() => {
-        if (hasInitialized && data.menu.lastUpdated && data.menu.lastUpdated !== lastSyncRef.current) {
+        // 🚀 關鍵修正：如果 global 有資料但本地 draft 是空的，或是 lastUpdated 真的變了且我們沒在手動更新，則同步
+        const isGlobalNewer = data.menu.lastUpdated && data.menu.lastUpdated !== lastSyncRef.current;
+        const isLocalEmpty = draftItems.length === 0 && data.menu.items && data.menu.items.length > 0 && !menuImage;
+
+        if (hasInitialized && (isGlobalNewer || isLocalEmpty)) {
+            if (isSyncingRef.current) return;
+            
             setIsPosted(data.menu.posted);
             setDraftItems(data.menu.items || []);
             setClosingTime(data.menu.closingTime || '');
@@ -145,7 +153,9 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             setMenuRemark(data.menu.remark || '');
             lastSyncRef.current = data.menu.lastUpdated;
         }
-    }, [data.menu.lastUpdated, hasInitialized]);
+    }, [data.menu.lastUpdated, hasInitialized, data.menu.items, data.menu.image]);
+
+
 
     const deleteHistory = async (hist) => {
         const ok = await showConfirm({
@@ -220,13 +230,13 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000; // 🚀 適中解析度，避免超過 GAS 限制
+                const MAX_WIDTH = 800; // 🚀 降低寬度到 800，大幅減少 JSON 大小
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.85)); // 🚀 提高品質
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); // 🚀 品質降低至 0.7，這可將 JSON 體積縮減 40%-60%
             };
             img.src = base64;
         });
@@ -302,15 +312,15 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
     };
 
     const handlePublish = async (status) => {
+        isSyncingRef.current = true; // 🚀 開啟保護旗標
         if (!status) {
-            // Auto-save to history when unposting
+            // ... [下架邏輯省略保留] ...
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
             const name = storeInfo.name ? storeInfo.name : '未輸入';
             const autoSaveName = `${dateStr} 下架封存 ${name}`;
             actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
-            // Clear all draft data upon unpublishing as requested
             const emptyItems = [];
             const emptyImage = '';
             const emptyStore = { name: '', address: '', phone: '' };
@@ -322,12 +332,14 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             setMenuRemark(emptyRemark);
             setIsPosted(false);
             
-            // Sync empty state to global context
             await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark);
         } else {
             setIsPosted(true);
             await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark);
         }
+        
+        // 🚀 執行完後，延遲兩秒解除旗標，給後端一點寫入緩衝
+        setTimeout(() => { isSyncingRef.current = false; }, 2000);
     };
 
 
@@ -404,10 +416,10 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
                             🖼️ 原始菜單照片 (核對用)
                         </h3>
                     </div>
-                    <div className="flex justify-center bg-gray-50 rounded-lg p-2 border">
+                    <div className="flex justify-center bg-gray-50 rounded-xl p-2 border overflow-hidden">
                         <img 
                             src={menuImage} 
-                            className="max-h-[300px] w-auto rounded shadow-sm border" 
+                            className="w-full h-auto object-contain max-h-[600px] rounded shadow-sm" 
                             alt="Original Menu"
                             onClick={() => window.open(menuImage, '_blank')}
                             style={{ cursor: 'zoom-in' }}
@@ -757,7 +769,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const { showAlert, showConfirm, PopupRenderer: LibPopup } = usePopup();
 
-    const library = data.menuLibrary || [];
+    const library = [...(data.menuLibrary || [])].reverse(); // 🚀 倒序排列，讓最新新增的在最上面
 
     const filteredLibrary = library.filter(m => {
         if (showFavOnly && !m.isFavorite) return false;
@@ -843,16 +855,20 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         const ok = await showConfirm({
             icon: '📋', iconBg: '#DBEAFE',
             title: `載入「${menu.name}」？`,
-            message: '將載入至今日菜單規劃。',
-            confirmText: '確定載入', confirmColor: '#2563EB'
+            message: '🚨 注意：載入新菜單會同時「清空今日所有訂單」，確定要載入嗎？',
+            confirmText: '確定載入並清空訂單', confirmColor: '#2563EB'
         });
         if (ok) {
-            // 🚀 修正：加上 menu.remark，確保載入今日時備註也會同步
+            // 🚀 關鍵動作：清空訂單
+            await actions.clearOrders();
+            
+            // 🚀 載入菜單
             actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '');
-            await showAlert({ icon: '✅', title: '已載入至今日菜單！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 移動到今日菜單', buttonColor: '#2563EB' });
+            await showAlert({ icon: '✅', title: '已載入菜單且訂單已清空！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 OK', buttonColor: '#2563EB' });
             setActiveTab('menu');
         }
     };
+
 
     const callAzureVision = async (base64Image) => {
         // Now using GAS as a secure proxy to call Azure
@@ -1276,6 +1292,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
                             )}
                             <div style={{ fontSize: '0.8rem', color: '#777', marginBottom: '6px' }}>{(menu.items || []).length} 個品項</div>
                         </div>
+
+
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: '8px', padding: '0 16px 16px', flexWrap: 'wrap' }}>
                             <Button variant="primary" onClick={() => loadToDaily(menu)} style={{ fontSize: '0.9rem', padding: '8px 18px', height: 'auto' }}>📋 載入今日</Button>

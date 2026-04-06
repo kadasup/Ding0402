@@ -52,18 +52,24 @@ export const DingProvider = ({ children }) => {
       
       // 🚀 強度保護：避免伺服器剛收到指令但還沒寫入 Sheet 時回傳的舊資料覆蓋本地狀態
       const now = Date.now();
-      if (now - lastMenuUpdate.current < 8000) {
-          // 在 8 秒內（剛點擊載入今日或上架），我們信任本地最新的 menu 資料
-          json.menu = { ...json.menu, ...data.menu }; 
-      } else if (pendingMenuState.current !== null && (now - lastMenuUpdate.current < 20000)) {
-          if (json.menu.posted !== pendingMenuState.current) {
-               json.menu = { ...json.menu, posted: pendingMenuState.current };
-          } else {
-               pendingMenuState.current = null;
+      const SYNC_PROTECTION_TIME = 15000; // 🚀 15 秒保護期
+
+      if (now - lastMenuUpdate.current < SYNC_PROTECTION_TIME) {
+          const localMenu = data.menu;
+          const remoteMenu = json.menu;
+          
+          // 如果後端不一致且保護期內，強制維持本地，避免剛發布就被後端尚未更新的資料覆蓋
+          if (remoteMenu.lastUpdated !== localMenu.lastUpdated || remoteMenu.posted !== localMenu.posted) {
+              json.menu = { 
+                ...remoteMenu, 
+                ...localMenu,
+                posted: pendingMenuState.current !== null ? pendingMenuState.current : localMenu.posted
+              };
           }
       }
 
       setData(json);
+
     } catch (err) {
       console.error("Fetch Data Error:", err);
     } finally {
@@ -71,17 +77,25 @@ export const DingProvider = ({ children }) => {
     }
   };
 
-  useEffect(() => { fetchData(); }, [gasUrl]);
+  // 🚀 自動重新整理邏輯：僅在連線 URL 變更時載入一次
+  useEffect(() => {
+    if (!gasUrl) return;
+    fetchData(); 
+  }, [gasUrl]);
+
+
 
   const callGAS = async (action, payload = {}) => {
     try {
+      // 🚀 關鍵優化：使用 text/plain 的 POST 方式，這可以在 no-cors 下穩定地將 payload 傳給 GAS 的 doPost
       await fetch(gasUrl, {
         method: "POST",
         mode: "no-cors",
-        body: JSON.stringify({ action, ...payload })
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action, ...payload, _t: Date.now() }) // 🚀 加入時間戳防止請求快取
       });
-      // 🚀 增加延遲到 4 秒，給 GAS 充足的 IO 時間，減少「刪除完又跑回來」或「載入今日沒反應」的問題
-      setTimeout(fetchData, 4000); 
+      // 🚀 執行動作後，等待 3.5 秒再重新整理，讓 Google 有足夠時間更新試算表
+      setTimeout(fetchData, 3500); 
     } catch (err) { console.error("GAS Action Error:", err); }
   };
 
@@ -102,19 +116,23 @@ export const DingProvider = ({ children }) => {
       setData(prev => ({ ...prev, members: prev.members.map(m => m === oldName ? newName : m) }));
       callGAS('updateMember', { oldName, newName });
     },
-    updateMenu: (items, posted, closingTime, image, storeInfo, remark) => {
-      const nowStr = new Date().toISOString();
+    updateMenu: async (items, posted, closingTime, image, storeInfo, remark) => {
+      const nowStr = new Date().getTime().toString(); // 使用 timestamp 字串作為唯一標記
       lastMenuUpdate.current = Date.now();
       pendingMenuState.current = posted;
-      setData(prev => ({ 
-        ...prev, 
-        menu: { 
-          ...prev.menu, 
-          items, posted, closingTime, image, storeInfo, remark,
-          lastUpdated: nowStr // 🚀 關鍵修正：補上時間指標，讓 Admin 組件偵測到變化
-        } 
-      }));
-      callGAS('updateMenu', { items, posted, closingTime, image, storeInfo, remark, lastUpdated: nowStr });
+      
+      const newMenu = { 
+        items, posted, closingTime, image, storeInfo, remark,
+        lastUpdated: nowStr 
+      };
+
+      setData(prev => ({ ...prev, menu: newMenu }));
+      
+      // 🚀 執行 GAS 更新
+      await callGAS('updateMenu', newMenu);
+      
+      // 🚀 執行完後，手動觸發一次 fetchData，確保 15 秒保護期期間 local 都是 A
+      setTimeout(fetchData, 4000);
     },
     addMenuHistory: (name, items, image, storeInfo) => {
       callGAS('addMenuHistory', { name, items, image, storeInfo });
@@ -123,19 +141,52 @@ export const DingProvider = ({ children }) => {
       setData(prev => ({ ...prev, menuHistory: prev.menuHistory.filter(h => h.id !== id) }));
       callGAS('deleteMenuHistory', { id });
     },
-    placeOrder: (member, items, total) => {
+    clearOrders: async () => {
+      setData(prev => ({ ...prev, orders: [] }));
+      await callGAS('clearTodayOrders', {});
+    },
+    placeOrder: (member, items) => {
+
       const orderId = `order_${Date.now()}`;
-      setData(prev => ({ ...prev, orders: [...prev.orders, { id: orderId, member, items, total, date: new Date().toISOString() }] }));
-      callGAS('addOrder', { member, items, total, orderId }); // 🚀 修正指令為 addOrder
+      const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
+      setData(prev => ({ 
+        ...prev, 
+        orders: [...prev.orders, { id: orderId, member, items, total, date: new Date().toISOString() }] 
+      }));
+      callGAS('addOrder', { member, items, total, orderId }); // 🚀 修正指令為 addOrder，並傳入正確的 total
     },
     deleteOrder: (id) => {
       setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== id) }));
       callGAS('removeOrder', { orderId: id }); // 🚀 修正指令為 removeOrder
     },
-    addMenuLibrary: (item) => callGAS('addMenuLibrary', item),
-    updateMenuLibrary: (id, updates) => callGAS('updateMenuLibrary', { id, ...updates }),
-    deleteMenuLibrary: (id) => callGAS('deleteMenuLibrary', { id }),
-    toggleFavorite: (id) => callGAS('toggleFavorite', { id }),
+    addMenuLibrary: (item) => {
+      // 🚀 樂觀更新：立刻產生 ID 並塞入本地列表，讓畫面瞬間反應
+      const tempId = item.id || `lib_${Date.now()}`;
+      const newItem = { ...item, id: tempId };
+      setData(prev => ({ ...prev, menuLibrary: [...prev.menuLibrary, newItem] }));
+      callGAS('addMenuLibrary', newItem);
+    },
+    updateMenuLibrary: (id, updates) => {
+      // 🚀 樂觀更新：立刻更新本地列表
+      setData(prev => ({ 
+        ...prev, 
+        menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, ...updates } : m) 
+      }));
+      callGAS('updateMenuLibrary', { id, ...updates });
+    },
+    deleteMenuLibrary: (id) => {
+      // 🚀 樂觀更新：立刻從本地列表移除
+      setData(prev => ({ ...prev, menuLibrary: prev.menuLibrary.filter(m => m.id !== id) }));
+      callGAS('deleteMenuLibrary', { id });
+    },
+    toggleFavorite: (id) => {
+      // 🚀 樂觀更新：立刻切換本地的最愛狀態
+      setData(prev => ({ 
+        ...prev, 
+        menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, isFavorite: !m.isFavorite } : m) 
+      }));
+      callGAS('toggleFavorite', { id });
+    },
     updateAnnouncement: (text) => {
       setData(prev => ({ ...prev, announcement: text }));
       callGAS('updateAnnouncement', { text });

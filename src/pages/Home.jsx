@@ -285,6 +285,7 @@ const Home = () => {
                             )}
 
                             {/* Body: Menu List (Simple List) */}
+
                             <div className="p-6 bg-[#FFF8E7]">
                                 <div className="text-center mb-4">
                                     <div className="inline-flex items-center justify-center bg-ac-green text-white px-6 py-1 rounded-full shadow-md hover:scale-105 transition-transform cursor-default">
@@ -297,7 +298,7 @@ const Home = () => {
                                     )}
                                 </div>
 
-                                <div style={{ maxWidth: '320px', width: '100%', margin: '0 auto' }} className="flex flex-col">
+                                <div className="flex flex-col w-full max-w-2xl mx-auto px-2 sm:px-6">
                                     {(data.menu.items || []).map((item, idx) => (
                                         <React.Fragment key={idx}>
                                             <div

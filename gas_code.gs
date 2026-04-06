@@ -12,7 +12,7 @@ function doPost(e) {
   try {
      params = JSON.parse(e.postData.contents);
   } catch(err) {
-     return handleResponse({ error: "無效的 JSON 格式" });
+     return handleResponse({ error: "GAS 接收 JSON 失敗: " + err.toString() });
   }
   
   var action = params.action;
@@ -160,6 +160,15 @@ function doPost(e) {
     case 'ocrMenu':
       return handleOcr(params);
 
+    case 'clearTodayOrders':
+      var orderSheet = getOrCreateSheet('Orders');
+      var lastRow = orderSheet.getLastRow();
+      if (lastRow > 1) {
+        orderSheet.deleteRows(2, lastRow - 1);
+      }
+      return handleResponse({ success: true });
+
+
     default:
       return handleResponse({ error: "未知指令: " + action });
   }
@@ -289,8 +298,22 @@ function updateWorksheetObject(sheetName, key, obj) {
   var sheet = getOrCreateSheet(sheetName);
   var data = sheet.getDataRange().getValues();
   var valStr = JSON.stringify(obj);
+  
+  // 🚀 Google Sheets 單一儲存格限制 50,000 字元 (設定安全閾值 49,900)
+  if (valStr.length > 49900) {
+    if (obj.image && obj.image.length > 500) {
+      // 若 JSON 總長度超標，將 Base64 內容簡化成提示，避免整組 JSON 寫入失敗
+      obj.image = "⚠️ 圖片 Base64 過長 (" + obj.image.length + " 字元)，已自動移除以保證菜單文字上架。請嘗試壓縮圖片後再上傳。";
+      valStr = JSON.stringify(obj);
+    }
+  }
+
+
   for (var i = 0; i < data.length; i++) {
-    if (data[i][0] === key) { sheet.getRange(i+1, 2).setValue(valStr); return; }
+    if (data[i][0] === key) { 
+      sheet.getRange(i+1, 2).setValue(valStr); 
+      return; 
+    }
   }
   sheet.appendRow([key, valStr]);
 }
