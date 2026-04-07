@@ -190,30 +190,29 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
 
     const callAzureVision = async (base64Image) => {
         try {
-            if (!gasUrl) throw new Error("尚未設定 GAS URL，無法使用 AI 辨識");
-
-            const response = await fetch(gasUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: JSON.stringify({
-                    action: 'ocrMenu',
-                    image: base64Image
-                })
-            });
-
-            if (!response.ok) throw new Error(`GAS Proxy Error: ${response.status}`);
-            
-            const result = await response.json();
+            const result = await actions.ocrMenu(base64Image);
             if (result.error) throw new Error(result.error);
             
             return {
                 items: result.items || [],
                 storeInfo: result.storeInfo || { name: '', address: '', phone: '' },
-                remark: result.remark || ''
+                remark: result.remark || '',
+                raw: result.raw || null
             };
         } catch (error) {
             console.error("AI Vision Proxy Error:", error);
             throw error;
+        }
+    };
+
+    const uploadImageToCloud = async (base64, name = "") => {
+        try {
+            if (!gasUrl) return null;
+            const res = await actions.uploadImage(base64, name);
+            return res?.url || null;
+        } catch (e) {
+            console.error("Cloud upload error:", e);
+            return null;
         }
     };
 
@@ -276,11 +275,12 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         }
 
         if (allItems.length > 0) {
+            const cloudUrl = await uploadImageToCloud(latestImage, `menu_${Date.now()}`);
             setDraftItems(allItems);
-            setMenuImage(latestImage);
+            setMenuImage(cloudUrl || latestImage);
             setStoreInfo(latestStoreInfo);
             setMenuRemark(combinedRemark); // 🚀 同步更新備註欄位
-            showAlert({ icon: '✅', title: '辨識完成！', message: `共辨識 ${files.length} 張照片，新增了 ${allItems.length} 個品項。` });
+            showAlert({ icon: '✅', title: '辨識完成！', message: `共辨識 ${files.length} 張照片，新增了 ${allItems.length} 個品項，圖片已同步雲端。` });
         } else {
             showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '未辨識到品項', message: '請確認照片品質後重試。', buttonColor: '#D97706' });
         }
@@ -311,10 +311,10 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         showAlert({ icon: '💾', title: '菜單已儲存！', message: isPosted ? '前台將同步更新。' : '' });
     };
 
-    const handlePublish = async (status) => {
+    const handlePublish = async (status, shouldClearOrders = false) => {
         isSyncingRef.current = true; // 🚀 開啟保護旗標
         if (!status) {
-            // ... [下架邏輯省略保留] ...
+            // ... [下架邏輯] ...
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
             const name = storeInfo.name ? storeInfo.name : '未輸入';
@@ -334,6 +334,10 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             
             await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark);
         } else {
+            // 🚀 上架邏輯：如果選擇清空訂單
+            if (shouldClearOrders) {
+                await actions.clearOrders();
+            }
             setIsPosted(true);
             await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark);
         }
@@ -572,7 +576,18 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
             <ConfirmModal
                 isOpen={confirmAction === 'publish'}
                 onClose={() => setConfirmAction(null)}
-                onConfirm={() => handlePublish(true)}
+                onConfirm={async () => {
+                   setConfirmAction(null);
+                   // 🚀 詢問是否清空舊訂單 (針對第二次上架情境)
+                   const clearAll = await showConfirm({
+                       icon: '🧹', iconBg: '#E0F2FE',
+                       title: '是否清空現有訂單？',
+                       message: '如果是「第二次上架」且需讓所有人重新點餐，請選擇清空。\n(目前的訂單紀錄將會被移除)',
+                       confirmText: '清空並上架', confirmColor: '#3B82F6',
+                       cancelText: '直接上架 (保留舊單)'
+                   });
+                   handlePublish(true, clearAll);
+                }}
                 icon="🚀"
                 iconBg="#D1FAE5"
                 title="確定要上架菜單嗎？"

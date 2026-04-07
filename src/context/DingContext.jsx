@@ -87,16 +87,17 @@ export const DingProvider = ({ children }) => {
 
   const callGAS = async (action, payload = {}) => {
     try {
-      // 🚀 關鍵優化：使用 text/plain 的 POST 方式，這可以在 no-cors 下穩定地將 payload 傳給 GAS 的 doPost
-      await fetch(gasUrl, {
+      // 🚀 關鍵優化：使用 fetch 取得回應（原本 no-cors 無法取得 body，現在改回 cors 並處理）
+      const res = await fetch(gasUrl, {
         method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action, ...payload, _t: Date.now() }) // 🚀 加入時間戳防止請求快取
+        body: JSON.stringify({ action, ...payload, _t: Date.now() })
       });
+      const data = await res.json();
+      
       // 🚀 執行動作後，等待 3.5 秒再重新整理，讓 Google 有足夠時間更新試算表
       setTimeout(fetchData, 3500); 
-    } catch (err) { console.error("GAS Action Error:", err); }
+      return data;
+    } catch (err) { console.error("GAS Action Error:", err); return null; }
   };
 
   const actions = {
@@ -146,14 +147,15 @@ export const DingProvider = ({ children }) => {
       await callGAS('clearTodayOrders', {});
     },
     placeOrder: (member, items) => {
-
       const orderId = `order_${Date.now()}`;
       const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
+      const menuId = data.menu.lastUpdated; // 🚀 記錄這筆訂單是屬於哪個版本的菜單
+      
       setData(prev => ({ 
         ...prev, 
-        orders: [...prev.orders, { id: orderId, member, items, total, date: new Date().toISOString() }] 
+        orders: [...prev.orders, { id: orderId, member, items, total, date: new Date().toISOString(), menuId }] 
       }));
-      callGAS('addOrder', { member, items, total, orderId }); // 🚀 修正指令為 addOrder，並傳入正確的 total
+      callGAS('addOrder', { member, items, total, orderId, menuId }); 
     },
     deleteOrder: (id) => {
       setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== id) }));
@@ -190,6 +192,12 @@ export const DingProvider = ({ children }) => {
     updateAnnouncement: (text) => {
       setData(prev => ({ ...prev, announcement: text }));
       callGAS('updateAnnouncement', { text });
+    },
+    uploadImage: async (image, name) => {
+      return await callGAS('uploadImage', { image, name });
+    },
+    ocrMenu: async (image) => {
+      return await callGAS('ocrMenu', { image });
     }
   };
 

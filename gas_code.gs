@@ -39,7 +39,8 @@ function doPost(e) {
         params.member,
         JSON.stringify(params.items),
         params.total,
-        params.orderId || Utilities.getUuid()
+        params.orderId || Utilities.getUuid(),
+        params.menuId || ''
       ]);
       return handleResponse({ success: true });
 
@@ -168,6 +169,14 @@ function doPost(e) {
       }
       return handleResponse({ success: true });
 
+    case 'uploadImage': // 🚀 新增：上傳圖片到雲端硬碟
+      try {
+        var fileUrl = saveBase64ToDrive(params.image, params.name || ("img_" + new Date().getTime()));
+        return handleResponse({ success: true, url: fileUrl });
+      } catch(e) {
+        return handleResponse({ error: "雲端上傳失敗: " + e.toString() });
+      }
+
 
     default:
       return handleResponse({ error: "未知指令: " + action });
@@ -262,7 +271,7 @@ function getOrdersData() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders');
   if (!sheet) return [];
   return sheet.getDataRange().getValues().slice(1).map(function(r){
-    try { return { date: r[0], member: r[1], items: JSON.parse(r[2] || "[]"), total: r[3], id: r[4] }; } catch(e){ return null; }
+    try { return { date: r[0], member: r[1], items: JSON.parse(r[2] || "[]"), total: r[3], id: r[4], menuId: r[5] || "" }; } catch(e){ return null; }
   }).filter(Boolean);
 }
 
@@ -383,8 +392,39 @@ function handleOcr(params) {
     }
   } catch (err) { return handleResponse({ error: err.toString() }); }
 }
+// 🚀 雲端硬碟圖片處理
+function saveBase64ToDrive(base64Data, fileName) {
+  var folderName = "DingMenuImages";
+  var folder = getOrCreateFolder(folderName);
+  
+  // 移除可能存在的 Data URL 前綴
+  var base64Str = base64Data;
+  if (base64Data.indexOf(',') > -1) {
+    base64Str = base64Data.split(',')[1];
+  }
+  
+  var decoded = Utilities.base64Decode(base64Str);
+  var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName + ".jpg");
+  var file = folder.createFile(blob);
+  
+  // 🚀 設定權限為「知道連結的人即可檢視」，否則前端會看不到圖
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  
+  // 🚀 關鍵：回傳直接預覽網址 (uc?id=...)
+  return "https://drive.google.com/uc?id=" + file.getId();
+}
+
+function getOrCreateFolder(name) {
+  var folders = DriveApp.getFoldersByName(name);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  return DriveApp.createFolder(name);
+}
+
 // 🚀 關鍵授權修正：請在 GAS 編輯器選取此函式並按「執行」，以解除權限鎖定
 function authTrigger() {
   var response = UrlFetchApp.fetch("https://google.com");
+  var drive = DriveApp.getRootFolder(); // 🚀 觸發 Drive 授權
   Logger.log("授權成功！目前狀態碼：" + response.getResponseCode());
 }

@@ -150,7 +150,13 @@ const Home = () => {
 
     // Filter ONLY today's orders for the "My Today's Orders" section
     const todayStr = new Date().toISOString().split('T')[0];
-    const myTodayOrders = myHistory.filter(o => o.date && String(o.date).startsWith(todayStr));
+    const currentMenuId = data.menu.lastUpdated;
+    const myTodayOrders = myHistory.filter(o => {
+        const isToday = o.date && String(o.date).startsWith(todayStr);
+        // 🚀 關鍵強化：不只看日期，還要看這筆單是不是為了「目前這份菜單」點的
+        const isForCurrentMenu = String(o.menuId) === String(currentMenuId);
+        return isToday && isForCurrentMenu;
+    });
     const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
 
     // Calculate Today's Most Popular (Global) - Filtered by current menu items
