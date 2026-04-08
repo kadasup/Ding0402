@@ -733,6 +733,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const { gasUrl } = useDing();
@@ -834,16 +835,15 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             return;
         }
         
+        setIsSaving(true);
         try {
             let finalImageUrl = formImage;
             // 🚀 如果還是 Base64，代表需要先上傳到 Google Drive
             if (formImage && formImage.startsWith('data:')) {
-                // 跳出一個小提示讓使用者知道正在上傳（因為大圖可能要 2-3 秒）
                 const cloudUrl = await uploadImageToCloud(formImage, `lib_${Date.now()}`);
                 if (cloudUrl) {
                     finalImageUrl = cloudUrl;
                 } else {
-                    // 如果雲端上傳失敗，詢問是否要強制用 Base64 儲存（可能受限）
                     console.warn("Cloud upload failed, falling back to original image.");
                 }
             }
@@ -859,21 +859,20 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             };
             
             if (editingId) {
-                await actions.updateMenuLibrary(editingId, payload);
+                // 移除 await，直接背景處理
+                actions.updateMenuLibrary(editingId, payload);
                 showAlert({ icon: '✅', title: '菜單已更新！' });
             } else {
-                await actions.addMenuLibrary(payload);
+                // 移除 await，直接背景處理
+                actions.addMenuLibrary(payload);
                 showAlert({ icon: '✅', title: '菜單已新增至菜單庫！' });
             }
             resetForm();
         } catch (err) {
             console.error("handleSave Error:", err);
-            showAlert({ 
-                icon: '❌', 
-                title: '儲存失敗', 
-                message: '發生錯誤：' + (err.message || "未知原因"), 
-                buttonColor: '#DC2626' 
-            });
+            showAlert({ icon: '❌', title: '儲存失敗', message: '發生錯誤：' + (err.message || "未知原因"), buttonColor: '#DC2626' });
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -1215,8 +1214,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         </div>
 
                         <div className="flex gap-4 justify-center mt-4 pt-6 border-t font-black">
-                            <Button variant="secondary" onClick={resetForm} style={{ padding: '12px 40px' }}>取消</Button>
-                            <Button onClick={handleSave} style={{ padding: '12px 40px' }}>{editingId ? '更新菜單' : '儲存至菜單庫'}</Button>
+                            <Button variant="secondary" onClick={resetForm} style={{ padding: '12px 40px' }} disabled={isSaving}>取消</Button>
+                            <Button onClick={handleSave} style={{ padding: '12px 40px' }} disabled={isSaving}>
+                                {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 圖片上傳中...</span> : (editingId ? '更新菜單' : '儲存至菜單庫')}
+                            </Button>
                         </div>
                     </div>
                 </div>

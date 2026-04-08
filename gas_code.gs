@@ -417,11 +417,11 @@ function saveBase64ToDrive(base64Data, fileName) {
   var blob = Utilities.newBlob(decoded, 'image/jpeg', fileName + ".jpg");
   var file = folder.createFile(blob);
   
-  // 🚀 設定權限為「知道連結的人即可檢視」，否則前端會看不到圖
+  // 🚀 設定權限為「知道連結的人即可檢視」
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   
-  // 🚀 關鍵：回傳直接預覽網址 (uc?id=...)
-  return "https://drive.google.com/uc?id=" + file.getId();
+  // 🚀 強力修正：改用 thumbnail?sz=w1000 絕對不會受限於第三方 cookie 阻擋
+  return "https://drive.google.com/thumbnail?id=" + file.getId() + "&sz=w1000";
 }
 
 function getOrCreateFolder(name) {
