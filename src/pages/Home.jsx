@@ -500,7 +500,7 @@ const Home = () => {
                                     <div className="flex flex-col w-full max-w-md gap-2 animate-slide-up relative z-10">
                                         
                                         {/* "What to eat?" Trigger Button */}
-                                        {myTodayOrders.length === 0 && (
+                                        {myTodayOrders.length === 0 && data.menu.posted && (
                                             <div className="mt-4 flex justify-center">
                                                 <button 
                                                     onClick={startRandomPick}

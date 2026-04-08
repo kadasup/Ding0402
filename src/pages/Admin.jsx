@@ -332,14 +332,14 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setMenuRemark(emptyRemark);
             setIsPosted(false);
             
-            await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark);
+            await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark, true);
         } else {
             // 🚀 上架邏輯：如果選擇清空訂單
             if (shouldClearOrders) {
                 await actions.clearOrders();
             }
             setIsPosted(true);
-            await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark);
+            await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark, !shouldClearOrders);
         }
         
         // 🚀 執行完後，延遲兩秒解除旗標，給後端一點寫入緩衝
@@ -358,7 +358,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
 
         // Unpost
         setIsPosted(false);
-        await actions.updateMenu(draftItems, false, closingTime, menuImage, storeInfo, menuRemark);
+        await actions.updateMenu(draftItems, false, closingTime, menuImage, storeInfo, menuRemark, true);
 
         showAlert({ icon: '🌙', iconBg: '#E0E7FF', title: '今日已結單！辛苦了！', message: '菜單已成功封存並下架。', buttonColor: '#4B5563' });
     };
@@ -901,8 +901,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             // 🚀 關鍵動作：清空訂單 (不 await，讓它背景處理)
             actions.clearOrders();
             
-            // 🚀 載入菜單 (不 await，讓它背景處理)
-            actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '');
+            // 🚀 載入菜單 (不 await，讓它背景處理，明確給予 false 代表換新版本號)
+            actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false);
             await showAlert({ icon: '✅', title: '已載入菜單且訂單已清空！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 OK', buttonColor: '#2563EB' });
             setActiveTab('menu');
         }

@@ -142,8 +142,9 @@ export const DingProvider = ({ children }) => {
       setData(prev => ({ ...prev, members: prev.members.map(m => m === oldName ? newName : m) }));
       callGAS('updateMember', { oldName, newName });
     },
-    updateMenu: async (items, posted, closingTime, image, storeInfo, remark) => {
-      const nowStr = new Date().getTime().toString(); // 使用 timestamp 字串作為唯一標記
+    updateMenu: async (items, posted, closingTime, image, storeInfo, remark, keepVersion = true) => {
+      // 🚀 關鍵：如果是結單或一般更新，保留原本的 lastUpdated 作為版本號；如果是重新載入或清空，才換新版本號
+      const nowStr = keepVersion && data.menu.lastUpdated ? data.menu.lastUpdated : new Date().getTime().toString();
       lastMenuUpdate.current = Date.now();
       pendingMenuState.current = posted;
       
