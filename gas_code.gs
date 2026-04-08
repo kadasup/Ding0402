@@ -28,7 +28,8 @@ function doPost(e) {
         closingTime: params.closingTime,
         image: params.image || '',
         storeInfo: params.storeInfo || {},
-        remark: params.remark || ''
+        remark: params.remark || '',
+        lastUpdated: params.lastUpdated || new Date().getTime().toString()
       });
       return handleResponse({ success: true });
 
@@ -186,9 +187,15 @@ function doPost(e) {
 /** 🛠️ 資料處理工具 **/
 
 function getData() {
+  var currentMenu = getWorksheetObject('Settings', 'current_menu') || { 
+    posted: false, items: [], closingTime: '', image: '', storeInfo: {}, remark: '', lastUpdated: '0' 
+  };
+  // 保障機制，萬一雲端舊資料沒有 lastUpdated
+  if (!currentMenu.lastUpdated) currentMenu.lastUpdated = '0';
+
   return {
     sysVersion: "3.3-Stable",
-    menu: getWorksheetObject('Settings', 'current_menu') || { posted: false, items: [], closingTime: '', image: '', storeInfo: {}, remark: '' },
+    menu: currentMenu,
     orders: getOrdersData(),
     members: getMembersList(),
     announcement: getWorksheetObject('Settings', 'announcement') || "歡迎使用自由543系統！",
@@ -271,7 +278,10 @@ function getOrdersData() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Orders');
   if (!sheet) return [];
   return sheet.getDataRange().getValues().slice(1).map(function(r){
-    try { return { date: r[0], member: r[1], items: JSON.parse(r[2] || "[]"), total: r[3], id: r[4], menuId: r[5] || "" }; } catch(e){ return null; }
+    try { 
+       var mId = (r[5] !== undefined && r[5] !== null) ? String(r[5]) : "";
+       return { date: r[0], member: r[1], items: JSON.parse(r[2] || "[]"), total: r[3], id: r[4], menuId: mId }; 
+    } catch(e){ return null; }
   }).filter(Boolean);
 }
 
