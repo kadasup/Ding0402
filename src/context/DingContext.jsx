@@ -35,6 +35,9 @@ export const DingProvider = ({ children }) => {
   // 🚀 關鍵修正：補上缺失的 useRef
   const lastMenuUpdate = useRef(0);
   const pendingMenuState = useRef(null);
+  const lastOrderUpdate = useRef(0);
+  const lastLibraryUpdate = useRef(0);
+  const lastHistoryUpdate = useRef(0);
 
   const envGasUrl = import.meta.env.VITE_GAS_URL || "";
   const [gasUrl, setGasUrl] = useState(() => {
@@ -50,25 +53,47 @@ export const DingProvider = ({ children }) => {
       const res = await fetch(`${gasUrl}?t=${Date.now()}`);
       const json = await res.json();
       
-      // 🚀 強度保護：避免伺服器剛收到指令但還沒寫入 Sheet 時回傳的舊資料覆蓋本地狀態
-      const now = Date.now();
-      const SYNC_PROTECTION_TIME = 15000; // 🚀 15 秒保護期
-
-      if (now - lastMenuUpdate.current < SYNC_PROTECTION_TIME) {
-          const localMenu = data.menu;
-          const remoteMenu = json.menu;
+      setData(prevData => {
+          // 🚀 強度保護：避免伺服器剛收到指令但還沒寫入 Sheet 時回傳的舊資料覆蓋本地狀態
+          const now = Date.now();
+          const SYNC_PROTECTION_TIME = 15000; // 🚀 15 秒保護期
           
-          // 如果後端不一致且保護期內，強制維持本地，避免剛發布就被後端尚未更新的資料覆蓋
-          if (remoteMenu.lastUpdated !== localMenu.lastUpdated || remoteMenu.posted !== localMenu.posted) {
-              json.menu = { 
-                ...remoteMenu, 
-                ...localMenu,
-                posted: pendingMenuState.current !== null ? pendingMenuState.current : localMenu.posted
-              };
+          let finalMenu = json.menu;
+          if (now - lastMenuUpdate.current < SYNC_PROTECTION_TIME) {
+              const localMenu = prevData.menu;
+              const remoteMenu = json.menu;
+              if (remoteMenu.lastUpdated !== localMenu.lastUpdated || remoteMenu.posted !== localMenu.posted) {
+                  finalMenu = { 
+                    ...remoteMenu, 
+                    ...localMenu,
+                    posted: pendingMenuState.current !== null ? pendingMenuState.current : localMenu.posted
+                  };
+              }
           }
-      }
 
-      setData(json);
+          let finalOrders = json.orders;
+          if (now - lastOrderUpdate.current < SYNC_PROTECTION_TIME) {
+              finalOrders = prevData.orders;
+          }
+
+          let finalLibrary = json.menuLibrary;
+          if (now - lastLibraryUpdate.current < SYNC_PROTECTION_TIME) {
+              finalLibrary = prevData.menuLibrary;
+          }
+
+          let finalHistory = json.menuHistory;
+          if (now - lastHistoryUpdate.current < SYNC_PROTECTION_TIME) {
+              finalHistory = prevData.menuHistory;
+          }
+
+          return { 
+              ...json, 
+              menu: finalMenu,
+              orders: finalOrders,
+              menuLibrary: finalLibrary,
+              menuHistory: finalHistory
+          };
+      });
 
     } catch (err) {
       console.error("Fetch Data Error:", err);
@@ -136,17 +161,21 @@ export const DingProvider = ({ children }) => {
       setTimeout(fetchData, 4000);
     },
     addMenuHistory: (name, items, image, storeInfo) => {
+      lastHistoryUpdate.current = Date.now();
       callGAS('addMenuHistory', { name, items, image, storeInfo });
     },
     deleteMenuHistory: (id) => {
+      lastHistoryUpdate.current = Date.now();
       setData(prev => ({ ...prev, menuHistory: prev.menuHistory.filter(h => h.id !== id) }));
       callGAS('deleteMenuHistory', { id });
     },
     clearOrders: async () => {
+      lastOrderUpdate.current = Date.now();
       setData(prev => ({ ...prev, orders: [] }));
       await callGAS('clearTodayOrders', {});
     },
     placeOrder: (member, items) => {
+      lastOrderUpdate.current = Date.now();
       const orderId = `order_${Date.now()}`;
       const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
       const menuId = data.menu.lastUpdated; // 🚀 記錄這筆訂單是屬於哪個版本的菜單
@@ -158,10 +187,12 @@ export const DingProvider = ({ children }) => {
       callGAS('addOrder', { member, items, total, orderId, menuId }); 
     },
     deleteOrder: (id) => {
+      lastOrderUpdate.current = Date.now();
       setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== id) }));
       callGAS('removeOrder', { orderId: id }); // 🚀 修正指令為 removeOrder
     },
     addMenuLibrary: (item) => {
+      lastLibraryUpdate.current = Date.now();
       // 🚀 樂觀更新：立刻產生 ID 並塞入本地列表，讓畫面瞬間反應
       const tempId = item.id || `lib_${Date.now()}`;
       const newItem = { ...item, id: tempId };
@@ -169,6 +200,7 @@ export const DingProvider = ({ children }) => {
       callGAS('addMenuLibrary', newItem);
     },
     updateMenuLibrary: (id, updates) => {
+      lastLibraryUpdate.current = Date.now();
       // 🚀 樂觀更新：立刻更新本地列表
       setData(prev => ({ 
         ...prev, 
@@ -177,11 +209,13 @@ export const DingProvider = ({ children }) => {
       callGAS('updateMenuLibrary', { id, ...updates });
     },
     deleteMenuLibrary: (id) => {
+      lastLibraryUpdate.current = Date.now();
       // 🚀 樂觀更新：立刻從本地列表移除
       setData(prev => ({ ...prev, menuLibrary: prev.menuLibrary.filter(m => m.id !== id) }));
       callGAS('deleteMenuLibrary', { id });
     },
     toggleFavorite: (id) => {
+      lastLibraryUpdate.current = Date.now();
       // 🚀 樂觀更新：立刻切換本地的最愛狀態
       setData(prev => ({ 
         ...prev, 

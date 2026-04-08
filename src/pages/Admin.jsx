@@ -899,10 +899,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             confirmText: '確定載入並清空訂單', confirmColor: '#2563EB'
         });
         if (ok) {
-            // 🚀 關鍵動作：清空訂單
-            await actions.clearOrders();
+            // 🚀 關鍵動作：清空訂單 (不 await，讓它背景處理)
+            actions.clearOrders();
             
-            // 🚀 載入菜單
+            // 🚀 載入菜單 (不 await，讓它背景處理)
             actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '');
             await showAlert({ icon: '✅', title: '已載入菜單且訂單已清空！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 OK', buttonColor: '#2563EB' });
             setActiveTab('menu');
