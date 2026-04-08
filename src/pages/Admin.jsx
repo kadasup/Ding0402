@@ -26,6 +26,51 @@ const Admin = () => {
         return <div className="p-20 text-center"><Loader className="animate-spin inline-block" /> 正在進入後台...</div>;
     }
 
+    // 🚀 將共用函式搬移至最外層以便所有子元件使用
+    const resizeImage = (base64) => {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800; 
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+            };
+            img.src = base64;
+        });
+    };
+
+    const uploadImageToCloud = async (base64, name = "") => {
+        try {
+            if (!gasUrl) return null;
+            let imageToUpload = base64;
+            if (base64.length > 50000) {
+                imageToUpload = await resizeImage(base64);
+            }
+            const res = await actions.uploadImage(imageToUpload, name);
+            if (!res || res.error) {
+                console.error("GAS Upload Error:", res?.error);
+                return null;
+            }
+            return res.url || null;
+        } catch (e) {
+            console.error("Cloud upload error:", e);
+            return null;
+        }
+    };
+
+    const processFileToBase64 = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    };
+
     return (
         <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 px-2">
@@ -85,9 +130,9 @@ const Admin = () => {
                     >
                         <div>
                             <div style={{ display: activeTab === 'menu' ? 'block' : 'none' }}>
-                                <MenuManager data={data} actions={actions} setActiveTab={setActiveTab} />
+                                <MenuManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} />
                             </div>
-                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} /></div>}
+                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
                             {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} getTodayOrders={getTodayOrders} /></div>}
                             {activeTab === 'public' && <div key="public" className="animate-pop"><NoticeManager data={data} actions={actions} /></div>}
@@ -102,7 +147,7 @@ const Admin = () => {
 
 // Sub-components for cleaner file
 
-const MenuManager = ({ data, actions, setActiveTab }) => {
+const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const [draftItems, setDraftItems] = useState(data.menu.items || []);
@@ -188,56 +233,11 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
         }
     };
 
-    const callAzureVision = async (base64Image) => {
-        try {
-            const result = await actions.ocrMenu(base64Image);
-            if (result.error) throw new Error(result.error);
-            
-            return {
-                items: result.items || [],
-                storeInfo: result.storeInfo || { name: '', address: '', phone: '' },
-                remark: result.remark || '',
-                raw: result.raw || null
-            };
-        } catch (error) {
-            console.error("AI Vision Proxy Error:", error);
-            throw error;
-        }
-    };
-
-    const uploadImageToCloud = async (base64, name = "") => {
-        try {
-            if (!gasUrl) return null;
-            const res = await actions.uploadImage(base64, name);
-            return res?.url || null;
-        } catch (e) {
-            console.error("Cloud upload error:", e);
-            return null;
-        }
-    };
-
     const processFileToBase64 = (file) => {
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
             reader.readAsDataURL(file);
-        });
-    };
-
-    const resizeImage = (base64) => {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800; // 🚀 降低寬度到 800，大幅減少 JSON 大小
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scaleSize;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.7)); // 🚀 品質降低至 0.7，這可將 JSON 體積縮減 40%-60%
-            };
-            img.src = base64;
         });
     };
 
@@ -729,7 +729,7 @@ const MenuManager = ({ data, actions, setActiveTab }) => {
 // ========================
 // Menu Library Manager
 // ========================
-const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
+const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
@@ -828,28 +828,53 @@ const MenuLibraryManager = ({ data, actions, setActiveTab }) => {
         setShowAddForm(true);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!formName && !formStoreInfo.name) {
             showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '請至少輸入菜單名稱或店名', buttonColor: '#D97706' });
             return;
         }
-        const payload = {
-            name: formName || formStoreInfo.name,
-            category: formCategory,
-            storeInfo: formStoreInfo,
-            items: formItems,
-            image: formImage,
-            remark: formRemark,
-            isFavorite: false
-        };
-        if (editingId) {
-            actions.updateMenuLibrary(editingId, payload);
-            showAlert({ icon: '✅', title: '菜單已更新！' });
-        } else {
-            actions.addMenuLibrary(payload);
-            showAlert({ icon: '✅', title: '菜單已新增至菜單庫！' });
+        
+        try {
+            let finalImageUrl = formImage;
+            // 🚀 如果還是 Base64，代表需要先上傳到 Google Drive
+            if (formImage && formImage.startsWith('data:')) {
+                // 跳出一個小提示讓使用者知道正在上傳（因為大圖可能要 2-3 秒）
+                const cloudUrl = await uploadImageToCloud(formImage, `lib_${Date.now()}`);
+                if (cloudUrl) {
+                    finalImageUrl = cloudUrl;
+                } else {
+                    // 如果雲端上傳失敗，詢問是否要強制用 Base64 儲存（可能受限）
+                    console.warn("Cloud upload failed, falling back to original image.");
+                }
+            }
+
+            const payload = {
+                name: formName || formStoreInfo.name,
+                category: formCategory,
+                storeInfo: formStoreInfo,
+                items: formItems,
+                image: finalImageUrl,
+                remark: formRemark,
+                isFavorite: false
+            };
+            
+            if (editingId) {
+                await actions.updateMenuLibrary(editingId, payload);
+                showAlert({ icon: '✅', title: '菜單已更新！' });
+            } else {
+                await actions.addMenuLibrary(payload);
+                showAlert({ icon: '✅', title: '菜單已新增至菜單庫！' });
+            }
+            resetForm();
+        } catch (err) {
+            console.error("handleSave Error:", err);
+            showAlert({ 
+                icon: '❌', 
+                title: '儲存失敗', 
+                message: '發生錯誤：' + (err.message || "未知原因"), 
+                buttonColor: '#DC2626' 
+            });
         }
-        resetForm();
     };
 
     const handleDelete = async (id, name) => {
