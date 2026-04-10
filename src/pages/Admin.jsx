@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
 import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
 
 const Admin = () => {
-    const { user, data, actions, getTodayOrders, gasUrl } = useDing(); 
-    const [password, setPassword] = useState('');
+    const { user, data, actions, gasUrl } = useDing(); 
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
 
     // Debugging trace
@@ -18,15 +18,22 @@ const Admin = () => {
         console.log("Found menuHistory:", data?.menuHistory?.length, "entries");
     }, [data]);
 
+    useEffect(() => {
+        if (user?.role !== 'admin') {
+            actions.loginAdmin();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.role]);
+
 
 
     // Auto-login for admin (No password required)
     if (user?.role !== 'admin') {
-        actions.loginAdmin();
-        return <div className="p-20 text-center"><Loader className="animate-spin inline-block" /> 正在進入後台...</div>;
+        // login is handled by the effect above
+        return <div className="p-20 text-center"><Loader className="animate-spin inline-block" /> 正在登入管理後台...</div>;
     }
 
-    // 🚀 將共用函式搬移至最外層以便所有子元件使用
+    // ?? 撠?典撘蝘餉?憭惜隞乩噶????辣雿輻
     const resizeImage = (base64) => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -63,27 +70,19 @@ const Admin = () => {
         }
     };
 
-    const processFileToBase64 = (file) => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-    };
-
     return (
         <div className="max-w-5xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 px-2">
             <div className="flex items-center gap-2">
                 <img src={leafIcon} className="w-8 h-8 opacity-80" />
                 <h1 className="text-2xl sm:text-3xl font-bold text-ac-green underline decoration-dashed decoration-2 underline-offset-8">
-                    後台管理
+                    管理後台
                 </h1>
             </div>
             <div className="flex gap-2 w-full sm:w-auto justify-center">
                 <Link to="/" className="flex-1 sm:flex-none">
                     <Button variant="secondary" className="w-full text-sm py-2 px-4 shadow-sm">
-                        <ArrowLeft size={16} /> 返回主頁
+                        <ArrowLeft size={16} /> 返回前台
                     </Button>
                 </Link>
                 <Button onClick={actions.logout} variant="danger" className="flex-1 sm:flex-none text-sm py-2 px-4 shadow-sm">
@@ -98,9 +97,9 @@ const Admin = () => {
                     {[
                         { id: 'menu', icon: FileText, label: '今日菜單' },
                         { id: 'library', icon: BookOpen, label: '菜單庫' },
-                        { id: 'members', icon: Users, label: '人員管理' },
-                        { id: 'stats', icon: DollarSign, label: '錢錢統計' },
-                        { id: 'public', icon: Edit, label: '發布公告' },
+                        { id: 'members', icon: Users, label: '成員管理' },
+                        { id: 'stats', icon: DollarSign, label: '統計資料' },
+                        { id: 'public', icon: Edit, label: '公告編輯' },
                         { id: 'settings', icon: Settings, label: '系統設定' },
                     ].map((tab, idx) => (
                         <button
@@ -119,11 +118,15 @@ const Admin = () => {
                     <DialogBox
                         title={
                             activeTab === 'menu'
-                                ? (data.menu.posted ? '今日菜單 🟢 上架中' : '今日菜單 🔴 下架中')
-                                : activeTab === 'library' ? '📚 菜單庫管理'
-                                    : activeTab === 'members' ? '人員名單'
-                                        : activeTab === 'stats' ? '財務報表'
-                                            : activeTab === 'settings' ? '系統連線設定'
+                                ? (data.menu.posted ? '今日菜單（已發布）' : '今日菜單（未發布）')
+                                : activeTab === 'library'
+                                    ? '菜單庫'
+                                    : activeTab === 'members'
+                                        ? '成員管理'
+                                        : activeTab === 'stats'
+                                            ? '統計資料'
+                                            : activeTab === 'settings'
+                                                ? '系統設定'
                                                 : '公告編輯'
                         }
                         className="min-h-[400px]"
@@ -134,7 +137,7 @@ const Admin = () => {
                             </div>
                             {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
-                            {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} getTodayOrders={getTodayOrders} /></div>}
+                            {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} /></div>}
                             {activeTab === 'public' && <div key="public" className="animate-pop"><NoticeManager data={data} actions={actions} /></div>}
                             {activeTab === 'settings' && <div key="settings" className="animate-pop"><SettingsManager /></div>}
                         </div>
@@ -159,6 +162,8 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'unpublish' | 'closeOrder'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const [actionLoadingText, setActionLoadingText] = useState('處理中，請稍候...');
     
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
@@ -180,10 +185,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         }
     }, [data.menu, hasInitialized]);
 
-    // Detect external data changes (e.g. from library "載入今日")
+    // Detect external data changes (e.g. from library "頛隞")
     const isSyncingRef = React.useRef(false); 
     useEffect(() => {
-        // 🚀 關鍵修正：如果 global 有資料但本地 draft 是空的，或是 lastUpdated 真的變了且我們沒在手動更新，則同步
+        // ?? ?靽格迤嚗???global ?????砍 draft ?舐征??? lastUpdated ??霈?銝????冽???堆???甇?
         const isGlobalNewer = data.menu.lastUpdated && data.menu.lastUpdated !== lastSyncRef.current;
         const isLocalEmpty = draftItems.length === 0 && data.menu.items && data.menu.items.length > 0 && !menuImage;
 
@@ -204,32 +209,44 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
 
     const deleteHistory = async (hist) => {
         const ok = await showConfirm({
-            icon: '🗑️', iconBg: '#FEE2E2',
-            title: `刪除「${hist.name}」？`,
-            message: '此操作無法復原。',
-            confirmText: '確定刪除', confirmColor: '#DC2626'
+            icon: '⚠️',
+            iconBg: '#FEE2E2',
+            title: `刪除「${hist.name}」嗎？`,
+            message: '刪除後無法復原。',
+            confirmText: '確認刪除',
+            confirmColor: '#DC2626'
         });
         if (ok) actions.deleteMenuHistory(hist.id);
     };
 
     const loadHistory = async (hist) => {
         if (isPosted) {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '菜單上架中，無法載入', message: '請先將目前菜單「下架」後再載入歷史菜單。', buttonColor: '#D97706' });
+            showAlert({
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '菜單已發布，無法載入歷史',
+                message: '請先下架目前菜單，再進行載入。',
+                buttonColor: '#D97706'
+            });
             return;
         }
         const ok = await showConfirm({
-            icon: '📋', iconBg: '#DBEAFE',
-            title: `載入「${hist.name}」？`,
-            message: '目前的編輯內容會被覆蓋。',
-            confirmText: '確定載入', confirmColor: '#2563EB'
+            icon: '📋',
+            iconBg: '#DBEAFE',
+            title: `載入「${hist.name}」嗎？`,
+            message: '目前草稿會被這份歷史菜單覆蓋。',
+            confirmText: '確認載入',
+            confirmColor: '#2563EB'
         });
         if (ok) {
             const items = hist.items || [];
             const image = hist.image || '';
             const store = hist.storeInfo || { name: '', address: '', phone: '' };
+            const remark = hist.remark || '';
             setDraftItems(items);
             setMenuImage(image);
             setStoreInfo(store);
+            setMenuRemark(remark);
         }
     };
 
@@ -249,10 +266,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
 
-        let allItems = []; // 🚀 每次上傳新文件時，先清空臨時列表，避免舊品項殘留
-        let latestStoreInfo = { name: '', address: '', phone: '' }; // 🚀 清空店家資訊
+        let allItems = []; // ?? 瘥活銝?唳?隞嗆?嚗?皜征?冽??”嚗????畾?
+        let latestStoreInfo = { name: '', address: '', phone: '' }; // ?? 皜征摨振鞈?
         let latestImage = '';
-        let combinedRemark = ''; // 🚀 清空備註
+        let combinedRemark = ''; // ?? 皜征?酉
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
@@ -279,17 +296,27 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setDraftItems(allItems);
             setMenuImage(cloudUrl || latestImage);
             setStoreInfo(latestStoreInfo);
-            setMenuRemark(combinedRemark); // 🚀 同步更新備註欄位
-            showAlert({ icon: '✅', title: '辨識完成！', message: `共辨識 ${files.length} 張照片，新增了 ${allItems.length} 個品項，圖片已同步雲端。` });
+            setMenuRemark(combinedRemark); // ?? ?郊?湔?酉甈?
+            showAlert({
+                icon: '✅',
+                title: '掃描完成',
+                message: `已處理 ${files.length} 張圖片，辨識出 ${allItems.length} 筆品項。`
+            });
         } else {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '未辨識到品項', message: '請確認照片品質後重試。', buttonColor: '#D97706' });
+            showAlert({
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '掃描未辨識到品項',
+                message: '請確認圖片清晰度後再試一次。',
+                buttonColor: '#D97706'
+            });
         }
         
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
         
-        // 🚀 增加延遲到 3.5 秒，給 GAS 更多處理時間，減少資料被舊版本覆蓋的機率
-        setTimeout(actions.fetchData, 3500);
+        // ?? 憓?撱園??3.5 蝘?蝯?GAS ?游?????嚗?撠??◤???祈???璈?
+        setTimeout(actions.fetchData, 150);
 
         e.target.value = '';
     };
@@ -308,17 +335,25 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
 
     const saveMenu = () => {
         actions.updateMenu(draftItems, isPosted, closingTime, menuImage, storeInfo, menuRemark);
-        showAlert({ icon: '💾', title: '菜單已儲存！', message: isPosted ? '前台將同步更新。' : '' });
+        showAlert({
+            icon: '💾',
+            title: '菜單已儲存',
+            message: isPosted ? '目前為發布狀態。' : ''
+        });
     };
 
     const handlePublish = async (status, shouldClearOrders = false) => {
-        isSyncingRef.current = true; // 🚀 開啟保護旗標
+        if (isActionLoading) return;
+        setActionLoadingText(status ? '處理中，正在上架菜單...' : '處理中，正在下架菜單...');
+        setIsActionLoading(true);
+        isSyncingRef.current = true; // ?? ??靽風??
+        try {
         if (!status) {
-            // ... [下架邏輯] ...
+            // ... [銝?摩] ...
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-            const name = storeInfo.name ? storeInfo.name : '未輸入';
-            const autoSaveName = `${dateStr} 下架封存 ${name}`;
+            const name = storeInfo.name ? storeInfo.name : '未命名店家';
+            const autoSaveName = `${dateStr} 下架存檔 - ${name}`;
             actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
             const emptyItems = [];
@@ -332,35 +367,79 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setMenuRemark(emptyRemark);
             setIsPosted(false);
             
-            await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark, true);
+            await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark, true, true);
+            await showAlert({
+                icon: '✅',
+                title: '已下架菜單',
+                message: '前台已暫停顯示今日菜單。'
+            });
         } else {
-            // 🚀 上架邏輯：如果選擇清空訂單
+            // ?? 銝?摩嚗????蝛箄???
             if (shouldClearOrders) {
-                await actions.clearOrders();
+                await actions.clearOrders(true);
             }
             setIsPosted(true);
-            await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark, !shouldClearOrders);
+            await actions.updateMenu(draftItems, true, closingTime, menuImage, storeInfo, menuRemark, !shouldClearOrders, true);
+            await showAlert({
+                icon: '✅',
+                title: '已發布菜單',
+                message: '前台現在可以開始點餐。'
+            });
         }
         
-        // 🚀 執行完後，延遲兩秒解除旗標，給後端一點寫入緩衝
+        // ?? ?瑁?摰?嚗辣?脣蝘圾?斗?璅?蝯血?蝡臭?暺神?亦楨銵?
         setTimeout(() => { isSyncingRef.current = false; }, 2000);
+        } catch (err) {
+            console.error('handlePublish error:', err);
+            await showAlert({
+                icon: '❌',
+                title: '操作失敗',
+                message: err?.message || '請稍後再試',
+                buttonColor: '#DC2626'
+            });
+        } finally {
+            setActionLoadingText('處理中，請稍候...');
+            setIsActionLoading(false);
+        }
     };
 
 
 
     const doCloseOrder = async () => {
+        if (isActionLoading) return;
+        setActionLoadingText('處理中，正在結單...');
+        setIsActionLoading(true);
+        try {
         // Auto-save specific for Closing
         const today = new Date();
         const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
-        const name = storeInfo.name ? storeInfo.name : '未輸入';
-        const autoSaveName = `${dateStr} 結單封存 ${name}`;
+        const name = storeInfo.name ? storeInfo.name : '未命名店家';
+        const autoSaveName = `${dateStr} 結單存檔 - ${name}`;
         actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
         // Unpost
         setIsPosted(false);
-        await actions.updateMenu(draftItems, false, closingTime, menuImage, storeInfo, menuRemark, true);
+        await actions.updateMenu(draftItems, false, closingTime, menuImage, storeInfo, menuRemark, true, true);
 
-        showAlert({ icon: '🌙', iconBg: '#E0E7FF', title: '今日已結單！辛苦了！', message: '菜單已成功封存並下架。', buttonColor: '#4B5563' });
+        await showAlert({
+            icon: '✅',
+            iconBg: '#E0E7FF',
+            title: '已完成結單',
+            message: '今日菜單已關閉並自動保存。',
+            buttonColor: '#4B5563'
+        });
+        } catch (err) {
+            console.error('doCloseOrder error:', err);
+            await showAlert({
+                icon: '❌',
+                title: '結單失敗',
+                message: err?.message || '請稍後再試',
+                buttonColor: '#DC2626'
+            });
+        } finally {
+            setActionLoadingText('處理中，請稍候...');
+            setIsActionLoading(false);
+        }
     };
 
     // Date/Time Options Generation
@@ -369,8 +448,9 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         for (let i = 0; i < 3; i++) {
             const d = new Date();
             d.setDate(d.getDate() + i);
-            const dateStr = d.toISOString().split('T')[0]; // YYYY-MM-DD
-            const displayStr = `${d.getMonth() + 1}/${d.getDate()} (${['日', '一', '二', '三', '四', '五', '六'][d.getDay()]})`;
+            const dateStr = getLocalDateKey(d);
+            const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+            const displayStr = `${d.getMonth() + 1}/${d.getDate()} (${weekdays[d.getDay()]})`;
             dates.push({ value: dateStr, label: i === 0 ? `今天 ${displayStr}` : displayStr });
         }
         return dates;
@@ -381,7 +461,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     };
 
     // Parse existing closingTime (YYYY-MM-DD HH:mm) or default
-    const [datePart, timePart] = closingTime.includes(' ') ? closingTime.split(' ') : [new Date().toISOString().split('T')[0], '12:00'];
+    const [datePart, timePart] = closingTime.includes(' ') ? closingTime.split(' ') : [getLocalDateKey(), '12:00'];
 
     const updateDateTime = (newDate, newTime) => {
         setClosingTime(`${newDate} ${newTime}`);
@@ -393,21 +473,21 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#ffffff', borderLeft: '4px solid var(--ac-green)' }}>
                 <div className="flex justify-between items-center border-b pb-3">
                     <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                        🏪 店家資訊
+                        店家資訊
                     </h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-green)' }}>📛 店名</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.name || '(未載入)'}</div>
+                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-green)' }}>店名</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.name || '(未填寫)'}</div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-blue)' }}>📞 電話</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.phone || '(未載入)'}</div>
+                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-blue)' }}>電話</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.phone || '(未填寫)'}</div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-brown)' }}>📍 地址</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.address || '(未載入)'}</div>
+                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-brown)' }}>地址</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.address || '(未填寫)'}</div>
                     </div>
                 </div>
             </div>
@@ -417,7 +497,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#F7F7F5', borderLeft: '4px solid #B0BEC5' }}>
                     <div className="flex justify-between items-center border-b pb-3">
                         <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                            🖼️ 原始菜單照片 (核對用)
+                            原始菜單圖片（核對用）
                         </h3>
                     </div>
                     <div className="flex justify-center bg-gray-50 rounded-xl p-2 border overflow-hidden">
@@ -436,7 +516,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#FFFBE6', borderLeft: '4px solid #F59E0B' }}>
                 <div className="flex justify-between items-center border-b pb-3">
                     <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                        🍱 品項列表 ({draftItems.length})
+                        當前品項清單 ({draftItems.length})
                     </h3>
                 </div>
 
@@ -449,7 +529,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                     ))}
                     {draftItems.length === 0 && (
                         <div className="md:col-span-2 text-center py-8 text-gray-400 italic bg-white/50 rounded-xl border-2 border-dashed">
-                            目前沒有品項。請先至「菜單庫」點擊「載入今日」！
+                            目前沒有品項，請先透過掃描或手動新增。
                         </div>
                     )}
                 </div>
@@ -461,12 +541,12 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                     <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
                         <Clock size={18} />
                     </span>
-                    <span className="font-black text-gray-800 text-base">設定結單時間</span>
+                    <span className="font-black text-gray-800 text-base">結單時間設定</span>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row justify-center items-center gap-4 w-full">
                     <div className="flex flex-col gap-1 w-full sm:w-[160px]">
-                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">🗓️ 日期選擇</span>
+                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">日期</span>
                         <select
                             className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
                             style={{ background: '#fff', width: '100%' }}
@@ -480,7 +560,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                     </div>
                     
                     <div className="flex flex-col gap-1 w-full sm:w-[130px]">
-                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">⏰ 時間選擇</span>
+                        <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">時間</span>
                         <select
                             className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
                             style={{ background: '#fff', width: '100%' }}
@@ -497,10 +577,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
 
             {/* Today's Remark Setting */}
             <div className="p-5 rounded-2xl border shadow-sm flex flex-col gap-3" style={{ background: '#FFF7ED', borderLeft: '4px solid #FDBA74' }}>
-                <span className="font-black text-gray-800 text-base flex items-center gap-2">📝 當日備註 / 公告</span>
+                <span className="font-black text-gray-800 text-base flex items-center gap-2">今日備註 / 公告</span>
                 <textarea 
                     className="ac-input text-sm min-h-[80px]" 
-                    placeholder="輸入給成員的留言 (如: 今天只有中餐、11點前要點完等)" 
+                    placeholder="請輸入今天的補充資訊（例如：最晚 11:30 前下單）" 
                     value={menuRemark} 
                     onChange={e => setMenuRemark(e.target.value)} 
                 />
@@ -511,7 +591,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 <div className="grid grid-cols-2" style={{ minHeight: '100px' }}>
                     {/* 下架 Panel */}
                     <button
-                        onClick={() => isPosted && setConfirmAction('unpublish')}
+                        onClick={() => isPosted && !isActionLoading && setConfirmAction('unpublish')}
                         className="flex flex-col items-center justify-center gap-2 py-5 px-4 transition-all duration-300 border-r"
                         style={{
                             background: !isPosted ? '#FEE2E2' : '#FAFAFA',
@@ -519,7 +599,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             opacity: isPosted ? 0.7 : 1,
                         }}
                     >
-                        <span style={{ fontSize: '28px' }}>{!isPosted ? '🔴' : '🔒'}</span>
+                        <span style={{ fontSize: '28px' }}>{!isPosted ? '🔴' : '⭕'}</span>
                         <span className="font-black text-lg" style={{ color: !isPosted ? '#991B1B' : '#9CA3AF' }}>
                             下架
                         </span>
@@ -529,13 +609,13 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             </span>
                         )}
                         {isPosted && (
-                            <span className="text-xs text-gray-400">點擊下架</span>
+                            <span className="text-xs text-gray-400">點擊可下架</span>
                         )}
                     </button>
 
                     {/* 上架 Panel */}
                     <button
-                        onClick={() => !isPosted && setConfirmAction('publish')}
+                        onClick={() => !isPosted && !isActionLoading && setConfirmAction('publish')}
                         className="flex flex-col items-center justify-center gap-2 py-5 px-4 transition-all duration-300"
                         style={{
                             background: isPosted ? '#D1FAE5' : '#FAFAFA',
@@ -543,7 +623,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             opacity: !isPosted ? 0.7 : 1,
                         }}
                     >
-                        <span style={{ fontSize: '28px' }}>{isPosted ? '🟢' : '🚀'}</span>
+                        <span style={{ fontSize: '28px', lineHeight: 1 }}>🟢</span>
                         <span className="font-black text-lg" style={{ color: isPosted ? '#065F46' : '#9CA3AF' }}>
                             上架
                         </span>
@@ -553,7 +633,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             </span>
                         )}
                         {!isPosted && (
-                            <span className="text-xs text-gray-400">點擊上架</span>
+                            <span className="text-xs text-gray-400">點擊可發布</span>
                         )}
                     </button>
                 </div>
@@ -562,37 +642,44 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 {isPosted && (
                     <div className="flex justify-center py-3 border-t" style={{ background: '#F9FAFB' }}>
                         <button
-                            onClick={() => setConfirmAction('closeOrder')}
+                            onClick={() => !isActionLoading && setConfirmAction('closeOrder')}
                             className="font-black px-6 py-2.5 rounded-full transition-all"
-                            style={{ backgroundColor: '#4B5563', color: '#fff', fontSize: '0.95rem', letterSpacing: '0.05em' }}
+                            style={{ backgroundColor: '#4B5563', color: '#fff', fontSize: '1.05rem', letterSpacing: '0.05em', padding: '12px 34px' }}
                         >
-                            🌙 今日結單
+                            {isActionLoading ? '處理中...' : '立即結單'}
                         </button>
                     </div>
                 )}
             </div>
+            {isActionLoading && (
+                <div className="flex items-center justify-center gap-2 text-sm font-bold text-ac-blue bg-blue-50 border border-blue-200 rounded-xl py-2">
+                    <Loader size={16} className="animate-spin" />
+                    {actionLoadingText}
+                </div>
+            )}
 
             {/* Publish/Unpublish Confirm Modal */}
             <ConfirmModal
                 isOpen={confirmAction === 'publish'}
                 onClose={() => setConfirmAction(null)}
                 onConfirm={async () => {
-                   setConfirmAction(null);
-                   // 🚀 詢問是否清空舊訂單 (針對第二次上架情境)
-                   const clearAll = await showConfirm({
-                       icon: '🧹', iconBg: '#E0F2FE',
-                       title: '是否清空現有訂單？',
-                       message: '如果是「第二次上架」且需讓所有人重新點餐，請選擇清空。\n(目前的訂單紀錄將會被移除)',
-                       confirmText: '清空並上架', confirmColor: '#3B82F6',
-                       cancelText: '直接上架 (保留舊單)'
-                   });
-                   handlePublish(true, clearAll);
+                    setConfirmAction(null);
+                    const clearAll = await showConfirm({
+                        icon: '🧹',
+                        iconBg: '#E0F2FE',
+                        title: '發布前要清空今日訂單嗎？',
+                        message: '如果你已更換菜單，建議先清空舊訂單。',
+                        confirmText: '清空再發布',
+                        confirmColor: '#3B82F6',
+                        cancelText: '保留舊訂單'
+                    });
+                    await handlePublish(true, clearAll);
                 }}
-                icon="🚀"
+                icon="📢"
                 iconBg="#D1FAE5"
-                title="確定要上架菜單嗎？"
-                message="上架後前台將顯示今日菜單，成員可以開始點餐。"
-                confirmText="✅ 確定上架"
+                title="確認發布菜單？"
+                message="發布後前台就會顯示目前的菜單內容。"
+                confirmText="確認發布"
                 cancelText="取消"
                 confirmColor="#059669"
             />
@@ -600,23 +687,23 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 isOpen={confirmAction === 'closeOrder'}
                 onClose={() => setConfirmAction(null)}
                 onConfirm={doCloseOrder}
-                icon="🌙"
+                icon="🔒"
                 iconBg="#E0E7FF"
-                title="確定要今日結單嗎？"
-                message={"系統將會：\n1. 自動備份今日菜單 📂\n2. 將菜單下架 🔒"}
-                confirmText="🌙 確定結單"
+                title="確認結單？"
+                message={'結單會：\n1. 保存今日菜單到歷史\n2. 關閉前台點餐'}
+                confirmText="確認結單"
                 cancelText="取消"
                 confirmColor="#4B5563"
             />
             <ConfirmModal
                 isOpen={confirmAction === 'unpublish'}
                 onClose={() => setConfirmAction(null)}
-                onConfirm={() => handlePublish(false)}
-                icon="🔒"
+                onConfirm={async () => { await handlePublish(false); }}
+                icon="📴"
                 iconBg="#FEE2E2"
-                title="確定要下架菜單嗎？"
-                message="下架後菜單將自動封存至歷史紀錄，前台將無法點餐。"
-                confirmText="🔴 確定下架"
+                title="確認下架菜單？"
+                message="下架後前台將看不到今日菜單。"
+                confirmText="確認下架"
                 cancelText="取消"
                 confirmColor="#DC2626"
             />
@@ -631,7 +718,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                     style={{ background: showHistory ? '#FEF3C7' : '#F9FAFB', borderLeft: '4px solid #D97706', color: '#92400E' }}
                 >
                     <span className="flex items-center gap-2">
-                        📂 歷史紀錄
+                        菜單歷史
                         <span style={{ fontSize: '0.75rem', fontWeight: 'bold', background: '#D97706', color: '#fff', padding: '2px 8px', borderRadius: '999px' }}>
                             {(data.menuHistory || []).length}
                         </span>
@@ -642,82 +729,32 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 {showHistory && (
                     <div className="bg-gray-50 p-4 rounded-xl mt-2 border border-dashed border-gray-300 animate-slide-up">
                         <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-                            {(() => {
-                                const history = data.menuHistory || [];
-                                if (history.length === 0) return (
-                                    <div className="text-center text-gray-400 text-sm py-8 flex flex-col items-center gap-2">
-                                        <span style={{ fontSize: '2rem' }}>📭</span>
-                                        <span>暫無歷史紀錄</span>
-                                        <span className="text-xs">下架 / 結單時系統會自動封存菜單</span>
-                                    </div>
-                                );
-
-                                // Filter out entries with invalid dates
-                                const validHistory = history.filter(h => {
-                                    if (!h.date) return false;
-                                    const d = new Date(h.date);
-                                    return !isNaN(d.getTime());
-                                });
-
-                                if (validHistory.length === 0) return (
-                                    <div className="text-center text-gray-400 text-sm py-8">暫無有效歷史紀錄</div>
-                                );
-
-                                // Group by Month
-                                const grouped = validHistory.reduce((acc, hist) => {
-                                    const date = new Date(hist.date);
-                                    const key = `${date.getFullYear()}年${date.getMonth() + 1}月`;
-                                    if (!acc[key]) acc[key] = [];
-                                    acc[key].push(hist);
-                                    return acc;
-                                }, {});
-
-                                // Sort Months Descending
-                                const sortedKeys = Object.keys(grouped).sort((a, b) => {
-                                    const matchA = a.match(/(\d+)年(\d+)月/);
-                                    const matchB = b.match(/(\d+)年(\d+)月/);
-                                    if (!matchA || !matchB) return 0;
-                                    const [y1, m1] = matchA.slice(1).map(Number);
-                                    const [y2, m2] = matchB.slice(1).map(Number);
-                                    return (y2 * 100 + m2) - (y1 * 100 + m1);
-                                });
-
-                                return sortedKeys.map(month => {
-                                    // Group items in this month by Day
-                                    const monthItems = grouped[month];
-                                    const byDay = monthItems.reduce((dayAcc, item) => {
-                                        const d = new Date(item.date);
-                                        const dayKey = d.getDate();
-                                        const fullDayStr = `${month}${dayKey}日`;
-                                        if (!dayAcc[fullDayStr]) dayAcc[fullDayStr] = [];
-                                        dayAcc[fullDayStr].push(item);
-                                        return dayAcc;
-                                    }, {});
-
-                                    const sortedDays = Object.keys(byDay).sort((a, b) => {
-                                        const matchA = a.match(/(\d+)日/);
-                                        const matchB = b.match(/(\d+)日/);
-                                        if (!matchA || !matchB) return 0;
-                                        return parseInt(matchB[1]) - parseInt(matchA[1]);
-                                    });
-
-                                    return (
-                                        <div key={month}>
-                                            <h3 className="font-bold text-ac-brown mb-2 mt-3 pb-1 text-base flex items-center gap-2" style={{ borderBottom: '2px solid #F3F4F6' }}>
-                                                📅 {month}
-                                                <span style={{ fontSize: '0.7rem', background: '#F3F4F6', color: '#6B7280', padding: '2px 8px', borderRadius: '999px' }}>
-                                                    {grouped[month].length} 筆
-                                                </span>
-                                            </h3>
-                                            <div className="flex flex-col gap-2">
-                                                {sortedDays.map(dayStr => (
-                                                    <HistoryDayGroup key={dayStr} dateStr={dayStr} items={byDay[dayStr]} actions={actions} loadHistory={loadHistory} onDeleteHistory={deleteHistory} />
-                                                ))}
+                            {(data.menuHistory || []).length === 0 ? (
+                                <div className="text-center text-gray-400 text-sm py-8">目前沒有歷史菜單</div>
+                            ) : (
+                                [...(data.menuHistory || [])]
+                                    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+                                    .map(hist => (
+                                        <div key={hist.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <div className="font-bold text-ac-brown truncate">{hist.name || '未命名菜單'}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {(hist.items || []).length} 項
+                                                    {' · '}
+                                                    {hist.date ? new Date(hist.date).toLocaleString() : '無日期'}
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <Button variant="secondary" className="text-xs px-3 py-1 h-8" onClick={() => loadHistory(hist)}>
+                                                    載入
+                                                </Button>
+                                                <Button variant="danger" className="text-xs px-3 py-1 h-8" onClick={() => deleteHistory(hist)}>
+                                                    刪除
+                                                </Button>
                                             </div>
                                         </div>
-                                    );
-                                });
-                            })()}
+                                    ))
+                            )}
                         </div>
                     </div>
                 )}
@@ -734,6 +771,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoadingToDaily, setIsLoadingToDaily] = useState(false);
+    const [loadingDailyName, setLoadingDailyName] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const { gasUrl } = useDing();
@@ -785,7 +824,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const { showAlert, showConfirm, PopupRenderer: LibPopup } = usePopup();
 
-    const library = [...(data.menuLibrary || [])].reverse(); // 🚀 倒序排列，讓最新新增的在最上面
+    const library = [...(data.menuLibrary || [])].reverse(); // ?? ????嚗???唳憓??冽?銝
 
     const filteredLibrary = library.filter(m => {
         if (showFavOnly && !m.isFavorite) return false;
@@ -809,7 +848,13 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
 
     const handleConfirmAddItem = () => {
         if (!newItemName.trim() || !newItemPrice) {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '請填寫完整', message: '名稱和價格不能為空', buttonColor: '#D97706' });
+            showAlert({
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '資料不完整',
+                message: '請輸入品項名稱與價格。',
+                buttonColor: '#D97706'
+            });
             return;
         }
         setFormItems([...formItems, { name: newItemName.trim(), price: Number(newItemPrice) }]);
@@ -831,14 +876,19 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
 
     const handleSave = async () => {
         if (!formName && !formStoreInfo.name) {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '請至少輸入菜單名稱或店名', buttonColor: '#D97706' });
+            showAlert({
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '請至少填寫店名',
+                buttonColor: '#D97706'
+            });
             return;
         }
         
         setIsSaving(true);
         try {
             let finalImageUrl = formImage;
-            // 🚀 如果還是 Base64，代表需要先上傳到 Google Drive
+            // ?? 憒?? Base64嚗誨銵券?閬?銝??Google Drive
             if (formImage && formImage.startsWith('data:')) {
                 const cloudUrl = await uploadImageToCloud(formImage, `lib_${Date.now()}`);
                 if (cloudUrl) {
@@ -859,18 +909,23 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             };
             
             if (editingId) {
-                // 移除 await，直接背景處理
+                // Keep existing behavior (no await), only fix broken alert literals.
                 actions.updateMenuLibrary(editingId, payload);
-                showAlert({ icon: '✅', title: '菜單已更新！' });
+                showAlert({ icon: '✅', title: '菜單庫已更新' });
             } else {
-                // 移除 await，直接背景處理
+                // Keep existing behavior (no await), only fix broken alert literals.
                 actions.addMenuLibrary(payload);
-                showAlert({ icon: '✅', title: '菜單已新增至菜單庫！' });
+                showAlert({ icon: '✅', title: '已新增到菜單庫' });
             }
             resetForm();
         } catch (err) {
             console.error("handleSave Error:", err);
-            showAlert({ icon: '❌', title: '儲存失敗', message: '發生錯誤：' + (err.message || "未知原因"), buttonColor: '#DC2626' });
+            showAlert({
+                icon: '❌',
+                title: '儲存失敗',
+                message: `請稍後再試：${err.message || '未知錯誤'}`,
+                buttonColor: '#DC2626'
+            });
         } finally {
             setIsSaving(false);
         }
@@ -878,33 +933,63 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
 
     const handleDelete = async (id, name) => {
         const ok = await showConfirm({
-            icon: '🗑️', iconBg: '#FEE2E2',
+            icon: '🗑️',
+            iconBg: '#FEE2E2',
             title: `刪除「${name}」？`,
             message: '此操作無法復原。',
-            confirmText: '確定刪除', confirmColor: '#DC2626'
+            confirmText: '確認刪除',
+            confirmColor: '#DC2626'
         });
         if (ok) actions.deleteMenuLibrary(id);
     };
 
     const loadToDaily = async (menu) => {
+        if (isLoadingToDaily) return;
         if (data.menu?.posted) {
-            showAlert({ icon: '⚠️', iconBg: '#FEF3C7', title: '菜單上架中，無法載入', message: '請先將目前菜單「下架」後再載入。', buttonColor: '#D97706' });
+            showAlert({
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '今日菜單已發布',
+                message: '請先取消發布，才能載入新的菜單。',
+                buttonColor: '#D97706'
+            });
             return;
         }
         const ok = await showConfirm({
-            icon: '📋', iconBg: '#DBEAFE',
-            title: `載入「${menu.name}」？`,
-            message: '🚨 注意：載入新菜單會同時「清空今日所有訂單」，確定要載入嗎？',
-            confirmText: '確定載入並清空訂單', confirmColor: '#2563EB'
+            icon: '📌',
+            iconBg: '#DBEAFE',
+            title: `載入「${menu.name}」到今日菜單？`,
+            message: '這會清空目前訂單，並以此菜單覆蓋今日菜單內容。',
+            confirmText: '確認載入',
+            confirmColor: '#2563EB'
         });
         if (ok) {
-            // 🚀 關鍵動作：清空訂單 (不 await，讓它背景處理)
-            actions.clearOrders();
-            
-            // 🚀 載入菜單 (不 await，讓它背景處理，明確給予 false 代表換新版本號)
-            actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false);
-            await showAlert({ icon: '✅', title: '已載入菜單且訂單已清空！', message: '即將前往「今日菜單」分頁查看。', buttonText: '📋 OK', buttonColor: '#2563EB' });
-            setActiveTab('menu');
+            setIsLoadingToDaily(true);
+            setLoadingDailyName(menu.name || '未命名菜單');
+            try {
+                // Fast path: optimistic local update + background write.
+                await actions.clearOrders(true);
+                await actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false, true);
+                await showAlert({
+                    icon: '✅',
+                    title: '已載入到今日菜單',
+                    message: '你可以到「今日菜單」頁籤繼續編輯。',
+                    buttonText: 'OK',
+                    buttonColor: '#2563EB'
+                });
+                setActiveTab('menu');
+            } catch (err) {
+                console.error('loadToDaily error:', err);
+                await showAlert({
+                    icon: '❌',
+                    title: '載入失敗',
+                    message: err?.message || '請稍後再試',
+                    buttonColor: '#DC2626'
+                });
+            } finally {
+                setIsLoadingToDaily(false);
+                setLoadingDailyName('');
+            }
         }
     };
 
@@ -920,7 +1005,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         });
         const result = await response.json();
         
-        // 🚀 不要在這裡 throw，讓呼叫端決定怎麼顯示
+        // ?? 銝??券ㄐ throw嚗??澆蝡舀捱摰獐憿舐內
         return { 
             items: result.items || [], 
             storeInfo: result.storeInfo || {}, 
@@ -937,9 +1022,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
-        let allItems = []; // 🚀 每次上傳新文件時，先清空臨時列表，避免舊品項殘留
-        let latestStore = { name: '', address: '', phone: '' }; // 🚀 清空店家資訊
-        let combinedRemark = ''; // 🚀 清空備註
+        let allItems = []; // ?? 瘥活銝?唳?隞嗆?嚗?皜征?冽??”嚗????畾?
+        let latestStore = { name: '', address: '', phone: '' }; // ?? 皜征摨振鞈?
+        let combinedRemark = ''; // ?? 皜征?酉
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
@@ -951,14 +1036,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                 const img = new Image();
                 await new Promise(r => { img.onload = r; img.src = base64Orig; });
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000; // 🚀 適中解析度，避免超過 GAS 限制
+                const MAX_WIDTH = 1000; // ?? ?拐葉閫??摨佗??踹?頞? GAS ?
                 const scale = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.85); 
-                // 🚀 去掉 Data URL 前綴，只送純 Base64
+                // ?? ?餅? Data URL ?韌嚗?? Base64
                 const pureBase64 = dataUrl.split(',')[1];
 
                 if (i === 0) setFormImage(dataUrl);
@@ -975,28 +1060,40 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                 }
             } catch (err) { 
                 console.error(`File ${i + 1} error:`, err); 
-                showAlert({ icon: '❌', iconBg: '#FEE2E2', title: 'AI 辨識失敗', message: `第 ${i+1} 張圖片發生錯誤: ${err.message}`, buttonColor: '#DC2626' });
+                showAlert({
+                    icon: '❌',
+                    iconBg: '#FEE2E2',
+                    title: 'AI 掃描失敗',
+                    message: `第 ${i + 1} 張圖片處理失敗：${err.message}`,
+                    buttonColor: '#DC2626'
+                });
             }
         }
 
-        // 🚀 修復：直接覆蓋而非使用 prev，確保舊資料不會接在後面
+        // ?? 靽桀儔嚗?亥???雿輻 prev嚗Ⅱ靽?鞈?銝??亙敺
         if (allItems.length > 0) setFormItems(allItems);
         setFormStoreInfo(latestStore);
         if (latestStore.name && !formName) setFormName(latestStore.name);
         
-        // 🚀 修復：過濾掉診斷 JSON 資料，只保留純文字備註內容
-        const cleanRemark = combinedRemark.replace(/【原始診斷資料】\s*\{[\s\S]*\}/g, '').trim();
+        // ?? 靽桀儔嚗?瞈暹?閮箸 JSON 鞈?嚗靽?蝝?摮?閮餃摰?
+        const cleanRemark = combinedRemark.trim();
         setFormRemark(cleanRemark);
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
         
         if (allItems.length > 0) {
-            showAlert({ icon: '✅', iconBg: '#D1FAE5', title: `辨識完成！${allItems.length} 個品項`, buttonColor: 'var(--ac-green)' });
+            showAlert({
+                icon: '✅',
+                iconBg: '#D1FAE5',
+                title: `掃描完成，共 ${allItems.length} 筆品項`,
+                buttonColor: 'var(--ac-green)'
+            });
         } else {
             showAlert({ 
-                icon: '⚠️', iconBg: '#FEF3C7', 
-                title: '未辨識到品項', 
-                message: 'AI 好像沒有在圖片中看到菜單品項或是回傳格式不對。',
+                icon: '⚠️',
+                iconBg: '#FEF3C7',
+                title: '沒有辨識到品項',
+                message: 'AI 未辨識出可用菜單內容，請確認圖片清晰度或改用手動輸入。',
                 buttonColor: '#D97706' 
             });
         }
@@ -1010,10 +1107,16 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         <div className="p-4 flex flex-col gap-4">
             {/* Toolbar */}
             <div className="flex flex-col gap-3">
+                {isLoadingToDaily && (
+                    <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-bold text-ac-blue">
+                        <Loader className="animate-spin" size={16} />
+                        處理中，正在載入「{loadingDailyName}」到今日菜單...
+                    </div>
+                )}
                 <div className="flex gap-2 items-center">
                     <div className="flex-grow relative">
                         <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' }} />
-                        <input className="ac-input" style={{ paddingLeft: '36px' }} placeholder="搜尋店名、菜名..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                        <input className="ac-input" style={{ paddingLeft: '36px' }} placeholder="搜尋菜單、店家或品項..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                     </div>
                     <Button onClick={() => { resetForm(); setShowAddForm(true); }} className="whitespace-nowrap"><Plus size={16} /> 新增菜單</Button>
                 </div>
@@ -1027,7 +1130,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                             className={showFavOnly ? 'text-red-500 animate-pulse' : 'text-gray-400 group-hover:text-red-400 transition-colors'} 
                             style={{ fill: showFavOnly ? '#ef4444' : 'none' }}
                         /> 
-                        <span className="whitespace-nowrap">{showFavOnly ? '最愛菜單模式' : '最愛'}</span>
+                        <span className="whitespace-nowrap">{showFavOnly ? '顯示全部' : '只看收藏'}</span>
                     </button>
                     <div className="relative group">
                         <select 
@@ -1035,7 +1138,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                             value={filterCategory} 
                             onChange={e => setFilterCategory(e.target.value)}
                         >
-                            <option value="all">📂 全部分類</option>
+                            <option value="all">全部分類</option>
                             {MENU_CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400 group-hover:text-ac-blue transition-colors">
@@ -1055,7 +1158,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         <div className="w-8 h-8 rounded-full bg-ac-green flex items-center justify-center text-white text-sm">
                            {editingId ? '✏️' : '➕'}
                         </div>
-                        {editingId ? '編輯菜單' : '新增菜單到菜單庫'}
+                        {editingId ? '編輯菜單庫' : '新增菜單庫資料'}
                     </h3>
                     <div className="flex flex-col gap-4 relative z-10">
                         {/* AI Upload Column - Making it prominent */}
@@ -1072,11 +1175,11 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                     </div>
                                     <div className="flex flex-col gap-1.5">
                                         <span className="text-xl font-black text-ac-blue animate-pulse tracking-wide">
-                                            AI 辨識中...
+                                            AI 掃描中...
                                         </span>
                                         <div className="flex items-center justify-center gap-2">
                                            <span className="text-xs text-blue-400 font-black bg-blue-50 px-3 py-1 rounded-full uppercase">
-                                              正在處理第 {scanProgress.current} / {scanProgress.total} 張
+                                              處理中：{scanProgress.current} / {scanProgress.total} 張
                                            </span>
                                         </div>
                                     </div>
@@ -1088,10 +1191,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="font-black text-lg text-ac-brown">
-                                            點擊上傳菜單照片
+                                            上傳菜單圖片
                                         </span>
                                         <span className="text-xs text-gray-400 font-bold px-4 py-1 rounded-full bg-white/50 inline-block mt-1">
-                                            AI 自動辨識品項、價格、店家資訊
+                                            AI 自動辨識品項與店家資訊
                                         </span>
                                     </div>
                                     <input type="file" style={{ display: 'none' }} accept="image/*" multiple onChange={handleLibraryUpload} />
@@ -1122,7 +1225,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                 <div className="flex items-center gap-1.5 ml-1">
                                    <span className="text-xs font-black text-ac-brown uppercase tracking-wider">菜單名稱</span>
                                 </div>
-                                <input className="ac-input focus:ring-4 focus:ring-blue-100 transition-all" placeholder="例: 王記便當" value={formName} onChange={e => setFormName(e.target.value)} />
+                                <input className="ac-input focus:ring-4 focus:ring-blue-100 transition-all" placeholder="例如：阿美小吃" value={formName} onChange={e => setFormName(e.target.value)} />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <div className="flex items-center gap-1.5 ml-1">
@@ -1137,7 +1240,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs font-black text-gray-400 ml-1">店名</span>
-                                <input className="ac-input text-sm" placeholder="預設同菜單名" value={formStoreInfo.name} onChange={e => setFormStoreInfo({...formStoreInfo, name: e.target.value})} />
+                                <input className="ac-input text-sm" placeholder="店家名稱" value={formStoreInfo.name} onChange={e => setFormStoreInfo({...formStoreInfo, name: e.target.value})} />
                             </div>
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs font-black text-gray-400 ml-1">電話</span>
@@ -1156,7 +1259,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                             </div>
                             <textarea 
                                 className="ac-input min-h-[90px] py-3 text-sm focus:ring-4 focus:ring-blue-100 transition-all" 
-                                placeholder="輸入此菜單的備註事項 (如: 滿千送一、週二公休等)" 
+                                placeholder="請輸入補充說明（例如：加辣請註明）" 
                                 value={formRemark} 
                                 onChange={e => setFormRemark(e.target.value)}
                             />
@@ -1165,7 +1268,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         {/* Items editor */}
                         <div className="flex flex-col gap-3">
                             <div className="flex items-center justify-between ml-1">
-                               <h4 className="font-black text-sm text-ac-brown">品項列表 ({formItems.length})</h4>
+                               <h4 className="font-black text-sm text-ac-brown">品項清單 ({formItems.length})</h4>
                                <button 
                                   onClick={() => setShowAddItemModal(true)} 
                                   className="ac-btn secondary text-xs" 
@@ -1176,7 +1279,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                             </div>
                             {formItems.length === 0 ? (
                                 <div className="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100 text-gray-400 text-xs font-bold">
-                                    尚無品項，請點擊右方新增或上傳照片辨識
+                                    尚未新增品項，請使用上方按鈕新增或上傳圖片辨識。
                                 </div>
                             ) : (
                                 <div className="max-h-[350px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
@@ -1186,7 +1289,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                                 <input 
                                                     className="font-bold text-gray-700 placeholder-gray-300" 
                                                     style={{ border: 'none', background: 'transparent', outline: 'none', boxShadow: 'none', padding: 0, width: '100%', flexGrow: 1, minWidth: '50px' }}
-                                                    placeholder="輸入名稱..." 
+                                                    placeholder="品項名稱..." 
                                                     value={item.name} 
                                                     onChange={e => { const n = [...formItems]; n[i] = {...n[i], name: e.target.value}; setFormItems(n); }} 
                                                 />
@@ -1216,7 +1319,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         <div className="flex gap-4 justify-center mt-4 pt-6 border-t font-black">
                             <Button variant="secondary" onClick={resetForm} style={{ padding: '12px 40px' }} disabled={isSaving}>取消</Button>
                             <Button onClick={handleSave} style={{ padding: '12px 40px' }} disabled={isSaving}>
-                                {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 圖片上傳中...</span> : (editingId ? '更新菜單' : '儲存至菜單庫')}
+                                {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 儲存中...</span> : (editingId ? '更新菜單' : '建立菜單')}
                             </Button>
                         </div>
                     </div>
@@ -1240,14 +1343,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '28px' }}>
                             ➕
                         </div>
-                        <h3 className="text-center" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1F2937', marginBottom: '16px' }}>手動新增品項</h3>
+                        <h3 className="text-center" style={{ fontSize: '1.25rem', fontWeight: 900, color: '#1F2937', marginBottom: '16px' }}>新增品項</h3>
                         
                         <div className="flex flex-col gap-4 mb-6">
                             <div className="flex flex-col gap-1.5">
                                 <span className="text-xs font-black text-gray-400 ml-1">品項名稱</span>
                                 <input 
                                     className="ac-input" 
-                                    placeholder="例: 排骨便當" 
+                                    placeholder="例如：雞腿飯" 
                                     value={newItemName} 
                                     onChange={e => setNewItemName(e.target.value)} 
                                     autoFocus
@@ -1292,7 +1395,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                 onMouseEnter={e => { e.target.style.opacity = '0.85'; }}
                                 onMouseLeave={e => { e.target.style.opacity = '1'; }}
                             >
-                                ✅ 確定新增
+                                確認新增
                             </button>
                         </div>
                     </div>
@@ -1303,7 +1406,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             <div className="flex flex-col gap-3">
                 {filteredLibrary.length === 0 && (
                     <div className="text-center text-gray-400 py-8 italic">
-                        {library.length === 0 ? '菜單庫還是空的，點擊上方「新增菜單」開始建立吧！' : '找不到符合條件的菜單'}
+                        {library.length === 0 ? '目前沒有菜單庫資料，先新增第一筆吧。' : '沒有符合條件的菜單。'}
                     </div>
                 )}
                 {filteredLibrary.map(menu => (
@@ -1331,13 +1434,20 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                     📝 {menu.remark}
                                 </div>
                             )}
-                            <div style={{ fontSize: '0.8rem', color: '#777', marginBottom: '6px' }}>{(menu.items || []).length} 個品項</div>
+                            <div style={{ fontSize: '0.8rem', color: '#777', marginBottom: '6px' }}>{(menu.items || []).length} 項</div>
                         </div>
 
 
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: '8px', padding: '0 16px 16px', flexWrap: 'wrap' }}>
-                            <Button variant="primary" onClick={() => loadToDaily(menu)} style={{ fontSize: '0.9rem', padding: '8px 18px', height: 'auto' }}>📋 載入今日</Button>
+                            <Button
+                                variant="primary"
+                                onClick={() => loadToDaily(menu)}
+                                style={{ fontSize: '0.9rem', padding: '8px 18px', height: 'auto' }}
+                                disabled={isLoadingToDaily}
+                            >
+                                {isLoadingToDaily ? '處理中...' : '載入到今日菜單'}
+                            </Button>
                             <div style={{ flex: 1 }}></div>
                             <Button variant="secondary" onClick={() => startEdit(menu)} className="text-xs" style={{ padding: '6px 12px', height: 'auto' }}><Edit size={13} /> 編輯</Button>
                             <Button variant="danger" onClick={() => handleDelete(menu.id, menu.name)} className="text-xs" style={{ padding: '6px 12px', height: 'auto' }}><Trash2 size={13} /> 刪除</Button>
@@ -1351,10 +1461,10 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                     color: menu.isFavorite ? '#ef4444' : '#999',
                                     cursor: 'pointer', transition: 'all 0.2s'
                                 }}
-                                title="加入最愛"
+                                title="切換收藏"
                             >
                                 <Heart size={14} style={{ fill: menu.isFavorite ? '#ef4444' : 'none' }} />
-                                {menu.isFavorite ? '已收藏' : '加入最愛'}
+                                {menu.isFavorite ? '已收藏' : '收藏'}
                             </button>
                         </div>
                     </div>
@@ -1392,11 +1502,11 @@ const HistoryDayGroup = ({ dateStr, items, actions, loadHistory, onDeleteHistory
                                 <span className="font-bold text-xs text-gray-800">{hist.name}</span>
                                 <span className="text-[10px] text-gray-400 flex items-center gap-2">
                                     {new Date(hist.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    {hist.items && <span>· {hist.items.length} 品項</span>}
+                                    {hist.items && <span>共 {hist.items.length} 項</span>}
                                 </span>
                             </div>
                             <div className="flex gap-2">
-                                <Button variant="primary" onClick={() => loadHistory(hist)} className="text-xs px-2 py-1 h-7">📋 載入今日</Button>
+                                <Button variant="primary" onClick={() => loadHistory(hist)} className="text-xs px-2 py-1 h-7">載入</Button>
                                 <Button variant="danger" onClick={() => onDeleteHistory(hist)} className="text-xs px-2 py-1 h-7">刪除</Button>
                             </div>
                         </div>
@@ -1434,7 +1544,7 @@ const MemberManager = ({ data, actions }) => {
             <div className="flex gap-2">
                 <input
                     className="ac-input flex-grow"
-                    placeholder="輸入新村民名字..."
+                    placeholder="輸入新成員名稱..."
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                 />
@@ -1481,9 +1591,9 @@ const MemberManager = ({ data, actions }) => {
 
 
 
-const StatsManager = ({ data, getTodayOrders }) => {
+const StatsManager = ({ data }) => {
     // History Filter State
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
 
     // Filter orders by date (API returns ISO date string)
     // GAS orders date format is ISO string. data.orders contains ALL orders.
@@ -1491,7 +1601,7 @@ const StatsManager = ({ data, getTodayOrders }) => {
         // Handle timezone issues roughly or just compare string prefix YYYY-MM-DD
         // The GAS date is ISO.
         if (!o.date) return false;
-        return String(o.date).startsWith(selectedDate);
+        return getLocalDateKey(o.date) === selectedDate;
     });
 
     const orders = filteredOrders;
@@ -1510,7 +1620,7 @@ const StatsManager = ({ data, getTodayOrders }) => {
         <div className="p-4 flex flex-col gap-6">
             {/* Date Filter */}
             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                <span className="font-bold text-gray-600">📅 查詢日期：</span>
+                <span className="font-bold text-gray-600">選擇日期</span>
                 <input
                     type="date"
                     className="ac-input py-1 w-auto bg-white"
@@ -1527,12 +1637,12 @@ const StatsManager = ({ data, getTodayOrders }) => {
                 <div className="flex-1 bg-ac-orange text-white p-4 rounded-2xl shadow-md text-center relative overflow-hidden">
                     <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" />
                     <div className="text-3xl font-bold relative z-10">${total}</div>
-                    <div className="text-sm opacity-90 relative z-10">總收入</div>
+                    <div className="text-sm opacity-90 relative z-10">總金額</div>
                 </div>
             </div>
 
             <div className="flex flex-col gap-2">
-                <h3 className="font-bold border-b pb-2">明細列表</h3>
+                <h3 className="font-bold border-b pb-2">成員統計</h3>
                 {Object.entries(byMember).map(([member, stat]) => (
                     <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
                         <div>
@@ -1542,7 +1652,7 @@ const StatsManager = ({ data, getTodayOrders }) => {
                         <div className="font-bold text-ac-orange">${stat.total}</div>
                     </div>
                 ))}
-                {orders.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有訂單紀錄喔 (Zzz...)</div>}
+                {orders.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有訂單資料 (Zzz...)</div>}
             </div>
         </div>
     );
@@ -1550,19 +1660,55 @@ const StatsManager = ({ data, getTodayOrders }) => {
 
 const NoticeManager = ({ data, actions }) => {
     const [text, setText] = useState(data.announcement);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { showAlert, PopupRenderer: NoticePopup } = usePopup();
+
+    useEffect(() => {
+        setText(data.announcement || '');
+    }, [data.announcement]);
+
     return (
         <div className="p-4 flex flex-col gap-4 h-full">
-            <h3 className="font-bold text-gray-500">編輯公佈欄</h3>
+            <h3 className="font-bold text-gray-500">編輯公告欄</h3>
             <textarea
                 className="ac-input flex-grow min-h-[150px] resize-none"
                 value={text}
                 onChange={e => setText(e.target.value)}
             />
-            <Button onClick={() => {
-                actions.updateAnnouncement(text);
-                showAlert({ icon: '📢', title: '公告已發布成功！' });
-            }} className="self-end">發布公告</Button>
+            <Button
+                onClick={async () => {
+                    if (isSubmitting) return;
+                    setIsSubmitting(true);
+                    try {
+                        const res = await actions.updateAnnouncement(text);
+                        if (res?.persisted) {
+                            await showAlert({ icon: '✅', title: '公告已成功更新' });
+                        } else {
+                            await showAlert({
+                                icon: '⚠️',
+                                iconBg: '#FEF3C7',
+                                title: '公告更新可能未生效',
+                                message: `目前讀到的公告值：${res?.latestAnnouncement ?? '(查無資料)'}`,
+                                buttonColor: '#D97706'
+                            });
+                        }
+                    } catch (err) {
+                        console.error('update announcement error:', err);
+                        await showAlert({
+                            icon: '❌',
+                            title: '公告更新失敗',
+                            message: err?.message || '請稍後再試',
+                            buttonColor: '#DC2626'
+                        });
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }}
+                className="self-end"
+                disabled={isSubmitting}
+            >
+                {isSubmitting ? <span className="flex items-center gap-2"><Loader className="animate-spin" size={16} /> 發布中...</span> : '發布公告'}
+            </Button>
             <NoticePopup />
         </div>
     );
@@ -1577,7 +1723,7 @@ const SettingsManager = () => {
     }, [gasUrl]);
 
     // Connection Check for UI warning
-    const isDisconnected = !gasUrl || data.announcement === "載入中...";
+    const isDisconnected = !gasUrl;
 
     return (
         <div className="p-4 flex flex-col gap-6">
@@ -1585,28 +1731,28 @@ const SettingsManager = () => {
                 <div className="bg-red-50 border-2 border-red-200 p-6 rounded-2xl animate-pulse">
                     <div className="flex items-center gap-4 text-red-600 mb-2">
                         <span className="text-3xl">⚠️</span>
-                        <h2 className="text-xl font-black">偵測到失聯狀態！</h2>
+                        <h2 className="text-xl font-black">系統目前未連線</h2>
                     </div>
                     <p className="text-sm text-red-700 mb-4">
-                        目前的 GitHub Pages 尚未連線至您的 Google Apps Script 後端，請往下捲動到「系統設定」貼上您的 Web App URL。
+                        如果你重新部署過 GAS，Web App URL 可能改變，請更新下方網址。
                     </p>
-                    <button 
+                    <button
                         onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
                         className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-red-700 transition-colors"
                     >
-                         👇 前往設定連線
+                        前往連線設定
                     </button>
                 </div>
             )}
 
             <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <h3 className="font-bold text-blue-800 mb-2">📡 Google Apps Script連線設定</h3>
+                <h3 className="font-bold text-blue-800 mb-2">Google Apps Script 連線設定</h3>
                 <div style={{ background: '#F0FDF4', border: '1px solid #22C55E', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span>🔗</span>
                     <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 'bold' }}>系統連線設定</span>
                 </div>
                 <p className="text-sm text-blue-600 mb-4">
-                    如果您重新部署了 GAS 專案，Web App URL 可能會改變。請在此更新，以確保系統能正確連線。
+                    若重新部署 GAS 專案，請在此更新 Web App URL，確保前後端正確連線。
                 </p>
                 <div className="flex flex-col gap-2">
                     <label className="text-xs font-bold text-gray-500">Web App URL</label>
@@ -1614,41 +1760,43 @@ const SettingsManager = () => {
                         <input
                             className="ac-input font-mono text-xs flex-1"
                             value={urlInput}
-                            onChange={(e) => setUrlInput(e.target.value)}
-                            placeholder="貼上您的 Google Apps Script Web App URL"
+                            readOnly
+                            placeholder="請貼上 Google Apps Script Web App URL"
                         />
                         <Button
-                            onClick={() => actions.updateGasUrl(urlInput)}
+                            onClick={() => {}}
                             variant="primary"
                             className="text-xs py-1 px-4"
+                            disabled
                         >
-                            儲存 URL
+                            唯讀
                         </Button>
                     </div>
                 </div>
-                    <div className="mt-4 pt-4 border-t border-blue-200 flex flex-col gap-4">
-                        <div className="bg-white p-3 rounded-xl border text-xs font-mono">
-                            <p className="font-bold text-gray-400 mb-1 border-b pb-1">現有資料狀態</p>
-                            <ul className="list-disc ml-4 text-gray-600 gap-1 flex flex-col">
-                                <li>人員: {data?.members?.length || 0} 位</li>
-                                <li>菜單庫: {data?.menuLibrary?.length || 0} 筆</li>
-                                <li>歷史紀錄: {data?.menuHistory?.length || 0} 筆</li>
-                                <li>今天訂單: {data?.orders?.length || 0} 筆</li>
-                                <li className="text-[10px] text-blue-500 mt-1 border-t pt-1">
-                                    偵測分頁: {data?.debugSheets?.join(', ') || '載入中...'}
-                                </li>
-                            </ul>
-                        </div>
-                        <DebugConnection url={urlInput} />
-                    </div>
-                </div>
 
-                <div className="text-center text-xs text-gray-400 mt-10">
-                    Ding Lunch System v1.2 (Security Patch)
+                <div className="mt-4 pt-4 border-t border-blue-200 flex flex-col gap-4">
+                    <div className="bg-white p-3 rounded-xl border text-xs font-mono">
+                        <p className="font-bold text-gray-400 mb-1 border-b pb-1">現有資料狀態</p>
+                        <ul className="list-disc ml-4 text-gray-600 gap-1 flex flex-col">
+                            <li>人員: {data?.members?.length || 0} 位</li>
+                            <li>菜單庫: {data?.menuLibrary?.length || 0} 筆</li>
+                            <li>歷史紀錄: {data?.menuHistory?.length || 0} 筆</li>
+                            <li>今日訂單: {data?.orders?.length || 0} 筆</li>
+                            <li className="text-[10px] text-blue-500 mt-1 border-t pt-1">
+                                偵測分頁: {data?.debugSheets?.join(', ') || '無資料'}
+                            </li>
+                        </ul>
+                    </div>
+                    <DebugConnection url={urlInput} />
                 </div>
             </div>
-        );
-    };
+
+            <div className="text-center text-xs text-gray-400 mt-10">
+                Ding Lunch System v1.2 (Security Patch)
+            </div>
+        </div>
+    );
+};
 
 const DebugConnection = ({ url }) => {
     const [log, setLog] = useState(null);
@@ -1683,7 +1831,7 @@ const DebugConnection = ({ url }) => {
     return (
         <div className="bg-white p-2 rounded border border-gray-300 text-xs font-mono mt-2">
             <Button onClick={runTest} variant="secondary" className="mb-2 text-xs py-1">
-                {testing ? '測試中...' : '診斷連線 (Debug)'}
+                {testing ? '檢測中...' : '診斷連線 (Debug)'}
             </Button>
             {log && (
                 <div className="flex flex-col gap-1 text-gray-600">
@@ -1701,10 +1849,10 @@ const DebugConnection = ({ url }) => {
                             </div>
                             {!log.isJson && (
                                 <p className="text-red-400 mt-1">
-                                    ⚠️ 如果不是 JSON，通常代表：<br />
-                                    1. 權限不是 "Anyone"<br />
-                                    2. 網址是 /dev 或 /edit 而不是 /exec<br />
-                                    3. GAS 程式崩潰
+                                    ⚠️ 回傳不是有效 JSON。<br />
+                                    1. 確認部署權限為 "Anyone"<br />
+                                    2. 前端 URL 使用 `/exec`（不是 `/dev` 或 `/edit`）<br />
+                                    3. 重新部署 GAS 後再測一次
                                 </p>
                             )}
                         </>
@@ -1716,3 +1864,4 @@ const DebugConnection = ({ url }) => {
 };
 
 export default Admin;
+

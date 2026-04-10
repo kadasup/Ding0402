@@ -4,6 +4,7 @@ import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
 import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
 import fossilIcon from '../assets/img/fossil.svg';
@@ -12,7 +13,7 @@ import turnipIcon from '../assets/img/turnip.svg';
 
 
 const Home = () => {
-    const { data, user, actions, getTodayOrders, loading } = useDing();
+    const { data, actions, loading } = useDing();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
 
     // 讓重新整理時，若有記憶角色，能同步至全局 context
@@ -27,8 +28,6 @@ const Home = () => {
 
 
     const [cart, setCart] = useState([]);
-    const [orders, setOrders] = useState([]);
-    const [imageLoaded, setImageLoaded] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
     const [deleteModal, setDeleteModal] = useState(false);
@@ -69,21 +68,6 @@ const Home = () => {
         }, 80);
     };
 
-    // Refresh orders on mount
-    useEffect(() => {
-        if (getTodayOrders) {
-            getTodayOrders();
-            // Note: getTodayOrders in context returns array, doesn't return promise if not async. 
-            // Context definition: getTodayOrders = () => { ... return filtered ... }
-            // It is synchronous in current context!
-            setOrders(getTodayOrders());
-        }
-    }, [data.orders]);
-
-    useEffect(() => {
-        if (data.menu.image) setImageLoaded(false);
-    }, [data.menu.image]);
-
     const handleMemberLogin = (name) => {
         setSearchTerm('');
         setSelectedMember(name);
@@ -93,7 +77,7 @@ const Home = () => {
             actions.loginMember(name);
         } else {
             localStorage.removeItem('ding_member');
-            actions.loginMember(null);
+            actions.logout();
         }
     };
 
@@ -128,8 +112,13 @@ const Home = () => {
         if (cart.length === 0) return;
 
         // Warn if user already ordered today
-        const todayStr = new Date().toISOString().split('T')[0];
-        const alreadyOrdered = data.orders.some(o => o.member === selectedMember && String(o.date).startsWith(todayStr));
+        const todayStr = getLocalDateKey();
+        const currentMenuId = String(data.menu.lastUpdated || '');
+        const alreadyOrdered = data.orders.some(o =>
+            o.member === selectedMember &&
+            isSameLocalDate(o.date, todayStr) &&
+            String(o.menuId || '') === currentMenuId
+        );
         if (alreadyOrdered) {
             setShowConfirmModal(true);
             return;
@@ -146,13 +135,12 @@ const Home = () => {
 
     // Filter history for current user (Safe access)
     const myHistory = (data.orders || []).filter(o => o.member === selectedMember);
-    const totalSpent = myHistory.reduce((sum, o) => sum + o.total, 0);
 
     // Filter ONLY today's orders for the "My Today's Orders" section
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateKey();
     const currentMenuId = data.menu.lastUpdated;
     const myTodayOrders = myHistory.filter(o => {
-        const isToday = o.date && String(o.date).startsWith(todayStr);
+        const isToday = isSameLocalDate(o.date, todayStr);
         // 🚀 關鍵強化：不只看日期，還要看這筆單是不是為了「目前這份菜單」點的
         const isForCurrentMenu = String(o.menuId) === String(currentMenuId);
         return isToday && isForCurrentMenu;
@@ -161,7 +149,10 @@ const Home = () => {
 
     // Calculate Today's Most Popular (Global) - Filtered by current menu items
     const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
-    const allTodayOrders = (data.orders || []).filter(o => o.date && String(o.date).startsWith(todayStr));
+    const allTodayOrders = (data.orders || []).filter(o =>
+        isSameLocalDate(o.date, todayStr) &&
+        String(o.menuId || '') === String(currentMenuId || '')
+    );
     const itemCounts = {};
     allTodayOrders.forEach(order => {
         (order.items || []).forEach(item => {
