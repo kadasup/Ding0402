@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Varela+Round&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
 
 :root {
   --ac-bg: #80c98f52;
@@ -19,7 +19,8 @@
   --ac-radius: 25px;
   --ac-border: 4px dashed #C8D8A6;
   --ac-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
-  --font-main: 'Varela Round', 'Noto Sans TC', sans-serif;
+  --font-main: 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
 }
 
 * {
@@ -38,6 +39,7 @@ body {
   background-position: 0 0, 20px 20px;
   color: var(--ac-text);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Utilities */
@@ -387,6 +389,14 @@ body {
 
 .font-medium {
   font-weight: 500;
+}
+
+.font-sans {
+  font-family: var(--font-main);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
 }
 
 .italic {
@@ -933,4 +943,4 @@ body {
 
 .border-pop-orange {
   border-color: rgba(244, 162, 97, 0.3) !important;
-}
+}

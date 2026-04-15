@@ -33,7 +33,7 @@ const Admin = () => {
         return <div className="p-20 text-center"><Loader className="animate-spin inline-block" /> 正在登入管理後台...</div>;
     }
 
-    // ?? 撠?典撘蝘餉?憭惜隞乩噶????辣雿輻
+    // Resize large images before upload to reduce payload and speed up requests.
     const resizeImage = (base64) => {
         return new Promise((resolve) => {
             const img = new Image();
@@ -187,10 +187,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         }
     }, [data.menu, hasInitialized]);
 
-    // Detect external data changes (e.g. from library "頛隞")
+    // Detect external data changes (for example, loaded from menu library).
     const isSyncingRef = React.useRef(false); 
     useEffect(() => {
-        // ?? ?靽格迤嚗???global ?????砍 draft ?舐征??? lastUpdated ??霈?銝????冽???堆???甇?
+        // Sync local draft when remote menu version changes.
         const isGlobalNewer = data.menu.lastUpdated && data.menu.lastUpdated !== lastSyncRef.current;
         const isLocalEmpty = draftItems.length === 0 && data.menu.items && data.menu.items.length > 0 && !menuImage;
 
@@ -272,10 +272,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
 
-        let allItems = []; // ?? 瘥活銝?唳?隞嗆?嚗?皜征?冽??”嚗????畾?
-        let latestStoreInfo = { name: '', address: '', phone: '' }; // ?? 皜征摨振鞈?
+        let allItems = []; // merged OCR items from all uploaded images
+        let latestStoreInfo = { name: '', address: '', phone: '' }; // latest detected store info
         let latestImage = '';
-        let combinedRemark = ''; // ?? 皜征?酉
+        let combinedRemark = ''; // merged OCR remarks
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
@@ -302,7 +302,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setDraftItems(allItems);
             setMenuImage(cloudUrl || latestImage);
             setStoreInfo(latestStoreInfo);
-            setMenuRemark(combinedRemark); // ?? ?郊?湔?酉甈?
+            setMenuRemark(combinedRemark); // keep merged remark text
             showAlert({
                 icon: '✅',
                 title: '掃描完成',
@@ -321,7 +321,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         setIsScanning(false);
         setScanProgress({ current: 0, total: 0 });
         
-        // ?? 憓?撱園??3.5 蝘?蝯?GAS ?游?????嚗?撠??◤???祈???璈?
+        // Short delayed refresh to pull latest data after background writes.
         setTimeout(actions.fetchData, 150);
 
         e.target.value = '';
@@ -352,10 +352,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         if (isActionLoading) return;
         setActionLoadingText(status ? '處理中，正在上架菜單...' : '處理中，正在下架菜單...');
         setIsActionLoading(true);
-        isSyncingRef.current = true; // ?? ??靽風??
+        isSyncingRef.current = true; // avoid sync race while publishing/unpublishing
         try {
         if (!status) {
-            // ... [銝?摩] ...
+            // Unpublish flow
             const today = new Date();
             const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
             const name = storeInfo.name ? storeInfo.name : '未命名店家';
@@ -380,7 +380,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 message: '前台已暫停顯示今日菜單。'
             });
         } else {
-            // ?? 銝?摩嚗????蝛箄???
+            // Publish flow
             if (shouldClearOrders) {
                 await actions.clearOrders(true);
             }
@@ -393,7 +393,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             });
         }
         
-        // ?? ?瑁?摰?嚗辣?脣蝘圾?斗?璅?蝯血?蝡臭?暺神?亦楨銵?
+        // Keep sync lock briefly to prevent flicker from delayed refreshes.
         setTimeout(() => { isSyncingRef.current = false; }, 2000);
         } catch (err) {
             console.error('handlePublish error:', err);
@@ -859,7 +859,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const { showAlert, showConfirm, PopupRenderer: LibPopup } = usePopup();
 
-    const library = [...(data.menuLibrary || [])].reverse(); // ?? ????嚗???唳憓??冽?銝
+    const library = [...(data.menuLibrary || [])].reverse(); // show newest entries first
 
     const filteredLibrary = library.filter(m => {
         if (showFavOnly && !m.isFavorite) return false;
@@ -931,7 +931,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         setIsSaving(true);
         try {
             let finalImageUrl = formImage;
-            // ?? 憒?? Base64嚗誨銵券?閬?銝??Google Drive
+            // Upload Base64 image to Google Drive if needed.
             if (formImage && formImage.startsWith('data:')) {
                 const cloudUrl = await uploadImageToCloud(formImage, `lib_${Date.now()}`);
                 if (cloudUrl) {
@@ -1048,7 +1048,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         });
         const result = await response.json();
         
-        // ?? 銝??券ㄐ throw嚗??澆蝡舀捱摰獐憿舐內
+        // Preserve backend debug fields without throwing.
         return { 
             items: result.items || [], 
             storeInfo: result.storeInfo || {}, 
@@ -1065,9 +1065,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         
         setIsScanning(true);
         setScanProgress({ current: 0, total: files.length });
-        let allItems = []; // ?? 瘥活銝?唳?隞嗆?嚗?皜征?冽??”嚗????畾?
-        let latestStore = { name: '', address: '', phone: '' }; // ?? 皜征摨振鞈?
-        let combinedRemark = ''; // ?? 皜征?酉
+        let allItems = []; // merged OCR items from all uploaded images
+        let latestStore = { name: '', address: '', phone: '' }; // latest detected store info
+        let combinedRemark = ''; // merged OCR remarks
 
         for (let i = 0; i < files.length; i++) {
             setScanProgress({ current: i + 1, total: files.length });
@@ -1079,14 +1079,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                 const img = new Image();
                 await new Promise(r => { img.onload = r; img.src = base64Orig; });
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000; // ?? ?拐葉閫??摨佗??踹?頞? GAS ?
+                const MAX_WIDTH = 1000; // resize to reduce GAS payload size
                 const scale = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scale;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.85); 
-                // ?? ?餅? Data URL ?韌嚗?? Base64
+                // Extract pure base64 payload from Data URL.
                 const pureBase64 = dataUrl.split(',')[1];
 
                 if (i === 0) setFormImage(dataUrl);
@@ -1113,12 +1113,12 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
             }
         }
 
-        // ?? 靽桀儔嚗?亥???雿輻 prev嚗Ⅱ靽?鞈?銝??亙敺
+        // Only replace items when OCR actually returned results.
         if (allItems.length > 0) setFormItems(allItems);
         setFormStoreInfo(latestStore);
         if (latestStore.name && !formName) setFormName(latestStore.name);
         
-        // ?? 靽桀儔嚗?瞈暹?閮箸 JSON 鞈?嚗靽?蝝?摮?閮餃摰?
+        // Trim remark to avoid noisy whitespace and serialization issues.
         const cleanRemark = combinedRemark.trim();
         setFormRemark(cleanRemark);
         setIsScanning(false);
