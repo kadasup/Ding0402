@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -179,6 +179,19 @@ const Home = () => {
                 <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
                     <Lock size={18} /> 
                     <span className="font-bold tracking-widest hidden sm:inline">管理員</span>
+                </Button>
+            </Link>
+
+            {/* Guide Entry */}
+            <Link 
+                to="/guide" 
+                className="hover:scale-105 active:scale-95 transition-all"
+                style={{ position: 'fixed', top: '24px', left: '24px', right: 'auto', zIndex: 99999, opacity: 0.8 }}
+                title="操作說明"
+            >
+                <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2" style={{ backgroundColor: '#FFB84D', color: '#FFF' }}>
+                    <HelpCircle size={18} /> 
+                    <span className="font-bold tracking-widest hidden sm:inline">操作說明</span>
                 </Button>
             </Link>
 
