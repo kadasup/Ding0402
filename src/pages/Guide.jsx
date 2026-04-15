@@ -12,7 +12,7 @@ const Guide = () => {
   return (
     <div className="max-w-3xl mx-auto pb-12">
       {/* Header */}
-      <div className="ac-panel flex items-center justify-between mb-6 shadow-ac">
+      <div className="ac-panel flex items-center justify-between mb-6">
         <h1 className="text-2xl font-black tracking-widest text-ac-brown">
           系統操作說明
         </h1>
@@ -25,7 +25,7 @@ const Guide = () => {
       </div>
 
       {/* General User Section */}
-      <div className="ac-panel mb-8 shadow-ac">
+      <div className="ac-panel mb-8">
         <div className="flex items-center gap-3 mb-6 pb-3 border-b-2 border-ac-gray-200">
           <span className="text-3xl">🧑‍💻</span>
           <h2 className="text-xl font-black text-ac-green tracking-widest">一般使用者</h2>
@@ -64,7 +64,7 @@ const Guide = () => {
       </div>
 
       {/* Admin Section */}
-      <div className="ac-panel mb-8 shadow-ac">
+      <div className="ac-panel mb-8">
         <div className="flex items-center gap-3 mb-6 pb-3 border-b-2 border-ac-gray-200">
           <span className="text-3xl">👑</span>
           <h2 className="text-xl font-black text-ac-red tracking-widest">管理人員 (<span className="text-sm cursor-pointer" onClick={() => navigate('/admin')}>前往後台</span>)</h2>
