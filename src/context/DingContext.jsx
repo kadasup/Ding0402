@@ -30,6 +30,9 @@ const INITIAL_DATA = {
 };
 
 const SYNC_PROTECTION_TIME = 3000;
+const ALL_SECTIONS = ['core', 'orders', 'library', 'history', 'uploadStatus', 'debug'];
+
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
 export const DingProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -50,25 +53,39 @@ export const DingProvider = ({ children }) => {
     return saved;
   });
 
-  const mergeRemoteData = useCallback((prevData, remoteData) => {
+  const mergeRemoteData = useCallback((prevData, remoteData = {}) => {
     const now = Date.now();
+    const hasMenu = hasOwn(remoteData, 'menu');
+    const hasOrders = hasOwn(remoteData, 'orders');
+    const hasMembers = hasOwn(remoteData, 'members');
+    const hasLibrary = hasOwn(remoteData, 'menuLibrary');
+    const hasHistory = hasOwn(remoteData, 'menuHistory');
+    const hasAnnouncement = hasOwn(remoteData, 'announcement');
+    const hasUploadStatus = hasOwn(remoteData, 'lastUploadStatus');
+    const hasDebugSheets = hasOwn(remoteData, 'debugSheets');
+
     const json = {
-      ...INITIAL_DATA,
-      ...remoteData,
-      menu: {
-        ...INITIAL_DATA.menu,
-        ...(remoteData?.menu || {}),
-      },
-      orders: remoteData?.orders || [],
-      members: remoteData?.members || [],
-      menuLibrary: remoteData?.menuLibrary || [],
-      menuHistory: remoteData?.menuHistory || [],
+      ...prevData,
+      ...(hasMembers ? { members: remoteData.members || [] } : {}),
+      ...(hasOrders ? { orders: remoteData.orders || [] } : {}),
+      ...(hasLibrary ? { menuLibrary: remoteData.menuLibrary || [] } : {}),
+      ...(hasHistory ? { menuHistory: remoteData.menuHistory || [] } : {}),
+      ...(hasAnnouncement ? { announcement: remoteData.announcement || '' } : {}),
+      ...(hasUploadStatus ? { lastUploadStatus: remoteData.lastUploadStatus || null } : {}),
+      ...(hasDebugSheets ? { debugSheets: remoteData.debugSheets || [] } : {}),
+      menu: hasMenu
+        ? {
+            ...INITIAL_DATA.menu,
+            ...(prevData?.menu || {}),
+            ...(remoteData?.menu || {}),
+          }
+        : (prevData?.menu || INITIAL_DATA.menu),
     };
 
     let finalMenu = json.menu;
-    if (now - lastMenuUpdate.current < SYNC_PROTECTION_TIME) {
-      const localMenu = prevData.menu;
-      const remoteMenu = json.menu;
+    if (hasMenu && now - lastMenuUpdate.current < SYNC_PROTECTION_TIME) {
+      const localMenu = prevData.menu || INITIAL_DATA.menu;
+      const remoteMenu = json.menu || INITIAL_DATA.menu;
 
       if (remoteMenu.lastUpdated !== localMenu.lastUpdated || remoteMenu.posted !== localMenu.posted) {
         finalMenu = {
@@ -81,22 +98,23 @@ export const DingProvider = ({ children }) => {
       }
     }
 
-    let finalOrders = json.orders;
-    if (now - lastOrderUpdate.current < SYNC_PROTECTION_TIME) {
-      finalOrders = prevData.orders;
+    let finalOrders = json.orders || [];
+    if (!hasOrders || now - lastOrderUpdate.current < SYNC_PROTECTION_TIME) {
+      finalOrders = prevData.orders || [];
     }
 
-    let finalLibrary = json.menuLibrary;
-    if (now - lastLibraryUpdate.current < SYNC_PROTECTION_TIME) {
-      finalLibrary = prevData.menuLibrary;
+    let finalLibrary = json.menuLibrary || [];
+    if (!hasLibrary || now - lastLibraryUpdate.current < SYNC_PROTECTION_TIME) {
+      finalLibrary = prevData.menuLibrary || [];
     }
 
-    let finalHistory = json.menuHistory;
-    if (now - lastHistoryUpdate.current < SYNC_PROTECTION_TIME) {
-      finalHistory = prevData.menuHistory;
+    let finalHistory = json.menuHistory || [];
+    if (!hasHistory || now - lastHistoryUpdate.current < SYNC_PROTECTION_TIME) {
+      finalHistory = prevData.menuHistory || [];
     }
 
     return {
+      ...INITIAL_DATA,
       ...json,
       menu: finalMenu,
       orders: finalOrders,
@@ -105,12 +123,20 @@ export const DingProvider = ({ children }) => {
     };
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (sections = ALL_SECTIONS, options = {}) => {
     if (!gasUrl) return null;
 
-    setLoading(true);
+    const sectionList = Array.isArray(sections) && sections.length ? sections : ALL_SECTIONS;
+    const params = new URLSearchParams();
+    params.set('sections', sectionList.join(','));
+    params.set('t', Date.now().toString());
+    const shouldShowLoading = options.silent !== true;
+
+    if (shouldShowLoading) {
+      setLoading(true);
+    }
     try {
-      const res = await fetch(`${gasUrl}?t=${Date.now()}`, { cache: 'no-store' });
+      const res = await fetch(`${gasUrl}?${params.toString()}`, { cache: 'no-store' });
       const json = await res.json();
       setData(prevData => mergeRemoteData(prevData, json));
       return json;
@@ -118,18 +144,20 @@ export const DingProvider = ({ children }) => {
       console.error('Fetch Data Error:', err);
       return null;
     } finally {
-      setLoading(false);
+      if (shouldShowLoading) {
+        setLoading(false);
+      }
     }
   }, [gasUrl, mergeRemoteData]);
 
-  const scheduleRefresh = useCallback((delay = 150) => {
+  const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
       clearTimeout(refreshTimer.current);
     }
 
     refreshTimer.current = setTimeout(() => {
       refreshTimer.current = null;
-      void fetchData();
+      void fetchData(sections, { silent: true });
     }, delay);
   }, [fetchData]);
 
@@ -157,7 +185,7 @@ export const DingProvider = ({ children }) => {
       })
         .then(() => {
           if (options.refresh !== false) {
-            scheduleRefresh(options.refreshDelay ?? 600);
+            scheduleRefresh(options.refreshDelay ?? 600, options.refreshSections || ALL_SECTIONS);
           }
         })
         .catch(() => {
@@ -168,7 +196,7 @@ export const DingProvider = ({ children }) => {
           })
             .then(() => {
               if (options.refresh !== false) {
-                scheduleRefresh(options.refreshDelay ?? 800);
+                scheduleRefresh(options.refreshDelay ?? 800, options.refreshSections || ALL_SECTIONS);
               }
             })
             .catch((retryErr) => {
@@ -194,7 +222,7 @@ export const DingProvider = ({ children }) => {
       }
 
       if (options.refresh !== false) {
-        scheduleRefresh(options.refreshDelay ?? 150);
+        scheduleRefresh(options.refreshDelay ?? 150, options.refreshSections || ALL_SECTIONS);
       }
 
       return responseData;
@@ -208,7 +236,7 @@ export const DingProvider = ({ children }) => {
           body: requestBody,
         });
         if (options.refresh !== false) {
-          scheduleRefresh(options.refreshDelay ?? 350);
+          scheduleRefresh(options.refreshDelay ?? 350, options.refreshSections || ALL_SECTIONS);
         }
         return { opaque: true };
       } catch (retryErr) {
@@ -226,7 +254,7 @@ export const DingProvider = ({ children }) => {
     loginAdmin: () => setUser({ name: 'Admin', role: 'admin' }),
     loginMember: (name) => setUser(name ? { name, role: 'member' } : null),
     logout: () => setUser(null),
-    fetchData: () => fetchData(),
+    fetchData: (sections, options) => fetchData(sections, options),
     addMember: (name) => {
       const nextName = String(name || '').trim();
       if (!nextName) return;
@@ -235,11 +263,11 @@ export const DingProvider = ({ children }) => {
         if (prev.members.includes(nextName)) return prev;
         return { ...prev, members: [...prev.members, nextName] };
       });
-      void callGAS('addMember', { name: nextName });
+      void callGAS('addMember', { name: nextName }, { refreshSections: ['members'] });
     },
     removeMember: (name) => {
       setData(prev => ({ ...prev, members: prev.members.filter(m => m !== name) }));
-      void callGAS('removeMember', { name });
+      void callGAS('removeMember', { name }, { refreshSections: ['members'] });
     },
     updateMember: (oldName, newName) => {
       const nextName = String(newName || '').trim();
@@ -250,7 +278,7 @@ export const DingProvider = ({ children }) => {
         members: prev.members.map(m => m === oldName ? nextName : m),
         orders: prev.orders.map(order => order.member === oldName ? { ...order, member: nextName } : order),
       }));
-      void callGAS('updateMember', { oldName, newName: nextName });
+      void callGAS('updateMember', { oldName, newName: nextName }, { refreshSections: ['members', 'orders'] });
     },
     updateMenu: async (items, posted, closingTime, image, storeInfo, remark, keepVersion = true, fastMode = false) => {
       const nowStr = keepVersion && data.menu.lastUpdated ? data.menu.lastUpdated : Date.now().toString();
@@ -270,19 +298,19 @@ export const DingProvider = ({ children }) => {
 
       setData(prev => ({ ...prev, menu: newMenu }));
       if (fastMode) {
-        void callGAS('updateMenu', newMenu, { fireAndForget: true, refreshDelay: 600 });
+        void callGAS('updateMenu', newMenu, { fireAndForget: true, refreshDelay: 600, refreshSections: ['menu'] });
         return;
       }
-      await callGAS('updateMenu', newMenu);
+      await callGAS('updateMenu', newMenu, { refreshSections: ['menu'] });
     },
     addMenuHistory: (name, items, image, storeInfo, remark = '') => {
       lastHistoryUpdate.current = Date.now();
-      void callGAS('addMenuHistory', { name, items, image, storeInfo, remark });
+      void callGAS('addMenuHistory', { name, items, image, storeInfo, remark }, { refreshSections: ['history'] });
     },
     deleteMenuHistory: (id) => {
       lastHistoryUpdate.current = Date.now();
       setData(prev => ({ ...prev, menuHistory: prev.menuHistory.filter(h => h.id !== id) }));
-      void callGAS('deleteMenuHistory', { id });
+      void callGAS('deleteMenuHistory', { id }, { refreshSections: ['history'] });
     },
     clearOrders: async (fastMode = false) => {
       lastOrderUpdate.current = Date.now();
@@ -292,10 +320,10 @@ export const DingProvider = ({ children }) => {
         menuId: data.menu.lastUpdated || '',
       };
       if (fastMode) {
-        void callGAS('clearTodayOrders', payload, { fireAndForget: true, refreshDelay: 600 });
+        void callGAS('clearTodayOrders', payload, { fireAndForget: true, refreshDelay: 600, refreshSections: ['orders'] });
         return;
       }
-      await callGAS('clearTodayOrders', payload);
+      await callGAS('clearTodayOrders', payload, { refreshSections: ['orders'] });
     },
     placeOrder: (member, items) => {
       lastOrderUpdate.current = Date.now();
@@ -312,19 +340,19 @@ export const DingProvider = ({ children }) => {
       };
 
       setData(prev => ({ ...prev, orders: [...prev.orders, newOrder] }));
-      void callGAS('addOrder', { member, items, total, orderId, menuId });
+      void callGAS('addOrder', { member, items, total, orderId, menuId }, { refreshSections: ['orders'] });
     },
     deleteOrder: (id) => {
       lastOrderUpdate.current = Date.now();
       setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== id) }));
-      void callGAS('removeOrder', { orderId: id });
+      void callGAS('removeOrder', { orderId: id }, { refreshSections: ['orders'] });
     },
     addMenuLibrary: (item) => {
       lastLibraryUpdate.current = Date.now();
       const tempId = item.id || `lib_${Date.now()}`;
       const newItem = { ...item, id: tempId };
       setData(prev => ({ ...prev, menuLibrary: [...prev.menuLibrary, newItem] }));
-      void callGAS('addMenuLibrary', newItem);
+      void callGAS('addMenuLibrary', newItem, { refreshSections: ['library'] });
     },
     updateMenuLibrary: (id, updates) => {
       lastLibraryUpdate.current = Date.now();
@@ -332,12 +360,12 @@ export const DingProvider = ({ children }) => {
         ...prev,
         menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, ...updates } : m),
       }));
-      void callGAS('updateMenuLibrary', { id, ...updates });
+      void callGAS('updateMenuLibrary', { id, ...updates }, { refreshSections: ['library'] });
     },
     deleteMenuLibrary: (id) => {
       lastLibraryUpdate.current = Date.now();
       setData(prev => ({ ...prev, menuLibrary: prev.menuLibrary.filter(m => m.id !== id) }));
-      void callGAS('deleteMenuLibrary', { id });
+      void callGAS('deleteMenuLibrary', { id }, { refreshSections: ['library'] });
     },
     toggleFavorite: (id) => {
       lastLibraryUpdate.current = Date.now();
@@ -345,7 +373,7 @@ export const DingProvider = ({ children }) => {
         ...prev,
         menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, isFavorite: !m.isFavorite } : m),
       }));
-      void callGAS('toggleFavorite', { id });
+      void callGAS('toggleFavorite', { id }, { refreshSections: ['library'] });
     },
     updateAnnouncement: async (text) => {
       const nextText = String(text ?? '');
@@ -363,7 +391,7 @@ export const DingProvider = ({ children }) => {
 
       // Keep verification in background; do not block user feedback.
       setTimeout(() => {
-        void fetchData();
+        void fetchData(['announcement'], { silent: true });
       }, 300);
 
       return {
@@ -378,7 +406,7 @@ export const DingProvider = ({ children }) => {
       if (uploadRes?.url) return uploadRes;
 
       await new Promise(resolve => setTimeout(resolve, 700));
-      const latest = await fetchData();
+      const latest = await fetchData(['uploadStatus'], { silent: true });
       const lastUpload = latest?.lastUploadStatus;
       if (lastUpload && lastUpload.ok && (!name || lastUpload.name === name)) {
         return {
@@ -392,7 +420,7 @@ export const DingProvider = ({ children }) => {
       return uploadRes;
     },
     ocrMenu: async (image) => {
-      return callGAS('ocrMenu', { image });
+      return callGAS('ocrMenu', { image }, { refresh: false });
     },
   }), [callGAS, data.announcement, data.menu.lastUpdated, fetchData]);
 

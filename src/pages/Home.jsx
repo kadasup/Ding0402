@@ -192,7 +192,7 @@ const Home = () => {
                 <div className="bg-[#F9E076] px-6 py-3 sm:px-12 sm:py-4 rounded-[2.5rem] sm:rounded-[3rem] transform -rotate-2 border-[4px] sm:border-[6px] border-white shadow-xl z-10 flex items-center gap-3 sm:gap-6 relative max-w-[calc(100vw-2rem)]">
 
                     {/* Left Leaf */}
-                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce shrink-0" alt="leaf" />
+                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce shrink-0" alt="leaf" loading="lazy" decoding="async" />
 
                     <div className="flex flex-col items-center leading-none">
                         <h1 className="text-3xl sm:text-5xl font-black text-[#7C6044] tracking-widest drop-shadow-sm -mb-1 sm:-mb-2 whitespace-nowrap">
@@ -204,7 +204,7 @@ const Home = () => {
                     </div>
 
                     {/* Right Leaf */}
-                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce icon-flip shrink-0" alt="leaf" />
+                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce icon-flip shrink-0" alt="leaf" loading="lazy" decoding="async" />
                 </div>
             </div>
 

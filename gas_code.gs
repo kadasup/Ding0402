@@ -4,7 +4,22 @@
  */
 
 function doGet(e) {
-  return handleResponse(getData());
+  var params = (e && e.parameter) ? e.parameter : {};
+  var sectionParam = params.sections || params.section || "";
+  if (!sectionParam) {
+    return handleResponse(getData());
+  }
+
+  var sections = String(sectionParam)
+    .split(",")
+    .map(function (s) { return String(s || "").trim().toLowerCase(); })
+    .filter(Boolean);
+
+  if (!sections.length) {
+    return handleResponse(getData());
+  }
+
+  return handleResponse(getDataSections(sections));
 }
 
 function doPost(e) {
@@ -256,29 +271,64 @@ function doPost(e) {
 }
 
 function getData() {
-  var currentMenu = getWorksheetObject("Settings", "current_menu") || {
-    posted: false,
-    items: [],
-    closingTime: "",
-    image: "",
-    storeInfo: {},
-    remark: "",
-    lastUpdated: "0"
+  return getDataSections(["all"]);
+}
+
+function getDataSections(sections) {
+  var include = {};
+  for (var i = 0; i < sections.length; i++) {
+    include[String(sections[i] || "").toLowerCase()] = true;
+  }
+
+  var includeAll = include.all === true;
+  var includeCore = include.core === true;
+  var result = {
+    sysVersion: "3.3-Stable"
   };
 
-  if (!currentMenu.lastUpdated) currentMenu.lastUpdated = "0";
+  if (includeAll || includeCore || include.menu) {
+    var currentMenu = getWorksheetObject("Settings", "current_menu") || {
+      posted: false,
+      items: [],
+      closingTime: "",
+      image: "",
+      storeInfo: {},
+      remark: "",
+      lastUpdated: "0"
+    };
+    if (!currentMenu.lastUpdated) currentMenu.lastUpdated = "0";
+    result.menu = currentMenu;
+  }
 
-  return {
-    sysVersion: "3.3-Stable",
-    menu: currentMenu,
-    orders: getOrdersData(),
-    members: getMembersList(),
-    announcement: getWorksheetObject("Settings", "announcement") || "歡迎使用自由543訂便當系統！",
-    menuLibrary: getLibraryList(),
-    menuHistory: getHistoryList(),
-    lastUploadStatus: getWorksheetObject("System", "last_upload_status") || null,
-    debugSheets: SpreadsheetApp.getActiveSpreadsheet().getSheets().map(function (s) { return s.getName(); })
-  };
+  if (includeAll || includeCore || include.members) {
+    result.members = getMembersList();
+  }
+
+  if (includeAll || includeCore || include.announcement) {
+    result.announcement = getWorksheetObject("Settings", "announcement") || "歡迎使用自由543訂便當系統！";
+  }
+
+  if (includeAll || include.orders) {
+    result.orders = getOrdersData();
+  }
+
+  if (includeAll || include.library || include.menulibrary) {
+    result.menuLibrary = getLibraryList();
+  }
+
+  if (includeAll || include.history || include.menuhistory) {
+    result.menuHistory = getHistoryList();
+  }
+
+  if (includeAll || include.uploadstatus || include.lastuploadstatus) {
+    result.lastUploadStatus = getWorksheetObject("System", "last_upload_status") || null;
+  }
+
+  if (includeAll || include.debug || include.debugsheets) {
+    result.debugSheets = SpreadsheetApp.getActiveSpreadsheet().getSheets().map(function (s) { return s.getName(); });
+  }
+
+  return result;
 }
 
 function getLibraryList() {

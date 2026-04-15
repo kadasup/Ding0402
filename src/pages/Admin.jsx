@@ -164,6 +164,8 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [actionLoadingText, setActionLoadingText] = useState('處理中，請稍候...');
+    const [historyPage, setHistoryPage] = useState(1);
+    const HISTORY_PAGE_SIZE = 12;
     
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
@@ -204,6 +206,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             lastSyncRef.current = data.menu.lastUpdated;
         }
     }, [data.menu.lastUpdated, hasInitialized, data.menu.items, data.menu.image]);
+
+    useEffect(() => {
+        setHistoryPage(1);
+    }, [showHistory, data.menuHistory?.length]);
 
 
 
@@ -467,6 +473,11 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         setClosingTime(`${newDate} ${newTime}`);
     };
 
+    const sortedHistory = [...(data.menuHistory || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
+    const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
+    const pagedHistory = sortedHistory.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE);
+
     return (
         <div className="flex flex-col gap-6 p-4">
             {/* Store Information Config (Read-only) */}
@@ -505,6 +516,8 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             src={menuImage} 
                             className="w-full h-auto object-contain max-h-[600px] rounded shadow-sm" 
                             alt="Original Menu"
+                            loading="lazy"
+                            decoding="async"
                             onClick={() => window.open(menuImage, '_blank')}
                             style={{ cursor: 'zoom-in' }}
                         />
@@ -729,12 +742,10 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                 {showHistory && (
                     <div className="bg-gray-50 p-4 rounded-xl mt-2 border border-dashed border-gray-300 animate-slide-up">
                         <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-                            {(data.menuHistory || []).length === 0 ? (
+                            {sortedHistory.length === 0 ? (
                                 <div className="text-center text-gray-400 text-sm py-8">目前沒有歷史菜單</div>
                             ) : (
-                                [...(data.menuHistory || [])]
-                                    .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-                                    .map(hist => (
+                                pagedHistory.map(hist => (
                                         <div key={hist.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
                                             <div className="min-w-0">
                                                 <div className="font-bold text-ac-brown truncate">{hist.name || '未命名菜單'}</div>
@@ -756,6 +767,29 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                                     ))
                             )}
                         </div>
+                        {totalHistoryPages > 1 && (
+                            <div className="mt-3 flex items-center justify-end gap-2">
+                                <Button
+                                    variant="secondary"
+                                    className="text-xs px-3 py-1 h-8"
+                                    disabled={safeHistoryPage <= 1}
+                                    onClick={() => setHistoryPage(p => Math.max(1, p - 1))}
+                                >
+                                    上一頁
+                                </Button>
+                                <span className="text-xs font-bold text-gray-500">
+                                    第 {safeHistoryPage} / {totalHistoryPages} 頁
+                                </span>
+                                <Button
+                                    variant="secondary"
+                                    className="text-xs px-3 py-1 h-8"
+                                    disabled={safeHistoryPage >= totalHistoryPages}
+                                    onClick={() => setHistoryPage(p => Math.min(totalHistoryPages, p + 1))}
+                                >
+                                    下一頁
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
@@ -771,6 +805,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [libraryPage, setLibraryPage] = useState(1);
     const [isLoadingToDaily, setIsLoadingToDaily] = useState(false);
     const [loadingDailyName, setLoadingDailyName] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
@@ -838,6 +873,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         }
         return true;
     });
+    const LIBRARY_PAGE_SIZE = 12;
+    const totalLibraryPages = Math.max(1, Math.ceil(filteredLibrary.length / LIBRARY_PAGE_SIZE));
+    const safeLibraryPage = Math.min(libraryPage, totalLibraryPages);
+    const pagedLibrary = filteredLibrary.slice((safeLibraryPage - 1) * LIBRARY_PAGE_SIZE, safeLibraryPage * LIBRARY_PAGE_SIZE);
+
+    useEffect(() => {
+        setLibraryPage(1);
+    }, [searchTerm, filterCategory, showFavOnly, data.menuLibrary?.length]);
 
     const resetForm = () => {
         setFormName(''); setFormCategory('chinese');
@@ -1209,6 +1252,8 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                         src={formImage} 
                                         className="rounded-2xl shadow-lg border-4 border-white ring-1 ring-gray-100 object-contain mx-auto" 
                                         style={{ maxHeight: '300px', maxWidth: '100%' }}
+                                        loading="lazy"
+                                        decoding="async"
                                     />
                                    <button 
                                         onClick={() => setFormImage('')} 
@@ -1409,7 +1454,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                         {library.length === 0 ? '目前沒有菜單庫資料，先新增第一筆吧。' : '沒有符合條件的菜單。'}
                     </div>
                 )}
-                {filteredLibrary.map(menu => (
+                {pagedLibrary.map(menu => (
                     <div key={menu.id} className="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
                         {/* Info section */}
                         <div style={{ padding: '16px' }}>
@@ -1470,6 +1515,29 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                     </div>
                 ))}
             </div>
+            {totalLibraryPages > 1 && (
+                <div className="flex items-center justify-end gap-2">
+                    <Button
+                        variant="secondary"
+                        className="text-xs px-3 py-1 h-8"
+                        disabled={safeLibraryPage <= 1}
+                        onClick={() => setLibraryPage(p => Math.max(1, p - 1))}
+                    >
+                        上一頁
+                    </Button>
+                    <span className="text-xs font-bold text-gray-500">
+                        第 {safeLibraryPage} / {totalLibraryPages} 頁
+                    </span>
+                    <Button
+                        variant="secondary"
+                        className="text-xs px-3 py-1 h-8"
+                        disabled={safeLibraryPage >= totalLibraryPages}
+                        onClick={() => setLibraryPage(p => Math.min(totalLibraryPages, p + 1))}
+                    >
+                        下一頁
+                    </Button>
+                </div>
+            )}
             <LibPopup />
         </div>
     );
@@ -1635,7 +1703,7 @@ const StatsManager = ({ data }) => {
                     <div className="text-sm opacity-90">訂單數</div>
                 </div>
                 <div className="flex-1 bg-ac-orange text-white p-4 rounded-2xl shadow-md text-center relative overflow-hidden">
-                    <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" />
+                    <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" loading="lazy" decoding="async" />
                     <div className="text-3xl font-bold relative z-10">${total}</div>
                     <div className="text-sm opacity-90 relative z-10">總金額</div>
                 </div>
