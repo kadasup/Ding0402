@@ -31,6 +31,8 @@ const INITIAL_DATA = {
 
 const SYNC_PROTECTION_TIME = 3000;
 const ALL_SECTIONS = ['core', 'orders', 'library', 'history', 'uploadStatus', 'debug'];
+const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_RETRIES = 1;
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
@@ -38,6 +40,9 @@ export const DingProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [statusText, setStatusText] = useState('');
+  const [toast, setToast] = useState(null);
 
   const lastMenuUpdate = useRef(0);
   const pendingMenuState = useRef(null);
@@ -45,6 +50,9 @@ export const DingProvider = ({ children }) => {
   const lastLibraryUpdate = useRef(0);
   const lastHistoryUpdate = useRef(0);
   const refreshTimer = useRef(null);
+  const dedupeInFlight = useRef(new Set());
+  const activeRequestCount = useRef(0);
+  const toastTimer = useRef(null);
 
   const envGasUrl = import.meta.env.VITE_GAS_URL || '';
   const [gasUrl, setGasUrl] = useState(() => {
@@ -52,6 +60,48 @@ export const DingProvider = ({ children }) => {
     if (!saved || saved === 'null' || saved === 'undefined' || saved === '') return envGasUrl;
     return saved;
   });
+
+  const beginPending = useCallback((label = '處理中，請稍候...') => {
+    activeRequestCount.current += 1;
+    setPendingCount(activeRequestCount.current);
+    if (label) setStatusText(label);
+  }, []);
+
+  const endPending = useCallback(() => {
+    activeRequestCount.current = Math.max(0, activeRequestCount.current - 1);
+    setPendingCount(activeRequestCount.current);
+    if (activeRequestCount.current === 0) {
+      setStatusText('');
+    }
+  }, []);
+
+  const pushToast = useCallback((type, message, duration = 2200) => {
+    if (!message) return;
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ id: `${Date.now()}_${Math.random()}`, type, message });
+    toastTimer.current = setTimeout(() => {
+      setToast(null);
+      toastTimer.current = null;
+    }, duration);
+  }, []);
+
+  const clearToast = useCallback(() => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+      toastTimer.current = null;
+    }
+    setToast(null);
+  }, []);
+
+  const fetchWithTimeout = useCallback(async (url, init = {}, timeoutMs = REQUEST_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }, []);
 
   const mergeRemoteData = useCallback((prevData, remoteData = {}) => {
     const now = Date.now();
@@ -131,24 +181,45 @@ export const DingProvider = ({ children }) => {
     params.set('sections', sectionList.join(','));
     params.set('t', Date.now().toString());
     const shouldShowLoading = options.silent !== true;
+    const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+    const retries = options.retries ?? REQUEST_RETRIES;
+    const label = options.label ?? '資料載入中...';
 
     if (shouldShowLoading) {
       setLoading(true);
+      beginPending(label);
     }
     try {
-      const res = await fetch(`${gasUrl}?${params.toString()}`, { cache: 'no-store' });
+      let lastErr = null;
+      let res = null;
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          res = await fetchWithTimeout(`${gasUrl}?${params.toString()}`, { cache: 'no-store' }, timeoutMs);
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, 200 * (attempt + 1)));
+          }
+        }
+      }
+      if (!res) throw lastErr || new Error('Fetch failed');
       const json = await res.json();
       setData(prevData => mergeRemoteData(prevData, json));
       return json;
     } catch (err) {
       console.error('Fetch Data Error:', err);
+      if (shouldShowLoading) {
+        pushToast('error', err?.name === 'AbortError' ? '讀取逾時，請稍後再試。' : '讀取資料失敗，請稍後再試。');
+      }
       return null;
     } finally {
       if (shouldShowLoading) {
         setLoading(false);
+        endPending();
       }
     }
-  }, [gasUrl, mergeRemoteData]);
+  }, [beginPending, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast]);
 
   const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
@@ -171,80 +242,135 @@ export const DingProvider = ({ children }) => {
       if (refreshTimer.current) {
         clearTimeout(refreshTimer.current);
       }
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
     };
   }, []);
 
   const callGAS = useCallback(async (action, payload = {}, options = {}) => {
-    if (!gasUrl) return null;
+    if (!gasUrl) return { error: '未設定 Web App URL' };
+
+    const {
+      fireAndForget = false,
+      refresh = true,
+      refreshDelay,
+      refreshSections = ALL_SECTIONS,
+      timeoutMs = REQUEST_TIMEOUT_MS,
+      retries = REQUEST_RETRIES,
+      label = '處理中，請稍候...',
+      silent = true,
+      dedupeKey = '',
+      successToast = '',
+      errorToast = true,
+    } = options;
+
+    if (dedupeKey && dedupeInFlight.current.has(dedupeKey)) {
+      return { skippedDuplicate: true };
+    }
+    if (dedupeKey) {
+      dedupeInFlight.current.add(dedupeKey);
+    }
+    if (!silent) {
+      beginPending(label);
+    }
 
     const requestBody = JSON.stringify({ action, ...payload, _t: Date.now() });
-    if (options.fireAndForget) {
-      fetch(gasUrl, {
-        method: 'POST',
-        body: requestBody,
-      })
-        .then(() => {
-          if (options.refresh !== false) {
-            scheduleRefresh(options.refreshDelay ?? 600, options.refreshSections || ALL_SECTIONS);
-          }
-        })
-        .catch(() => {
-          fetch(gasUrl, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: requestBody,
-          })
-            .then(() => {
-              if (options.refresh !== false) {
-                scheduleRefresh(options.refreshDelay ?? 800, options.refreshSections || ALL_SECTIONS);
+
+    const runCorsRequest = async () => {
+      const res = await fetchWithTimeout(gasUrl, { method: 'POST', body: requestBody }, timeoutMs);
+      const responseText = await res.text();
+      if (!responseText) return null;
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error(`Invalid GAS response: ${parseError?.message || 'parse failed'}`);
+      }
+    };
+
+    const runNoCorsFallback = async () => {
+      await fetchWithTimeout(gasUrl, { method: 'POST', mode: 'no-cors', body: requestBody }, timeoutMs);
+      return { opaque: true };
+    };
+
+    const finalize = () => {
+      if (!silent) endPending();
+      if (dedupeKey) dedupeInFlight.current.delete(dedupeKey);
+    };
+
+    const applyPostRefresh = () => {
+      if (refresh !== false) {
+        scheduleRefresh(refreshDelay ?? 150, refreshSections);
+      }
+    };
+
+    if (fireAndForget) {
+      void (async () => {
+        let wrote = false;
+        try {
+          for (let attempt = 0; attempt <= retries; attempt += 1) {
+            try {
+              await runCorsRequest();
+              wrote = true;
+              break;
+            } catch {
+              if (attempt < retries) {
+                await new Promise(resolve => setTimeout(resolve, 220 * (attempt + 1)));
               }
-            })
-            .catch((retryErr) => {
-              console.error('GAS Action Error:', retryErr);
-            });
-        });
+            }
+          }
+          if (!wrote) {
+            await runNoCorsFallback();
+            wrote = true;
+          }
+          applyPostRefresh();
+          if (successToast) pushToast('success', successToast);
+        } catch (err) {
+          console.error('GAS Action Error:', err);
+          if (errorToast) {
+            pushToast('error', '操作失敗，請稍後再試。');
+          }
+        } finally {
+          finalize();
+        }
+      })();
       return { queued: true };
     }
 
+    let lastErr = null;
     try {
-      const res = await fetch(gasUrl, {
-        method: 'POST',
-        body: requestBody,
-      });
-
-      const responseText = await res.text();
-      let responseData = null;
-      try {
-        responseData = responseText ? JSON.parse(responseText) : null;
-      } catch (parseError) {
-        console.error('GAS Response Parse Error:', parseError, responseText);
-        return { error: 'Invalid GAS response', raw: responseText };
-      }
-
-      if (options.refresh !== false) {
-        scheduleRefresh(options.refreshDelay ?? 150, options.refreshSections || ALL_SECTIONS);
-      }
-
-      return responseData;
-    } catch (err) {
-      // CORS can block reading the response even when GAS still receives the POST.
-      // Retry with no-cors so write actions still go through in strict browser environments.
-      try {
-        await fetch(gasUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          body: requestBody,
-        });
-        if (options.refresh !== false) {
-          scheduleRefresh(options.refreshDelay ?? 350, options.refreshSections || ALL_SECTIONS);
+      for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+          const responseData = await runCorsRequest();
+          applyPostRefresh();
+          if (successToast) pushToast('success', successToast);
+          return responseData;
+        } catch (err) {
+          lastErr = err;
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, 220 * (attempt + 1)));
+          }
         }
-        return { opaque: true };
-      } catch (retryErr) {
-        console.error('GAS Action Error:', retryErr);
-        return null;
       }
+
+      const fallbackResponse = await runNoCorsFallback();
+      applyPostRefresh();
+      if (successToast) pushToast('success', successToast);
+      return fallbackResponse;
+    } catch (err) {
+      lastErr = err || lastErr;
+      console.error('GAS Action Error:', lastErr);
+      const message = lastErr?.name === 'AbortError'
+        ? '操作逾時，請稍後再試。'
+        : '操作失敗，請檢查網路或稍後再試。';
+      if (errorToast) {
+        pushToast('error', message);
+      }
+      return { error: message, detail: lastErr?.message || '' };
+    } finally {
+      finalize();
     }
-  }, [gasUrl, scheduleRefresh]);
+  }, [beginPending, endPending, fetchWithTimeout, gasUrl, pushToast, scheduleRefresh]);
 
   const actions = useMemo(() => ({
     updateGasUrl: (url) => {
@@ -263,11 +389,19 @@ export const DingProvider = ({ children }) => {
         if (prev.members.includes(nextName)) return prev;
         return { ...prev, members: [...prev.members, nextName] };
       });
-      void callGAS('addMember', { name: nextName }, { refreshSections: ['members'] });
+      void callGAS('addMember', { name: nextName }, {
+        refreshSections: ['members'],
+        label: '新增成員中...',
+        dedupeKey: `member:add:${nextName}`,
+      });
     },
     removeMember: (name) => {
       setData(prev => ({ ...prev, members: prev.members.filter(m => m !== name) }));
-      void callGAS('removeMember', { name }, { refreshSections: ['members'] });
+      void callGAS('removeMember', { name }, {
+        refreshSections: ['members'],
+        label: '刪除成員中...',
+        dedupeKey: `member:remove:${name}`,
+      });
     },
     updateMember: (oldName, newName) => {
       const nextName = String(newName || '').trim();
@@ -278,7 +412,11 @@ export const DingProvider = ({ children }) => {
         members: prev.members.map(m => m === oldName ? nextName : m),
         orders: prev.orders.map(order => order.member === oldName ? { ...order, member: nextName } : order),
       }));
-      void callGAS('updateMember', { oldName, newName: nextName }, { refreshSections: ['members', 'orders'] });
+      void callGAS('updateMember', { oldName, newName: nextName }, {
+        refreshSections: ['members', 'orders'],
+        label: '更新成員中...',
+        dedupeKey: `member:update:${oldName}:${nextName}`,
+      });
     },
     updateMenu: async (items, posted, closingTime, image, storeInfo, remark, keepVersion = true, fastMode = false) => {
       const nowStr = keepVersion && data.menu.lastUpdated ? data.menu.lastUpdated : Date.now().toString();
@@ -298,19 +436,40 @@ export const DingProvider = ({ children }) => {
 
       setData(prev => ({ ...prev, menu: newMenu }));
       if (fastMode) {
-        void callGAS('updateMenu', newMenu, { fireAndForget: true, refreshDelay: 600, refreshSections: ['menu'] });
+        void callGAS('updateMenu', newMenu, {
+          fireAndForget: true,
+          refreshDelay: 600,
+          refreshSections: ['menu'],
+          silent: true,
+          dedupeKey: `menu:update:fast:${posted ? 'posted' : 'draft'}`,
+        });
         return;
       }
-      await callGAS('updateMenu', newMenu, { refreshSections: ['menu'] });
+      await callGAS('updateMenu', newMenu, {
+        refreshSections: ['menu'],
+        label: posted ? '上架中...' : '儲存菜單中...',
+        dedupeKey: `menu:update:${posted ? 'posted' : 'draft'}`,
+      });
     },
     addMenuHistory: (name, items, image, storeInfo, remark = '') => {
       lastHistoryUpdate.current = Date.now();
-      void callGAS('addMenuHistory', { name, items, image, storeInfo, remark }, { refreshSections: ['history'] });
+      void callGAS('addMenuHistory', { name, items, image, storeInfo, remark }, {
+        fireAndForget: true,
+        silent: true,
+        refreshSections: ['history'],
+        refreshDelay: 700,
+        errorToast: false,
+        dedupeKey: `history:add:${name}`,
+      });
     },
     deleteMenuHistory: (id) => {
       lastHistoryUpdate.current = Date.now();
       setData(prev => ({ ...prev, menuHistory: prev.menuHistory.filter(h => h.id !== id) }));
-      void callGAS('deleteMenuHistory', { id }, { refreshSections: ['history'] });
+      void callGAS('deleteMenuHistory', { id }, {
+        refreshSections: ['history'],
+        label: '刪除歷史菜單中...',
+        dedupeKey: `history:delete:${id}`,
+      });
     },
     clearOrders: async (fastMode = false) => {
       lastOrderUpdate.current = Date.now();
@@ -320,10 +479,20 @@ export const DingProvider = ({ children }) => {
         menuId: data.menu.lastUpdated || '',
       };
       if (fastMode) {
-        void callGAS('clearTodayOrders', payload, { fireAndForget: true, refreshDelay: 600, refreshSections: ['orders'] });
+        void callGAS('clearTodayOrders', payload, {
+          fireAndForget: true,
+          refreshDelay: 600,
+          refreshSections: ['orders'],
+          silent: true,
+          dedupeKey: 'orders:clear:fast',
+        });
         return;
       }
-      await callGAS('clearTodayOrders', payload, { refreshSections: ['orders'] });
+      await callGAS('clearTodayOrders', payload, {
+        refreshSections: ['orders'],
+        label: '清空今日訂單中...',
+        dedupeKey: 'orders:clear',
+      });
     },
     placeOrder: (member, items) => {
       lastOrderUpdate.current = Date.now();
@@ -340,19 +509,31 @@ export const DingProvider = ({ children }) => {
       };
 
       setData(prev => ({ ...prev, orders: [...prev.orders, newOrder] }));
-      void callGAS('addOrder', { member, items, total, orderId, menuId }, { refreshSections: ['orders'] });
+      void callGAS('addOrder', { member, items, total, orderId, menuId }, {
+        refreshSections: ['orders'],
+        label: '送出訂單中...',
+        dedupeKey: `order:add:${orderId}`,
+      });
     },
     deleteOrder: (id) => {
       lastOrderUpdate.current = Date.now();
       setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== id) }));
-      void callGAS('removeOrder', { orderId: id }, { refreshSections: ['orders'] });
+      void callGAS('removeOrder', { orderId: id }, {
+        refreshSections: ['orders'],
+        label: '取消訂單中...',
+        dedupeKey: `order:remove:${id}`,
+      });
     },
     addMenuLibrary: (item) => {
       lastLibraryUpdate.current = Date.now();
       const tempId = item.id || `lib_${Date.now()}`;
       const newItem = { ...item, id: tempId };
       setData(prev => ({ ...prev, menuLibrary: [...prev.menuLibrary, newItem] }));
-      void callGAS('addMenuLibrary', newItem, { refreshSections: ['library'] });
+      void callGAS('addMenuLibrary', newItem, {
+        refreshSections: ['library'],
+        label: '新增菜單庫中...',
+        dedupeKey: `library:add:${tempId}`,
+      });
     },
     updateMenuLibrary: (id, updates) => {
       lastLibraryUpdate.current = Date.now();
@@ -360,12 +541,20 @@ export const DingProvider = ({ children }) => {
         ...prev,
         menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, ...updates } : m),
       }));
-      void callGAS('updateMenuLibrary', { id, ...updates }, { refreshSections: ['library'] });
+      void callGAS('updateMenuLibrary', { id, ...updates }, {
+        refreshSections: ['library'],
+        label: '更新菜單庫中...',
+        dedupeKey: `library:update:${id}`,
+      });
     },
     deleteMenuLibrary: (id) => {
       lastLibraryUpdate.current = Date.now();
       setData(prev => ({ ...prev, menuLibrary: prev.menuLibrary.filter(m => m.id !== id) }));
-      void callGAS('deleteMenuLibrary', { id }, { refreshSections: ['library'] });
+      void callGAS('deleteMenuLibrary', { id }, {
+        refreshSections: ['library'],
+        label: '刪除菜單庫中...',
+        dedupeKey: `library:delete:${id}`,
+      });
     },
     toggleFavorite: (id) => {
       lastLibraryUpdate.current = Date.now();
@@ -373,7 +562,11 @@ export const DingProvider = ({ children }) => {
         ...prev,
         menuLibrary: prev.menuLibrary.map(m => m.id === id ? { ...m, isFavorite: !m.isFavorite } : m),
       }));
-      void callGAS('toggleFavorite', { id }, { refreshSections: ['library'] });
+      void callGAS('toggleFavorite', { id }, {
+        refreshSections: ['library'],
+        label: '更新收藏中...',
+        dedupeKey: `library:favorite:${id}`,
+      });
     },
     updateAnnouncement: async (text) => {
       const nextText = String(text ?? '');
@@ -382,7 +575,11 @@ export const DingProvider = ({ children }) => {
       // Optimistic update: make UI instant for text-only updates.
       setData(prev => ({ ...prev, announcement: nextText }));
 
-      const result = await callGAS('updateAnnouncement', { text: nextText }, { refresh: false });
+      const result = await callGAS('updateAnnouncement', { text: nextText }, {
+        refresh: false,
+        label: '發布公告中...',
+        dedupeKey: 'announcement:update',
+      });
       if (result?.error) {
         // Roll back on explicit backend error.
         setData(prev => ({ ...prev, announcement: prevText }));
@@ -402,7 +599,13 @@ export const DingProvider = ({ children }) => {
       };
     },
     uploadImage: async (image, name) => {
-      const uploadRes = await callGAS('uploadImage', { image, name }, { refresh: false });
+      const uploadRes = await callGAS('uploadImage', { image, name }, {
+        refresh: false,
+        timeoutMs: 20000,
+        retries: 1,
+        label: '上傳圖片中...',
+        dedupeKey: `upload:${name || 'default'}`,
+      });
       if (uploadRes?.url) return uploadRes;
 
       await new Promise(resolve => setTimeout(resolve, 700));
@@ -420,7 +623,12 @@ export const DingProvider = ({ children }) => {
       return uploadRes;
     },
     ocrMenu: async (image) => {
-      return callGAS('ocrMenu', { image }, { refresh: false });
+      return callGAS('ocrMenu', { image }, {
+        refresh: false,
+        timeoutMs: 20000,
+        retries: 1,
+        label: 'AI 辨識中...',
+      });
     },
   }), [callGAS, data.announcement, data.menu.lastUpdated, fetchData]);
 
@@ -429,8 +637,17 @@ export const DingProvider = ({ children }) => {
     return (data.orders || []).filter(o => isSameLocalDate(o.date, today));
   }, [data.orders]);
 
+  const ui = useMemo(() => ({
+    pending: pendingCount > 0,
+    pendingCount,
+    statusText,
+    toast,
+    clearToast,
+    pushToast,
+  }), [clearToast, pendingCount, pushToast, statusText, toast]);
+
   return (
-    <DingContext.Provider value={{ user, data, loading, gasUrl, actions, getTodayOrders }}>
+    <DingContext.Provider value={{ user, data, loading, gasUrl, actions, getTodayOrders, ui }}>
       {children}
     </DingContext.Provider>
   );

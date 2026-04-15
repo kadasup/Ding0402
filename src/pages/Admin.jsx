@@ -133,7 +133,7 @@ const Admin = () => {
                     >
                         <div>
                             <div style={{ display: activeTab === 'menu' ? 'block' : 'none' }}>
-                                <MenuManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} />
+                                <MenuManager data={data} actions={actions} />
                             </div>
                             {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
@@ -150,14 +150,11 @@ const Admin = () => {
 
 // Sub-components for cleaner file
 
-const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
-    const [isScanning, setIsScanning] = useState(false);
-    const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
+const MenuManager = ({ data, actions }) => {
     const [draftItems, setDraftItems] = useState(data.menu.items || []);
     const [isPosted, setIsPosted] = useState(data.menu.posted);
     const [closingTime, setClosingTime] = useState(data.menu.closingTime || '');
     const [menuImage, setMenuImage] = useState(data.menu.image || '');
-    const [showKeyInput, setShowKeyInput] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'unpublish' | 'closeOrder'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
@@ -169,7 +166,6 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
-    const { gasUrl } = useDing();
 
     // Sync from global data on first load OR when local draft is empty but global data exists
     const [hasInitialized, setHasInitialized] = useState(false);
@@ -205,6 +201,7 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setMenuRemark(data.menu.remark || '');
             lastSyncRef.current = data.menu.lastUpdated;
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.menu.lastUpdated, hasInitialized, data.menu.items, data.menu.image]);
 
     useEffect(() => {
@@ -254,98 +251,6 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
             setStoreInfo(store);
             setMenuRemark(remark);
         }
-    };
-
-    const processFileToBase64 = (file) => {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target.result);
-            reader.readAsDataURL(file);
-        });
-    };
-
-    // Batch file upload handler
-    const handleFileUpload = async (e) => {
-        const files = Array.from(e.target.files);
-        if (!files.length) return;
-
-        setIsScanning(true);
-        setScanProgress({ current: 0, total: files.length });
-
-        let allItems = []; // merged OCR items from all uploaded images
-        let latestStoreInfo = { name: '', address: '', phone: '' }; // latest detected store info
-        let latestImage = '';
-        let combinedRemark = ''; // merged OCR remarks
-
-        for (let i = 0; i < files.length; i++) {
-            setScanProgress({ current: i + 1, total: files.length });
-            try {
-                const base64 = await processFileToBase64(files[i]);
-                const resized = await resizeImage(base64);
-                if (i === 0) latestImage = resized;
-                
-                const { items, storeInfo: newStoreInfo, remark: newRemark } = await callAzureVision(resized);
-                allItems = [...allItems, ...items];
-                if (newStoreInfo.name) latestStoreInfo.name = newStoreInfo.name;
-                if (newStoreInfo.phone) latestStoreInfo.phone = newStoreInfo.phone;
-                if (newStoreInfo.address) latestStoreInfo.address = newStoreInfo.address;
-                if (newRemark) {
-                    combinedRemark = combinedRemark ? combinedRemark + '\n' + newRemark : newRemark;
-                }
-            } catch (err) {
-                console.error(`File ${i + 1} error:`, err);
-            }
-        }
-
-        if (allItems.length > 0) {
-            const cloudUrl = await uploadImageToCloud(latestImage, `menu_${Date.now()}`);
-            setDraftItems(allItems);
-            setMenuImage(cloudUrl || latestImage);
-            setStoreInfo(latestStoreInfo);
-            setMenuRemark(combinedRemark); // keep merged remark text
-            showAlert({
-                icon: '✅',
-                title: '掃描完成',
-                message: `已處理 ${files.length} 張圖片，辨識出 ${allItems.length} 筆品項。`
-            });
-        } else {
-            showAlert({
-                icon: '⚠️',
-                iconBg: '#FEF3C7',
-                title: '掃描未辨識到品項',
-                message: '請確認圖片清晰度後再試一次。',
-                buttonColor: '#D97706'
-            });
-        }
-        
-        setIsScanning(false);
-        setScanProgress({ current: 0, total: 0 });
-        
-        // Short delayed refresh to pull latest data after background writes.
-        setTimeout(actions.fetchData, 150);
-
-        e.target.value = '';
-    };
-
-    const updateItem = (idx, field, val) => {
-        const newItems = [...draftItems];
-        newItems[idx] = { ...newItems[idx], [field]: field === 'price' ? Number(val) : val };
-        setDraftItems(newItems);
-    };
-
-    const deleteItem = (idx) => {
-        setDraftItems(draftItems.filter((_, i) => i !== idx));
-    };
-
-    const addItem = () => setDraftItems([...draftItems, { name: 'New Item', price: 0 }]);
-
-    const saveMenu = () => {
-        actions.updateMenu(draftItems, isPosted, closingTime, menuImage, storeInfo, menuRemark);
-        showAlert({
-            icon: '💾',
-            title: '菜單已儲存',
-            message: isPosted ? '目前為發布狀態。' : ''
-        });
     };
 
     const handlePublish = async (status, shouldClearOrders = false) => {
@@ -462,8 +367,22 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
         return dates;
     };
 
-    const getWholeHours = () => {
-        return ["09:00", "12:00", "17:00"];
+    const ALL_CLOSING_TIMES = ["09:00", "12:00", "17:00"];
+
+    const parseTimeToMinutes = (time) => {
+        const [hh, mm] = String(time || '00:00').split(':').map(Number);
+        return (hh || 0) * 60 + (mm || 0);
+    };
+
+    const getWholeHours = (selectedDate) => {
+        const todayKey = getLocalDateKey();
+        if (selectedDate !== todayKey) {
+            return ALL_CLOSING_TIMES;
+        }
+
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        return ALL_CLOSING_TIMES.filter((t) => parseTimeToMinutes(t) > nowMinutes);
     };
 
     // Parse existing closingTime (YYYY-MM-DD HH:mm) or default
@@ -472,6 +391,21 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
     const updateDateTime = (newDate, newTime) => {
         setClosingTime(`${newDate} ${newTime}`);
     };
+
+    const availableHours = getWholeHours(datePart);
+
+    useEffect(() => {
+        if (availableHours.length === 0) {
+            if (timePart) {
+                setClosingTime(`${datePart} `);
+            }
+            return;
+        }
+
+        if (!availableHours.includes(timePart)) {
+            updateDateTime(datePart, availableHours[0]);
+        }
+    }, [availableHours, datePart, timePart]);
 
     const sortedHistory = [...(data.menuHistory || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
@@ -564,7 +498,12 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
                             style={{ background: '#fff', width: '100%' }}
                             value={datePart}
-                            onChange={(e) => updateDateTime(e.target.value, timePart)}
+                            onChange={(e) => {
+                                const nextDate = e.target.value;
+                                const nextHours = getWholeHours(nextDate);
+                                const nextTime = nextHours.includes(timePart) ? timePart : (nextHours[0] || '');
+                                updateDateTime(nextDate, nextTime);
+                            }}
                         >
                             {getNext3Days().map(d => (
                                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -578,9 +517,13 @@ const MenuManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
                             className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
                             style={{ background: '#fff', width: '100%' }}
                             value={timePart}
+                            disabled={availableHours.length === 0}
                             onChange={(e) => updateDateTime(datePart, e.target.value)}
                         >
-                            {getWholeHours().map(h => (
+                            {availableHours.length === 0 && (
+                                <option value="">今日已無可選時段</option>
+                            )}
+                            {availableHours.map(h => (
                                 <option key={h} value={h}>{h}</option>
                             ))}
                         </select>
@@ -1543,48 +1486,6 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     );
 };
 
-// Sub-component for Day Accordion
-const HistoryDayGroup = ({ dateStr, items, actions, loadHistory, onDeleteHistory }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    // Sort a copy to avoid mutating the prop array
-    const sortedItems = [...items].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    return (
-        <div className="border rounded-lg overflow-hidden transition-all bg-gray-50">
-            <div
-                onClick={() => setIsOpen(!isOpen)}
-                className="p-3 bg-gray-100 hover:bg-gray-200 cursor-pointer flex justify-between items-center select-none transition-colors"
-            >
-                <div className="flex items-center gap-2">
-                    <span className="text-gray-500 font-bold text-xs" style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', display: 'inline-block' }}>▼</span>
-                    <span className="font-bold text-gray-700">{dateStr}</span>
-                    <span className="text-xs bg-ac-brown text-white px-2 py-0.5 rounded-full">{items.length}</span>
-                </div>
-            </div>
-
-            {isOpen && (
-                <div className="p-2 flex flex-col gap-2 bg-white border-t border-gray-200">
-                    {sortedItems.map(hist => (
-                        <div key={hist.id} className="flex justify-between items-center p-2 hover:bg-yellow-50 rounded-lg border border-transparent hover:border-yellow-200 transition-colors">
-                            <div className="flex flex-col">
-                                <span className="font-bold text-xs text-gray-800">{hist.name}</span>
-                                <span className="text-[10px] text-gray-400 flex items-center gap-2">
-                                    {new Date(hist.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    {hist.items && <span>共 {hist.items.length} 項</span>}
-                                </span>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="primary" onClick={() => loadHistory(hist)} className="text-xs px-2 py-1 h-7">載入</Button>
-                                <Button variant="danger" onClick={() => onDeleteHistory(hist)} className="text-xs px-2 py-1 h-7">刪除</Button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-};
-
 const MemberManager = ({ data, actions }) => {
     const [newName, setNewName] = useState('');
     const [editingMember, setEditingMember] = useState(null);
@@ -1783,7 +1684,7 @@ const NoticeManager = ({ data, actions }) => {
 };
 
 const SettingsManager = () => {
-    const { gasUrl, actions, data } = useDing();
+    const { gasUrl, data } = useDing();
     const [urlInput, setUrlInput] = useState(gasUrl);
 
     useEffect(() => {
@@ -1878,7 +1779,11 @@ const DebugConnection = ({ url }) => {
             const res = await fetch(`${url}?t=${start}`);
             const text = await res.text();
             let json = null;
-            try { json = JSON.parse(text); } catch (e) { }
+            try {
+                json = JSON.parse(text);
+            } catch {
+                json = null;
+            }
 
             setLog({
                 status: res.status,

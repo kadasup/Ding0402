@@ -6,10 +6,6 @@ import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronU
 import { Link } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
-import bellsIcon from '../assets/img/bells.svg';
-import fossilIcon from '../assets/img/fossil.svg';
-import presentIcon from '../assets/img/present.svg';
-import turnipIcon from '../assets/img/turnip.svg';
 
 
 const Home = () => {
@@ -165,7 +161,7 @@ const Home = () => {
     });
     const maxCount = Math.max(0, ...Object.values(itemCounts));
     const mostPopularItems = Object.entries(itemCounts)
-        .filter(([_, count]) => count === maxCount && count > 0)
+        .filter((entry) => entry[1] === maxCount && entry[1] > 0)
         .map(([name]) => name);
     const isFirstOrderToday = allTodayOrders.length === 0;
 
@@ -411,7 +407,7 @@ const Home = () => {
                                                     const isToday = dateObj.toDateString() === today.toDateString();
 
                                                     return `⏰ 結單時間：${isToday ? '今天' : dateStr} ${timeStr}`;
-                                                } catch (e) {
+                                                } catch {
                                                     return `⏰ 結單時間：${cTime}`;
                                                 }
                                             })()}
