@@ -1115,19 +1115,20 @@ body {
 }
 
 .ac-scroll-top {
-  width: 48px !important;
-  height: 48px !important;
-  min-width: 48px !important;
-  min-height: 48px !important;
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
   border-radius: 50% !important;
-  background-color: #78B159 !important;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-  border: 2px solid white !important;
+  background: linear-gradient(180deg, #84c667 0%, #6aa84f 100%) !important;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22), inset 0 -2px 0 rgba(0, 0, 0, 0.12) !important;
+  border: 2px solid #ffffff !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   z-index: 9999 !important;
   padding: 0 !important;
+  transition: transform 0.2s ease, filter 0.2s ease !important;
 }
 
 .bg-hot-yellow {

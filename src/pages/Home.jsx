@@ -408,7 +408,14 @@ const Home = () => {
                                 {/* Footer: Closing Time */}
                                 {data.menu.closingTime && (
                                     <div className="mt-6 text-center">
-                                        <span className="inline-block bg-white border-2 border-red-200 text-red-500 px-4 py-1 rounded-lg font-bold text-sm shadow-sm">
+                                        <span
+                                            className="inline-block px-5 py-1.5 rounded-xl font-black text-base shadow-md tracking-wide"
+                                            style={{
+                                                backgroundColor: '#FFE7E7',
+                                                border: '2px solid #EF4444',
+                                                color: '#B91C1C'
+                                            }}
+                                        >
                                             {(() => {
                                                 const cTime = data.menu.closingTime || '';
                                                 try {
@@ -434,6 +441,11 @@ const Home = () => {
                                                 }
                                             })()}
                                         </span>
+                                        <div className="mt-2">
+                                            <span className="inline-block bg-[#FFF8E7] border border-[#F4A261] text-[#B87434] px-3 py-1 rounded-full text-xs font-bold tracking-wide">
+                                                提醒：請於結單前完成送單
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -786,12 +798,18 @@ const Home = () => {
             )}
 
             {/* Scroll to Top Button */}
-            {showScrollTop && (
+            {showScrollTop && !isDropdownOpen && (
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="fixed bottom-10 ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
-                    style={{ left: '0', right: '0', margin: '0 auto' }}
+                    className="fixed ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
+                    style={{
+                        right: '20px',
+                        left: 'auto',
+                        margin: 0,
+                        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))'
+                    }}
                     title="回到頂部"
+                    aria-label="回到頂部"
                 >
                     <ChevronUp size={24} color="white" strokeWidth={3} />
                 </button>
