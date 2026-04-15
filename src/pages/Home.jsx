@@ -188,23 +188,23 @@ const Home = () => {
 
             {/* Header / Announcement */}
             <div className="flex flex-col items-center mb-6 relative px-4">
-                {/* Integrated Header Signboard */}
-                <div className="bg-[#F9E076] px-6 py-3 sm:px-12 sm:py-4 rounded-[2.5rem] sm:rounded-[3rem] transform -rotate-2 border-[4px] sm:border-[6px] border-white shadow-xl z-10 flex items-center gap-3 sm:gap-6 relative max-w-[calc(100vw-2rem)]">
+                <div className="brand-hero">
+                    <div className="brand-hero-glow" />
+                    <div className="brand-hero-card">
+                        <div className="brand-hero-leaf">
+                            <img src={leafIcon} alt="leaf" loading="lazy" decoding="async" />
+                        </div>
 
-                    {/* Left Leaf */}
-                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce shrink-0" alt="leaf" loading="lazy" decoding="async" />
+                        <div className="brand-hero-text">
+                            <p className="brand-hero-overline">DING BENTO CLUB</p>
+                            <h1 className="brand-hero-title">自由543</h1>
+                            <p className="brand-hero-subtitle">Ding Bento</p>
+                        </div>
 
-                    <div className="flex flex-col items-center leading-none">
-                        <h1 className="text-3xl sm:text-5xl font-black text-[#7C6044] tracking-widest drop-shadow-sm -mb-1 sm:-mb-2 whitespace-nowrap">
-                            自由543
-                        </h1>
-                        <span className="text-sm sm:text-xl font-bold text-white tracking-[0.2em] drop-shadow-md">
-                            Ding Bento
-                        </span>
+                        <div className="brand-hero-leaf brand-hero-leaf-right">
+                            <img src={leafIcon} alt="leaf" loading="lazy" decoding="async" />
+                        </div>
                     </div>
-
-                    {/* Right Leaf */}
-                    <img src={leafIcon} className="w-10 h-10 sm:w-14 sm:h-14 animate-bounce icon-flip shrink-0" alt="leaf" loading="lazy" decoding="async" />
                 </div>
             </div>
 

@@ -904,6 +904,121 @@ body {
   animation: shimmer 1.5s infinite;
 }
 
+/* Home brand title */
+.brand-hero {
+  width: 100%;
+  max-width: 640px;
+  position: relative;
+}
+
+.brand-hero-glow {
+  position: absolute;
+  inset: 12px 30px -8px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(249, 224, 118, 0.45) 0%, rgba(249, 224, 118, 0) 70%);
+  filter: blur(6px);
+}
+
+.brand-hero-card {
+  position: relative;
+  z-index: 1;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 4px solid #ffffff;
+  background:
+    linear-gradient(140deg, #fff7cc 0%, #f9e076 45%, #f5d45e 100%);
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.14),
+    inset 0 -5px 0 rgba(124, 96, 68, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.brand-hero-leaf {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 -3px 0 rgba(120, 177, 89, 0.18);
+}
+
+.brand-hero-leaf img {
+  width: 30px;
+  height: 30px;
+}
+
+.brand-hero-leaf-right img {
+  transform: scaleX(-1);
+}
+
+.brand-hero-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.brand-hero-overline {
+  margin: 0;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  color: rgba(92, 77, 56, 0.72);
+}
+
+.brand-hero-title {
+  margin: 0;
+  font-size: clamp(1.7rem, 4.2vw, 3rem);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  color: #5f4a35;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+
+.brand-hero-subtitle {
+  margin: 0;
+  font-size: clamp(0.82rem, 1.8vw, 1.02rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 640px) {
+  .brand-hero-card {
+    border-radius: 24px;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .brand-hero-glow {
+    inset: 8px 12px -8px;
+  }
+
+  .brand-hero-leaf {
+    width: 40px;
+    height: 40px;
+  }
+
+  .brand-hero-leaf img {
+    width: 24px;
+    height: 24px;
+  }
+
+  .brand-hero-overline {
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+  }
+}
+
 /* Scrollbar refinement */
 ::-webkit-scrollbar {
   width: 8px;
