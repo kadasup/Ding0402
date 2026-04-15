@@ -574,6 +574,10 @@ body {
   z-index: 999;
 }
 
+.z-999 {
+  z-index: 999;
+}
+
 .cursor-pointer {
   cursor: pointer;
 }
@@ -584,6 +588,10 @@ body {
 
 .overflow-hidden {
   overflow: hidden;
+}
+
+.overflow-visible {
+  overflow: visible;
 }
 
 .block {

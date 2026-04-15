@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { DingProvider, useDing } from './context/DingContext';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -8,11 +8,13 @@ const Guide = lazy(() => import('./pages/Guide'));
 
 const GlobalFeedback = () => {
   const { ui } = useDing();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const toastTypeClass = ui?.toast?.type === 'error' ? 'error' : ui?.toast?.type === 'success' ? 'success' : 'info';
 
   return (
     <>
-      {ui?.pending && (
+      {ui?.pending && !isHomePage && (
         <div className="global-loading-mask">
           <div className="global-loading-panel">
             <span className="global-loading-spinner" />

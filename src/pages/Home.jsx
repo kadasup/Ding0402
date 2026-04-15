@@ -30,6 +30,7 @@ const Home = () => {
     const [orderToDelete, setOrderToDelete] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [memberPage, setMemberPage] = useState(0);
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
@@ -66,6 +67,7 @@ const Home = () => {
 
     const handleMemberLogin = (name) => {
         setSearchTerm('');
+        setMemberPage(0);
         setSelectedMember(name);
         setCart([]); // Clear cart when switching members
         if (name) {
@@ -78,6 +80,13 @@ const Home = () => {
     };
 
     const filteredMembers = (data?.members || []).filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
+    const memberPageSize = 6;
+    const memberTotalPages = Math.max(1, Math.ceil(filteredMembers.length / memberPageSize));
+    const safeMemberPage = Math.min(memberPage, memberTotalPages - 1);
+    const pagedMembers = filteredMembers.slice(
+        safeMemberPage * memberPageSize,
+        safeMemberPage * memberPageSize + memberPageSize
+    );
 
     const addToCart = (item) => {
         setCart([...cart, item]);
@@ -434,7 +443,7 @@ const Home = () => {
 
             {/* Member Selection */}
                     <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
-                        <DialogBox title="選擇角色">
+                        <DialogBox title="選擇角色" className="overflow-visible">
                             <div className="flex flex-col items-center gap-4 py-4 relative z-10 w-full">
                                 <div className="flex items-center gap-2 w-full max-w-md relative z-50">
                                     <User className="text-ac-green shrink-0" />
@@ -445,11 +454,13 @@ const Home = () => {
                                             value={selectedMember && !isDropdownOpen ? selectedMember : searchTerm}
                                             onChange={(e) => {
                                                 setSearchTerm(e.target.value);
+                                                setMemberPage(0);
                                                 setIsDropdownOpen(true);
                                             }}
                                             onFocus={() => {
                                                 setIsDropdownOpen(true);
                                                 setSearchTerm('');
+                                                setMemberPage(0);
                                             }}
                                             onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                                             className="ac-input w-full pr-20 cursor-text"
@@ -464,6 +475,7 @@ const Home = () => {
                                                     e.preventDefault(); 
                                                     e.stopPropagation(); 
                                                     handleMemberLogin(''); 
+                                                    setMemberPage(0);
                                                     if (searchTerm) setIsDropdownOpen(true);
                                                 }}
                                                 className="absolute right-12 top-1/2 -translate-y-1/2 ac-clear-btn z-20"
@@ -474,24 +486,72 @@ const Home = () => {
                                         )}
 
                                         {isDropdownOpen && (
-                                            <ul className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl max-h-60 overflow-y-auto overflow-x-hidden left-0 top-full">
+                                            <div className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden left-0 top-full">
                                                 {filteredMembers.length > 0 ? (
-                                                    filteredMembers.map(m => (
-                                                        <li 
-                                                            key={m}
-                                                            className={`px-4 py-3 hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold border-b border-gray-100 last:border-0 ${selectedMember === m ? 'bg-[#FFF8E7]' : ''}`}
-                                                            onMouseDown={() => {
-                                                                handleMemberLogin(m);
-                                                                setIsDropdownOpen(false);
-                                                            }}
-                                                        >
-                                                            {m}
-                                                        </li>
-                                                    ))
+                                                    <>
+                                                        <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
+                                                            {pagedMembers.map(m => (
+                                                                <li
+                                                                    key={m}
+                                                                    className={`px-3 py-2 rounded-lg hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold text-center border border-gray-100 ${selectedMember === m ? 'bg-[#FFF8E7] border-ac-green' : 'bg-white'}`}
+                                                                    onMouseDown={() => {
+                                                                        handleMemberLogin(m);
+                                                                        setIsDropdownOpen(false);
+                                                                    }}
+                                                                >
+                                                                    {m}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+
+                                                        {memberTotalPages > 1 && (
+                                                            <div className="flex items-center justify-between px-3 py-2 border-t bg-[#F8FAFC]">
+                                                                <button
+                                                                    type="button"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setMemberPage(prev => Math.max(0, prev - 1));
+                                                                    }}
+                                                                    disabled={safeMemberPage === 0}
+                                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                                    style={{
+                                                                        opacity: safeMemberPage === 0 ? 0.45 : 1,
+                                                                        cursor: safeMemberPage === 0 ? 'not-allowed' : 'pointer',
+                                                                        background: '#fff'
+                                                                    }}
+                                                                >
+                                                                    上一頁
+                                                                </button>
+
+                                                                <span className="text-xs font-bold text-gray-500">
+                                                                    {safeMemberPage + 1} / {memberTotalPages}
+                                                                </span>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setMemberPage(prev => Math.min(memberTotalPages - 1, prev + 1));
+                                                                    }}
+                                                                    disabled={safeMemberPage >= memberTotalPages - 1}
+                                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                                    style={{
+                                                                        opacity: safeMemberPage >= memberTotalPages - 1 ? 0.45 : 1,
+                                                                        cursor: safeMemberPage >= memberTotalPages - 1 ? 'not-allowed' : 'pointer',
+                                                                        background: '#fff'
+                                                                    }}
+                                                                >
+                                                                    下一頁
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 ) : (
-                                                    <li className="px-4 py-3 text-gray-400 text-center cursor-default">找不到相符的角色</li>
+                                                    <div className="px-4 py-3 text-gray-400 text-center cursor-default">找不到相符的角色</div>
                                                 )}
-                                            </ul>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
