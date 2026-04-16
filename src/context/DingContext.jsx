@@ -31,6 +31,8 @@ const INITIAL_DATA = {
 
 const SYNC_PROTECTION_TIME = 3000;
 const ALL_SECTIONS = ['core', 'orders', 'library', 'history', 'uploadStatus', 'debug'];
+const INITIAL_SECTIONS = ['core', 'orders'];
+const BACKGROUND_SECTIONS = ['library', 'history', 'uploadStatus', 'debug'];
 const REQUEST_TIMEOUT_MS = 10000;
 const REQUEST_RETRIES = 1;
 
@@ -234,7 +236,20 @@ export const DingProvider = ({ children }) => {
 
   useEffect(() => {
     if (!gasUrl) return;
-    void fetchData();
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      await fetchData(INITIAL_SECTIONS);
+      if (!cancelled) {
+        void fetchData(BACKGROUND_SECTIONS, { silent: true });
+      }
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, [gasUrl, fetchData]);
 
   useEffect(() => {
