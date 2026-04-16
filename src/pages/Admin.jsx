@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
 import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown } from 'lucide-react';
@@ -1616,6 +1616,21 @@ const StatsManager = ({ data }) => {
     // History Filter State
     const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
     const [statsTab, setStatsTab] = useState('member');
+    const dateInputRef = useRef(null);
+
+    const openDatePicker = () => {
+        const input = dateInputRef.current;
+        if (!input) return;
+
+        // Chromium supports showPicker(); fallback keeps Safari/iOS usable.
+        if (typeof input.showPicker === 'function') {
+            input.showPicker();
+            return;
+        }
+
+        input.focus();
+        input.click();
+    };
 
     // Filter orders by date (API returns ISO date string)
     // GAS orders date format is ISO string. data.orders contains ALL orders.
@@ -1658,11 +1673,24 @@ const StatsManager = ({ data }) => {
     return (
         <div className="p-4 flex flex-col gap-6">
             {/* Date Filter */}
-            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+            <div
+                className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg cursor-pointer"
+                onClick={openDatePicker}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openDatePicker();
+                    }
+                }}
+                aria-label="開啟日期選擇器"
+            >
                 <span className="font-bold text-gray-600">選擇日期</span>
                 <input
+                    ref={dateInputRef}
                     type="date"
-                    className="ac-input py-1 w-auto bg-white"
+                    className="ac-input py-1 flex-1 bg-white cursor-pointer"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                 />
