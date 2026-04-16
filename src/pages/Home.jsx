@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2 } from 'lucide-react';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -30,6 +30,7 @@ const Home = () => {
     const [orderToDelete, setOrderToDelete] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [memberPage, setMemberPage] = useState(0);
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
@@ -66,6 +67,7 @@ const Home = () => {
 
     const handleMemberLogin = (name) => {
         setSearchTerm('');
+        setMemberPage(0);
         setSelectedMember(name);
         setCart([]); // Clear cart when switching members
         if (name) {
@@ -78,6 +80,13 @@ const Home = () => {
     };
 
     const filteredMembers = (data?.members || []).filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
+    const memberPageSize = 6;
+    const memberTotalPages = Math.max(1, Math.ceil(filteredMembers.length / memberPageSize));
+    const safeMemberPage = Math.min(memberPage, memberTotalPages - 1);
+    const pagedMembers = filteredMembers.slice(
+        safeMemberPage * memberPageSize,
+        safeMemberPage * memberPageSize + memberPageSize
+    );
 
     const addToCart = (item) => {
         setCart([...cart, item]);
@@ -179,6 +188,19 @@ const Home = () => {
                 <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
                     <Lock size={18} /> 
                     <span className="font-bold tracking-widest hidden sm:inline">管理員</span>
+                </Button>
+            </Link>
+
+            {/* Guide Entry */}
+            <Link 
+                to="/guide" 
+                className="hover:scale-105 active:scale-95 transition-all"
+                style={{ position: 'fixed', top: '24px', left: '24px', right: 'auto', zIndex: 99999, opacity: 0.8 }}
+                title="操作說明"
+            >
+                <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2" style={{ backgroundColor: '#FFB84D', color: '#FFF' }}>
+                    <HelpCircle size={18} /> 
+                    <span className="font-bold tracking-widest hidden sm:inline">操作說明</span>
                 </Button>
             </Link>
 
@@ -386,7 +408,14 @@ const Home = () => {
                                 {/* Footer: Closing Time */}
                                 {data.menu.closingTime && (
                                     <div className="mt-6 text-center">
-                                        <span className="inline-block bg-white border-2 border-red-200 text-red-500 px-4 py-1 rounded-lg font-bold text-sm shadow-sm">
+                                        <span
+                                            className="inline-block px-5 py-1.5 rounded-xl font-black text-base shadow-md tracking-wide"
+                                            style={{
+                                                backgroundColor: '#FFE7E7',
+                                                border: '2px solid #EF4444',
+                                                color: '#B91C1C'
+                                            }}
+                                        >
                                             {(() => {
                                                 const cTime = data.menu.closingTime || '';
                                                 try {
@@ -412,6 +441,11 @@ const Home = () => {
                                                 }
                                             })()}
                                         </span>
+                                        <div className="mt-2">
+                                            <span className="inline-block bg-[#FFF8E7] border border-[#F4A261] text-[#B87434] px-3 py-1 rounded-full text-xs font-bold tracking-wide">
+                                                提醒：請於結單前完成送單
+                                            </span>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -421,7 +455,7 @@ const Home = () => {
 
             {/* Member Selection */}
                     <div className="max-w-3xl mx-auto w-full animate-pop" style={{ animationDelay: '0.1s' }}>
-                        <DialogBox title="選擇角色">
+                        <DialogBox title="選擇角色" className="overflow-visible">
                             <div className="flex flex-col items-center gap-4 py-4 relative z-10 w-full">
                                 <div className="flex items-center gap-2 w-full max-w-md relative z-50">
                                     <User className="text-ac-green shrink-0" />
@@ -432,11 +466,13 @@ const Home = () => {
                                             value={selectedMember && !isDropdownOpen ? selectedMember : searchTerm}
                                             onChange={(e) => {
                                                 setSearchTerm(e.target.value);
+                                                setMemberPage(0);
                                                 setIsDropdownOpen(true);
                                             }}
                                             onFocus={() => {
                                                 setIsDropdownOpen(true);
                                                 setSearchTerm('');
+                                                setMemberPage(0);
                                             }}
                                             onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)}
                                             className="ac-input w-full pr-20 cursor-text"
@@ -451,6 +487,7 @@ const Home = () => {
                                                     e.preventDefault(); 
                                                     e.stopPropagation(); 
                                                     handleMemberLogin(''); 
+                                                    setMemberPage(0);
                                                     if (searchTerm) setIsDropdownOpen(true);
                                                 }}
                                                 className="absolute right-12 top-1/2 -translate-y-1/2 ac-clear-btn z-20"
@@ -461,24 +498,72 @@ const Home = () => {
                                         )}
 
                                         {isDropdownOpen && (
-                                            <ul className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl max-h-60 overflow-y-auto overflow-x-hidden left-0 top-full">
+                                            <div className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden left-0 top-full">
                                                 {filteredMembers.length > 0 ? (
-                                                    filteredMembers.map(m => (
-                                                        <li 
-                                                            key={m}
-                                                            className={`px-4 py-3 hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold border-b border-gray-100 last:border-0 ${selectedMember === m ? 'bg-[#FFF8E7]' : ''}`}
-                                                            onMouseDown={() => {
-                                                                handleMemberLogin(m);
-                                                                setIsDropdownOpen(false);
-                                                            }}
-                                                        >
-                                                            {m}
-                                                        </li>
-                                                    ))
+                                                    <>
+                                                        <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
+                                                            {pagedMembers.map(m => (
+                                                                <li
+                                                                    key={m}
+                                                                    className={`px-3 py-2 rounded-lg hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold text-center border border-gray-100 ${selectedMember === m ? 'bg-[#FFF8E7] border-ac-green' : 'bg-white'}`}
+                                                                    onMouseDown={() => {
+                                                                        handleMemberLogin(m);
+                                                                        setIsDropdownOpen(false);
+                                                                    }}
+                                                                >
+                                                                    {m}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+
+                                                        {memberTotalPages > 1 && (
+                                                            <div className="flex items-center justify-between px-3 py-2 border-t bg-[#F8FAFC]">
+                                                                <button
+                                                                    type="button"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setMemberPage(prev => Math.max(0, prev - 1));
+                                                                    }}
+                                                                    disabled={safeMemberPage === 0}
+                                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                                    style={{
+                                                                        opacity: safeMemberPage === 0 ? 0.45 : 1,
+                                                                        cursor: safeMemberPage === 0 ? 'not-allowed' : 'pointer',
+                                                                        background: '#fff'
+                                                                    }}
+                                                                >
+                                                                    上一頁
+                                                                </button>
+
+                                                                <span className="text-xs font-bold text-gray-500">
+                                                                    {safeMemberPage + 1} / {memberTotalPages}
+                                                                </span>
+
+                                                                <button
+                                                                    type="button"
+                                                                    onMouseDown={(e) => {
+                                                                        e.preventDefault();
+                                                                        e.stopPropagation();
+                                                                        setMemberPage(prev => Math.min(memberTotalPages - 1, prev + 1));
+                                                                    }}
+                                                                    disabled={safeMemberPage >= memberTotalPages - 1}
+                                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                                    style={{
+                                                                        opacity: safeMemberPage >= memberTotalPages - 1 ? 0.45 : 1,
+                                                                        cursor: safeMemberPage >= memberTotalPages - 1 ? 'not-allowed' : 'pointer',
+                                                                        background: '#fff'
+                                                                    }}
+                                                                >
+                                                                    下一頁
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </>
                                                 ) : (
-                                                    <li className="px-4 py-3 text-gray-400 text-center cursor-default">找不到相符的角色</li>
+                                                    <div className="px-4 py-3 text-gray-400 text-center cursor-default">找不到相符的角色</div>
                                                 )}
-                                            </ul>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -713,12 +798,18 @@ const Home = () => {
             )}
 
             {/* Scroll to Top Button */}
-            {showScrollTop && (
+            {showScrollTop && !isDropdownOpen && (
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="fixed bottom-10 ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
-                    style={{ left: '0', right: '0', margin: '0 auto' }}
+                    className="fixed ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
+                    style={{
+                        right: '20px',
+                        left: 'auto',
+                        margin: 0,
+                        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))'
+                    }}
                     title="回到頂部"
+                    aria-label="回到頂部"
                 >
                     <ChevronUp size={24} color="white" strokeWidth={3} />
                 </button>

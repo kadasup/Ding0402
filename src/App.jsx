@@ -1,17 +1,20 @@
 import React, { Suspense, lazy } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { DingProvider, useDing } from './context/DingContext';
 
 const Home = lazy(() => import('./pages/Home'));
 const Admin = lazy(() => import('./pages/Admin'));
+const Guide = lazy(() => import('./pages/Guide'));
 
 const GlobalFeedback = () => {
   const { ui } = useDing();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const toastTypeClass = ui?.toast?.type === 'error' ? 'error' : ui?.toast?.type === 'success' ? 'success' : 'info';
 
   return (
     <>
-      {ui?.pending && (
+      {ui?.pending && !isHomePage && (
         <div className="global-loading-mask">
           <div className="global-loading-panel">
             <span className="global-loading-spinner" />
@@ -44,11 +47,12 @@ const AppShell = () => {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/guide" element={<Guide />} />
           </Routes>
         </Suspense>
 
         <div className="text-center mt-12 opacity-50 text-sm font-bold tracking-widest text-ac-green">
-          自由543 © 2025
+          自由543 © 2026
         </div>
       </div>
       <GlobalFeedback />

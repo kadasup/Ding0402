@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <rect width="800" height="450" fill="#f3f4f6" rx="16" />
+  <rect width="796" height="446" x="2" y="2" fill="none" stroke="#d1d5db" stroke-width="4" stroke-dasharray="16 16" rx="14" />
+  <circle cx="400" cy="180" r="40" fill="#9ca3af" opacity="0.5" />
+  <path d="M380 180 l15 -15 l20 30 l20 -20 l10 15" stroke="white" stroke-width="6" fill="none" />
+  <circle cx="425" cy="165" r="5" fill="white" />
+  <text x="400" y="260" font-family="sans-serif" font-size="24" font-weight="bold" fill="#6b7280" text-anchor="middle">請在此替換「查看紀錄」截圖</text>
+  <text x="400" y="300" font-family="sans-serif" font-size="16" fill="#9ca3af" text-anchor="middle">建議尺寸: 800 x 450 (建議替換為相同的檔名 guide-user-history.svg 或轉為 png/jpg)</text>
+</svg>
