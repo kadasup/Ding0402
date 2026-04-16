@@ -25,6 +25,17 @@ const Admin = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
+    useEffect(() => {
+        if (activeTab === 'stats') {
+            void actions.fetchData(['orders'], {
+                silent: true,
+                timeoutMs: 8000,
+                retries: 0,
+            });
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
+
 
 
     // Auto-login for admin (No password required)

@@ -31,10 +31,12 @@ const INITIAL_DATA = {
 
 const SYNC_PROTECTION_TIME = 3000;
 const ALL_SECTIONS = ['core', 'orders', 'library', 'history', 'uploadStatus', 'debug'];
-const INITIAL_SECTIONS = ['core', 'orders'];
+const INITIAL_SECTIONS = ['core'];
 const BACKGROUND_SECTIONS = ['library', 'history', 'uploadStatus', 'debug'];
 const REQUEST_TIMEOUT_MS = 10000;
 const REQUEST_RETRIES = 1;
+const ORDERS_CACHE_KEY = 'ding_orders_cache_v1';
+const ORDERS_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
@@ -62,6 +64,57 @@ export const DingProvider = ({ children }) => {
     if (!saved || saved === 'null' || saved === 'undefined' || saved === '') return envGasUrl;
     return saved;
   });
+
+  const readOrdersCache = useCallback((menuId = '') => {
+    try {
+      const raw = localStorage.getItem(ORDERS_CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.orders)) return null;
+
+      const cachedDate = String(parsed.dateKey || '');
+      if (!cachedDate || cachedDate !== getLocalDateKey()) return null;
+
+      const savedAt = Number(parsed.savedAt || 0);
+      if (!savedAt || Date.now() - savedAt > ORDERS_CACHE_MAX_AGE_MS) return null;
+
+      const cachedMenuId = String(parsed.menuId || '');
+      const requiredMenuId = String(menuId || '');
+      if (requiredMenuId && cachedMenuId && requiredMenuId !== cachedMenuId) return null;
+
+      return { orders: parsed.orders, menuId: cachedMenuId };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const writeOrdersCache = useCallback((orders, menuId = '') => {
+    try {
+      const normalizedOrders = Array.isArray(orders) ? orders : [];
+      const normalizedMenuId = String(menuId || '');
+      if (!normalizedMenuId) return;
+
+      localStorage.setItem(ORDERS_CACHE_KEY, JSON.stringify({
+        savedAt: Date.now(),
+        dateKey: getLocalDateKey(),
+        menuId: normalizedMenuId,
+        orders: normalizedOrders,
+      }));
+    } catch {
+      // Ignore storage quota/permission errors for non-critical cache path.
+    }
+  }, []);
+
+  const hydrateOrdersFromCache = useCallback((menuId = '') => {
+    const cached = readOrdersCache(menuId);
+    if (!cached) return false;
+
+    setData(prev => {
+      if ((prev.orders || []).length > 0) return prev;
+      return { ...prev, orders: cached.orders || [] };
+    });
+    return true;
+  }, [readOrdersCache]);
 
   const beginPending = useCallback((label = '處理中，請稍候...') => {
     activeRequestCount.current += 1;
@@ -207,6 +260,19 @@ export const DingProvider = ({ children }) => {
       }
       if (!res) throw lastErr || new Error('Fetch failed');
       const json = await res.json();
+      const requestedOrders = sectionList.some(section => section === 'orders' || section === 'all');
+      if (requestedOrders && hasOwn(json, 'orders')) {
+        const firstOrderWithMenu = Array.isArray(json.orders)
+          ? json.orders.find(order => order && order.menuId !== undefined && order.menuId !== null)
+          : null;
+        const menuIdForCache = String(
+          json?.menu?.lastUpdated
+          || data?.menu?.lastUpdated
+          || firstOrderWithMenu?.menuId
+          || ''
+        );
+        writeOrdersCache(json.orders || [], menuIdForCache);
+      }
       setData(prevData => mergeRemoteData(prevData, json));
       return json;
     } catch (err) {
@@ -221,7 +287,7 @@ export const DingProvider = ({ children }) => {
         endPending();
       }
     }
-  }, [beginPending, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast]);
+  }, [beginPending, data?.menu?.lastUpdated, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeOrdersCache]);
 
   const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
@@ -239,7 +305,11 @@ export const DingProvider = ({ children }) => {
     let cancelled = false;
 
     const bootstrap = async () => {
-      await fetchData(INITIAL_SECTIONS);
+      const coreData = await fetchData(INITIAL_SECTIONS);
+      const coreMenuId = String(coreData?.menu?.lastUpdated || '');
+      if (!cancelled && coreMenuId) {
+        hydrateOrdersFromCache(coreMenuId);
+      }
       if (!cancelled) {
         void fetchData(BACKGROUND_SECTIONS, { silent: true });
       }
@@ -250,7 +320,7 @@ export const DingProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [gasUrl, fetchData]);
+  }, [fetchData, gasUrl, hydrateOrdersFromCache]);
 
   useEffect(() => {
     return () => {

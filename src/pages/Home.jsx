@@ -11,11 +11,19 @@ import leafIcon from '../assets/img/leaf.svg';
 const Home = () => {
     const { data, actions, loading } = useDing();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
+    const loadOrdersForMember = () => {
+        void actions.fetchData(['orders'], {
+            silent: true,
+            timeoutMs: 8000,
+            retries: 0,
+        });
+    };
 
     // 讓重新整理時，若有記憶角色，能同步至全局 context
     useEffect(() => {
         if (selectedMember) {
             actions.loginMember(selectedMember);
+            loadOrdersForMember();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -73,6 +81,7 @@ const Home = () => {
         if (name) {
             localStorage.setItem('ding_member', name);
             actions.loginMember(name);
+            loadOrdersForMember();
         } else {
             localStorage.removeItem('ding_member');
             actions.logout();
