@@ -37,6 +37,11 @@ const REQUEST_TIMEOUT_MS = 10000;
 const REQUEST_RETRIES = 1;
 const ORDERS_CACHE_KEY = 'ding_orders_cache_v1';
 const ORDERS_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
+const CORE_CACHE_KEY = 'ding_core_cache_v1';
+const CORE_CACHE_MAX_AGE_MS = 1000 * 60 * 30;
+const LIBRARY_CACHE_KEY = 'ding_library_cache_v1';
+const HISTORY_CACHE_KEY = 'ding_history_cache_v1';
+const BACKOFFICE_CACHE_MAX_AGE_MS = 1000 * 60 * 60 * 8;
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj || {}, key);
 
@@ -64,6 +69,35 @@ export const DingProvider = ({ children }) => {
     if (!saved || saved === 'null' || saved === 'undefined' || saved === '') return envGasUrl;
     return saved;
   });
+
+  const readTimedCache = useCallback((cacheKey, maxAgeMs) => {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+
+      const savedAt = Number(parsed.savedAt || 0);
+      if (!savedAt || Date.now() - savedAt > maxAgeMs) return null;
+
+      const payload = parsed.payload;
+      if (!payload || typeof payload !== 'object') return null;
+      return payload;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const writeTimedCache = useCallback((cacheKey, payload = {}) => {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify({
+        savedAt: Date.now(),
+        payload,
+      }));
+    } catch {
+      // Ignore storage errors for cache path.
+    }
+  }, []);
 
   const readOrdersCache = useCallback((menuId = '') => {
     try {
@@ -228,6 +262,40 @@ export const DingProvider = ({ children }) => {
     };
   }, []);
 
+  const readCoreCache = useCallback(
+    () => readTimedCache(CORE_CACHE_KEY, CORE_CACHE_MAX_AGE_MS),
+    [readTimedCache]
+  );
+
+  const writeCoreCache = useCallback(
+    (payload = {}) => writeTimedCache(CORE_CACHE_KEY, payload),
+    [writeTimedCache]
+  );
+
+  const hydrateCoreFromCache = useCallback(() => {
+    const cached = readCoreCache();
+    if (!cached) return false;
+
+    setData(prev => mergeRemoteData(prev, cached));
+    return true;
+  }, [mergeRemoteData, readCoreCache]);
+
+  const hydrateBackofficeFromCache = useCallback(() => {
+    const cachedLibrary = readTimedCache(LIBRARY_CACHE_KEY, BACKOFFICE_CACHE_MAX_AGE_MS);
+    const cachedHistory = readTimedCache(HISTORY_CACHE_KEY, BACKOFFICE_CACHE_MAX_AGE_MS);
+    const snapshot = {
+      ...(Array.isArray(cachedLibrary?.menuLibrary) ? { menuLibrary: cachedLibrary.menuLibrary } : {}),
+      ...(Array.isArray(cachedHistory?.menuHistory) ? { menuHistory: cachedHistory.menuHistory } : {}),
+    };
+
+    if (!hasOwn(snapshot, 'menuLibrary') && !hasOwn(snapshot, 'menuHistory')) {
+      return false;
+    }
+
+    setData(prev => mergeRemoteData(prev, snapshot));
+    return true;
+  }, [mergeRemoteData, readTimedCache]);
+
   const fetchData = useCallback(async (sections = ALL_SECTIONS, options = {}) => {
     if (!gasUrl) return null;
 
@@ -260,6 +328,23 @@ export const DingProvider = ({ children }) => {
       }
       if (!res) throw lastErr || new Error('Fetch failed');
       const json = await res.json();
+      const requestedCore = sectionList.some(section => section === 'core' || section === 'all');
+      if (requestedCore) {
+        const coreSnapshot = {
+          ...(hasOwn(json, 'menu') ? { menu: json.menu } : {}),
+          ...(hasOwn(json, 'members') ? { members: json.members } : {}),
+          ...(hasOwn(json, 'announcement') ? { announcement: json.announcement } : {}),
+        };
+        if (Object.keys(coreSnapshot).length > 0) {
+          writeCoreCache(coreSnapshot);
+        }
+      }
+      if (hasOwn(json, 'menuLibrary')) {
+        writeTimedCache(LIBRARY_CACHE_KEY, { menuLibrary: json.menuLibrary || [] });
+      }
+      if (hasOwn(json, 'menuHistory')) {
+        writeTimedCache(HISTORY_CACHE_KEY, { menuHistory: json.menuHistory || [] });
+      }
       const requestedOrders = sectionList.some(section => section === 'orders' || section === 'all');
       if (requestedOrders && hasOwn(json, 'orders')) {
         const firstOrderWithMenu = Array.isArray(json.orders)
@@ -287,7 +372,7 @@ export const DingProvider = ({ children }) => {
         endPending();
       }
     }
-  }, [beginPending, data?.menu?.lastUpdated, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeOrdersCache]);
+  }, [beginPending, data?.menu?.lastUpdated, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeCoreCache, writeOrdersCache, writeTimedCache]);
 
   const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
@@ -305,12 +390,21 @@ export const DingProvider = ({ children }) => {
     let cancelled = false;
 
     const bootstrap = async () => {
-      const coreData = await fetchData(INITIAL_SECTIONS);
+      const hashPath = typeof window !== 'undefined'
+        ? String(window.location.hash || '').replace(/^#/, '') || '/'
+        : '/';
+      const isHomeRoute = hashPath === '/';
+      if (!isHomeRoute) {
+        hydrateCoreFromCache();
+        hydrateBackofficeFromCache();
+      }
+
+      const coreData = await fetchData(INITIAL_SECTIONS, isHomeRoute ? {} : { silent: true, retries: 0 });
       const coreMenuId = String(coreData?.menu?.lastUpdated || '');
       if (!cancelled && coreMenuId) {
         hydrateOrdersFromCache(coreMenuId);
       }
-      if (!cancelled) {
+      if (!cancelled && isHomeRoute) {
         void fetchData(BACKGROUND_SECTIONS, { silent: true });
       }
     };
@@ -320,7 +414,7 @@ export const DingProvider = ({ children }) => {
     return () => {
       cancelled = true;
     };
-  }, [fetchData, gasUrl, hydrateOrdersFromCache]);
+  }, [fetchData, gasUrl, hydrateBackofficeFromCache, hydrateCoreFromCache, hydrateOrdersFromCache]);
 
   useEffect(() => {
     return () => {

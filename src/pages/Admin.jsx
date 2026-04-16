@@ -8,15 +8,12 @@ import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
 
 const Admin = () => {
-    const { user, data, actions, gasUrl } = useDing(); 
+    const { user, data, actions, gasUrl, ui } = useDing(); 
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
-
-    // Debugging trace
-    useEffect(() => {
-        console.log("Ding DATA Updated:", data);
-        console.log("Found menuLibrary:", data?.menuLibrary?.length, "items");
-        console.log("Found menuHistory:", data?.menuHistory?.length, "entries");
-    }, [data]);
+    const isMenuHydrating = activeTab === 'menu'
+        && !!ui?.pending
+        && !data?.menu?.lastUpdated
+        && (data?.menu?.items || []).length === 0;
 
     useEffect(() => {
         if (user?.role !== 'admin') {
@@ -26,13 +23,19 @@ const Admin = () => {
     }, [user?.role]);
 
     useEffect(() => {
-        if (activeTab === 'stats') {
-            void actions.fetchData(['orders'], {
-                silent: true,
-                timeoutMs: 8000,
-                retries: 0,
-            });
-        }
+        const tabSectionsMap = {
+            stats: ['orders'],
+            library: ['library'],
+            settings: ['debug', 'uploadStatus'],
+        };
+        const sections = tabSectionsMap[activeTab];
+        if (!sections) return;
+
+        void actions.fetchData(sections, {
+            silent: true,
+            timeoutMs: 8000,
+            retries: 0,
+        });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
@@ -129,7 +132,9 @@ const Admin = () => {
                     <DialogBox
                         title={
                             activeTab === 'menu'
-                                ? (data.menu.posted ? '今日菜單（已發布）' : '今日菜單（未發布）')
+                                ? (data.menu.posted
+                                    ? <><span>今日菜單</span><span style={{ color: '#FF6B6B' }}>（已上架）</span></>
+                                    : '今日菜單（未發布）')
                                 : activeTab === 'library'
                                     ? '菜單庫'
                                     : activeTab === 'members'
@@ -144,7 +149,7 @@ const Admin = () => {
                     >
                         <div>
                             <div style={{ display: activeTab === 'menu' ? 'block' : 'none' }}>
-                                <MenuManager data={data} actions={actions} />
+                                {isMenuHydrating ? <AdminMenuSkeleton /> : <MenuManager data={data} actions={actions} />}
                             </div>
                             {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
@@ -154,6 +159,31 @@ const Admin = () => {
                         </div>
                     </DialogBox>
                 </div>
+            </div>
+        </div>
+    );
+};
+
+const AdminMenuSkeleton = () => {
+    return (
+        <div className="p-4 flex flex-col gap-6">
+            <div className="bg-white rounded-2xl border shadow-sm p-6">
+                <div className="shimmer-loading rounded-xl" style={{ height: '22px', width: '150px', marginBottom: '18px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '54px', width: '100%', marginBottom: '12px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '54px', width: '100%', marginBottom: '12px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '54px', width: '100%' }} />
+            </div>
+
+            <div className="bg-[#FFFBE6] rounded-2xl border shadow-sm p-6">
+                <div className="shimmer-loading rounded-xl" style={{ height: '22px', width: '200px', marginBottom: '18px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '48px', width: '100%', marginBottom: '10px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '48px', width: '100%', marginBottom: '10px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '48px', width: '82%' }} />
+            </div>
+
+            <div className="bg-gray-50 rounded-2xl border shadow-sm p-6">
+                <div className="shimmer-loading rounded-xl" style={{ height: '22px', width: '170px', marginBottom: '18px' }} />
+                <div className="shimmer-loading rounded-xl" style={{ height: '44px', width: '100%' }} />
             </div>
         </div>
     );
@@ -217,6 +247,17 @@ const MenuManager = ({ data, actions }) => {
 
     useEffect(() => {
         setHistoryPage(1);
+    }, [showHistory, data.menuHistory?.length]);
+
+    useEffect(() => {
+        if (!showHistory) return;
+        if ((data.menuHistory || []).length > 0) return;
+        void actions.fetchData(['history'], {
+            silent: true,
+            timeoutMs: 8000,
+            retries: 0,
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showHistory, data.menuHistory?.length]);
 
 
@@ -1574,6 +1615,7 @@ const MemberManager = ({ data, actions }) => {
 const StatsManager = ({ data }) => {
     // History Filter State
     const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
+    const [statsTab, setStatsTab] = useState('member');
 
     // Filter orders by date (API returns ISO date string)
     // GAS orders date format is ISO string. data.orders contains ALL orders.
@@ -1595,6 +1637,23 @@ const StatsManager = ({ data }) => {
         acc[o.member].items.push(...o.items);
         return acc;
     }, {});
+
+    // Item count stats (quantity only, no price)
+    const itemStats = Object.entries(
+        orders.reduce((acc, order) => {
+            (order.items || []).forEach((item) => {
+                const name = String(item?.name || '').trim() || '未命名品項';
+                const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
+                const qty = Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
+                acc[name] = (acc[name] || 0) + qty;
+            });
+            return acc;
+        }, {})
+    ).sort((a, b) => b[1] - a[1]);
+    const itemTotalQty = itemStats.reduce((sum, [, qty]) => sum + qty, 0);
+
+    const memberEntries = Object.entries(byMember)
+        .sort((a, b) => (b[1].count - a[1].count) || (b[1].total - a[1].total));
 
     return (
         <div className="p-4 flex flex-col gap-6">
@@ -1621,19 +1680,53 @@ const StatsManager = ({ data }) => {
                 </div>
             </div>
 
-            <div className="flex flex-col gap-2">
-                <h3 className="font-bold border-b pb-2">成員統計</h3>
-                {Object.entries(byMember).map(([member, stat]) => (
-                    <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
-                        <div>
-                            <span className="font-bold text-lg mr-2">{member}</span>
-                            <span className="text-gray-500">{stat.items.map(i => i.name).join(', ')}</span>
-                        </div>
-                        <div className="font-bold text-ac-orange">${stat.total}</div>
-                    </div>
-                ))}
-                {orders.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有訂單資料 (Zzz...)</div>}
+            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+                <button
+                    onClick={() => setStatsTab('member')}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'member' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                >
+                    成員統計
+                </button>
+                <button
+                    onClick={() => setStatsTab('item')}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                >
+                    品項統計（數量）
+                </button>
             </div>
+
+            {statsTab === 'member' ? (
+                <div className="flex flex-col gap-2">
+                    <h3 className="font-bold border-b pb-2">成員統計</h3>
+                    {memberEntries.map(([member, stat]) => (
+                        <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
+                            <div>
+                                <span className="font-bold text-lg mr-2">{member}</span>
+                                <span className="text-gray-500">{stat.items.map(i => i.name).join(', ')}</span>
+                            </div>
+                            <div className="font-bold text-ac-orange">${stat.total}</div>
+                        </div>
+                    ))}
+                    {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有成員統計資料</div>}
+                </div>
+            ) : (
+                <div className="flex flex-col gap-2">
+                    <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
+                    {itemStats.map(([itemName, qty]) => (
+                        <div key={itemName} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
+                            <span className="font-bold text-gray-700">{itemName}</span>
+                            <span className="font-black text-ac-green">x {qty}</span>
+                        </div>
+                    ))}
+                    {itemStats.length > 0 && (
+                        <div className="bg-green-50 p-3 rounded-lg flex justify-between items-center text-sm border border-green-200">
+                            <span className="font-black text-green-700">總計</span>
+                            <span className="font-black text-green-700">x {itemTotalQty}</span>
+                        </div>
+                    )}
+                    {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有品項統計資料</div>}
+                </div>
+            )}
         </div>
     );
 };

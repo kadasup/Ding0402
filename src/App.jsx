@@ -10,11 +10,12 @@ const GlobalFeedback = () => {
   const { ui } = useDing();
   const location = useLocation();
   const isHomePage = location.pathname === '/';
+  const isAdminPage = location.pathname === '/admin';
   const toastTypeClass = ui?.toast?.type === 'error' ? 'error' : ui?.toast?.type === 'success' ? 'success' : 'info';
 
   return (
     <>
-      {ui?.pending && !isHomePage && (
+      {ui?.pending && !isHomePage && !isAdminPage && (
         <div className="global-loading-mask">
           <div className="global-loading-panel">
             <span className="global-loading-spinner" />

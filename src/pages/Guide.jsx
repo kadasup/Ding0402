@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronUp } from 'lucide-react';
 import imgUserOrder from '../assets/guide/guide-user-order.png';
 import imgUserHistory from '../assets/guide/guide-user-history.png';
 import imgAdminPublish from '../assets/guide/guide-admin-publish.png';
@@ -8,6 +9,15 @@ import imgAdminClear from '../assets/guide/guide-admin-clear.png';
 
 const Guide = () => {
   const navigate = useNavigate();
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div className="max-w-3xl mx-auto pb-12">
@@ -114,6 +124,23 @@ const Guide = () => {
           </div>
         </div>
       </div>
+
+      {showScrollTop && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
+          style={{
+            right: '20px',
+            left: 'auto',
+            margin: 0,
+            bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))'
+          }}
+          title="回到 Top"
+          aria-label="回到 Top"
+        >
+          <ChevronUp size={24} color="white" strokeWidth={3} />
+        </button>
+      )}
     </div>
   );
 };
