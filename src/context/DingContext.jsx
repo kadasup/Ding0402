@@ -32,7 +32,6 @@ const INITIAL_DATA = {
 const SYNC_PROTECTION_TIME = 3000;
 const ALL_SECTIONS = ['core', 'orders', 'library', 'history', 'uploadStatus', 'debug'];
 const INITIAL_SECTIONS = ['core'];
-const BACKGROUND_SECTIONS = ['library', 'history', 'uploadStatus', 'debug'];
 const REQUEST_TIMEOUT_MS = 10000;
 const REQUEST_RETRIES = 1;
 const ORDERS_CACHE_KEY = 'ding_orders_cache_v1';
@@ -62,6 +61,7 @@ export const DingProvider = ({ children }) => {
   const dedupeInFlight = useRef(new Set());
   const activeRequestCount = useRef(0);
   const toastTimer = useRef(null);
+  const bootstrappedGasUrlRef = useRef('');
 
   const envGasUrl = import.meta.env.VITE_GAS_URL || '';
   const [gasUrl, setGasUrl] = useState(() => {
@@ -352,7 +352,6 @@ export const DingProvider = ({ children }) => {
           : null;
         const menuIdForCache = String(
           json?.menu?.lastUpdated
-          || data?.menu?.lastUpdated
           || firstOrderWithMenu?.menuId
           || ''
         );
@@ -372,7 +371,7 @@ export const DingProvider = ({ children }) => {
         endPending();
       }
     }
-  }, [beginPending, data?.menu?.lastUpdated, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeCoreCache, writeOrdersCache, writeTimedCache]);
+  }, [beginPending, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeCoreCache, writeOrdersCache, writeTimedCache]);
 
   const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
@@ -387,6 +386,8 @@ export const DingProvider = ({ children }) => {
 
   useEffect(() => {
     if (!gasUrl) return;
+    if (bootstrappedGasUrlRef.current === gasUrl) return;
+    bootstrappedGasUrlRef.current = gasUrl;
     let cancelled = false;
 
     const bootstrap = async () => {
@@ -403,9 +404,6 @@ export const DingProvider = ({ children }) => {
       const coreMenuId = String(coreData?.menu?.lastUpdated || '');
       if (!cancelled && coreMenuId) {
         hydrateOrdersFromCache(coreMenuId);
-      }
-      if (!cancelled && isHomeRoute) {
-        void fetchData(BACKGROUND_SECTIONS, { silent: true });
       }
     };
 
