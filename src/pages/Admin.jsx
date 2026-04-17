@@ -1720,10 +1720,9 @@ const MemberManager = ({ data, actions }) => {
 
 
 const StatsManager = ({ data }) => {
-    // History Filter State
-    const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
+    // Round Filter State (menuId-first; fallback to legacy date bucket)
+    const [selectedRoundKey, setSelectedRoundKey] = useState('');
     const [statsTab, setStatsTab] = useState('member');
-    const dateInputRef = useRef(null);
     const getOrderFloor = (memberName) => {
         const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
         return matched ? `${matched[1]}樓` : 'VIP';
@@ -1737,31 +1736,114 @@ const StatsManager = ({ data }) => {
         const matched = String(floorName || '').match(/^(\d+)\s*樓/);
         return matched ? Number(matched[1]) : Number.MAX_SAFE_INTEGER - 1;
     };
+    const formatDateTime = (ts) => {
+        if (!ts) return '-';
+        const dateObj = new Date(ts);
+        if (Number.isNaN(dateObj.getTime())) return '-';
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        const hh = String(dateObj.getHours()).padStart(2, '0');
+        const mm = String(dateObj.getMinutes()).padStart(2, '0');
+        return `${y}/${m}/${d} ${hh}:${mm}`;
+    };
+    const parseTimestampSeed = (value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return NaN;
+        const firstPart = raw.split('_')[0];
+        const ts = Number(firstPart);
+        return Number.isFinite(ts) && ts > 0 ? ts : NaN;
+    };
+    const getRoundKeyFromOrder = (order) => {
+        const menuId = String(order?.menuId || '').trim();
+        if (menuId) return `menu:${menuId}`;
+        const dateKey = order?.date ? getLocalDateKey(order.date) : 'unknown';
+        return `legacy:${dateKey || 'unknown'}`;
+    };
+    const roundOptions = Object.values(
+        (data.orders || []).reduce((acc, order) => {
+            if (!order) return acc;
+            const key = getRoundKeyFromOrder(order);
+            const menuId = String(order?.menuId || '').trim();
+            const dateKey = order?.date ? getLocalDateKey(order.date) : 'unknown';
+            const tsRaw = new Date(order?.date || '').getTime();
+            const ts = Number.isFinite(tsRaw) ? tsRaw : Date.now();
 
-    const openDatePicker = () => {
-        const input = dateInputRef.current;
-        if (!input) return;
+            if (!acc[key]) {
+                acc[key] = {
+                    key,
+                    menuId: menuId || '',
+                    legacyDateKey: menuId ? '' : dateKey,
+                    startTs: ts,
+                    endTs: ts,
+                    count: 0,
+                    orders: []
+                };
+            }
+            acc[key].count += 1;
+            acc[key].orders.push(order);
+            acc[key].startTs = Math.min(acc[key].startTs, ts);
+            acc[key].endTs = Math.max(acc[key].endTs, ts);
+            return acc;
+        }, {})
+    ).sort((a, b) => b.endTs - a.endTs);
 
-        // Chromium supports showPicker(); fallback keeps Safari/iOS usable.
-        if (typeof input.showPicker === 'function') {
-            input.showPicker();
-            return;
+    const historyStoreCandidates = (data?.menuHistory || [])
+        .map((hist) => ({
+            ts: parseTimestampSeed(hist?.id),
+            storeName: String(hist?.storeInfo?.name || hist?.name || '').trim(),
+        }))
+        .filter((candidate) => candidate.storeName);
+
+    const resolveRoundStoreName = (round) => {
+        const currentMenuId = String(data?.menu?.lastUpdated || '').trim();
+        const currentStoreName = String(data?.menu?.storeInfo?.name || '').trim();
+        if (round?.menuId && round.menuId === currentMenuId && currentStoreName) {
+            return currentStoreName;
         }
+        if (!round?.menuId) return '-';
 
-        input.focus();
-        input.click();
+        const roundTs = parseTimestampSeed(round.menuId);
+        if (!Number.isFinite(roundTs) || historyStoreCandidates.length === 0) return '-';
+
+        let forwardBest = null;
+        let anyBest = null;
+        for (const candidate of historyStoreCandidates) {
+            if (!Number.isFinite(candidate.ts)) continue;
+            const forwardDelta = candidate.ts - roundTs;
+            const absDelta = Math.abs(forwardDelta);
+            if (forwardDelta >= 0 && (!forwardBest || forwardDelta < forwardBest.delta)) {
+                forwardBest = { name: candidate.storeName, delta: forwardDelta };
+            }
+            if (!anyBest || absDelta < anyBest.delta) {
+                anyBest = { name: candidate.storeName, delta: absDelta };
+            }
+        }
+        return forwardBest?.name || anyBest?.name || '-';
     };
 
-    // Filter orders by date (API returns ISO date string)
-    // GAS orders date format is ISO string. data.orders contains ALL orders.
-    const filteredOrders = (data.orders || []).filter(o => {
-        // Handle timezone issues roughly or just compare string prefix YYYY-MM-DD
-        // The GAS date is ISO.
-        if (!o.date) return false;
-        return getLocalDateKey(o.date) === selectedDate;
-    });
+    const getRoundLabel = (round) => {
+        const startStr = formatDateTime(round.startTs);
+        const storeName = resolveRoundStoreName(round);
+        return `上架：${startStr}｜店名：${storeName}｜${round.count}筆`;
+    };
 
-    const orders = filteredOrders;
+    useEffect(() => {
+        if (!roundOptions.length) {
+            if (selectedRoundKey) setSelectedRoundKey('');
+            return;
+        }
+        const currentMenuId = String(data?.menu?.lastUpdated || '').trim();
+        const preferredKey = currentMenuId ? `menu:${currentMenuId}` : roundOptions[0].key;
+        const keyExists = roundOptions.some((round) => round.key === selectedRoundKey);
+        if (!selectedRoundKey || !keyExists) {
+            const preferredExists = roundOptions.some((round) => round.key === preferredKey);
+            setSelectedRoundKey(preferredExists ? preferredKey : roundOptions[0].key);
+        }
+    }, [roundOptions, selectedRoundKey, data?.menu?.lastUpdated]);
+
+    const selectedRound = roundOptions.find((round) => round.key === selectedRoundKey) || null;
+    const orders = selectedRound ? selectedRound.orders : [];
     const total = orders.reduce((sum, o) => sum + o.total, 0);
 
     // Group by member
@@ -1818,29 +1900,24 @@ const StatsManager = ({ data }) => {
 
     return (
         <div className="p-4 flex flex-col gap-6">
-            {/* Date Filter */}
-            <div
-                className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg cursor-pointer"
-                onClick={openDatePicker}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        openDatePicker();
-                    }
-                }}
-                aria-label="開啟日期選擇器"
-            >
-                <span className="font-bold text-gray-600">選擇日期</span>
-                <input
-                    ref={dateInputRef}
-                    type="date"
+            {/* Round Filter */}
+            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+                <span className="font-bold text-gray-600 shrink-0">選擇統計</span>
+                <select
                     className="ac-input py-1 flex-1 bg-white cursor-pointer"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                />
+                    value={selectedRoundKey}
+                    onChange={(e) => setSelectedRoundKey(e.target.value)}
+                >
+                    {roundOptions.map((round) => (
+                        <option key={round.key} value={round.key}>
+                            {getRoundLabel(round)}
+                        </option>
+                    ))}
+                </select>
             </div>
+            {roundOptions.length === 0 && (
+                <div className="text-center italic text-gray-400 py-2">目前沒有可統計的訂單輪次</div>
+            )}
 
             <div className="flex gap-4">
                 <div className="flex-1 bg-ac-green text-white p-4 rounded-2xl shadow-md text-center">
@@ -1887,7 +1964,7 @@ const StatsManager = ({ data }) => {
                             <div className="font-bold text-ac-orange">${stat.total}</div>
                         </div>
                     ))}
-                    {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有成員統計資料</div>}
+                    {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有成員統計資料</div>}
                 </div>
             )}
             {statsTab === 'item' && (
@@ -1905,7 +1982,7 @@ const StatsManager = ({ data }) => {
                             <span className="font-black text-green-700">x {itemTotalQty}</span>
                         </div>
                     )}
-                    {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有品項統計資料</div>}
+                    {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有品項統計資料</div>}
                 </div>
             )}
             {statsTab === 'floor' && (
@@ -1935,7 +2012,7 @@ const StatsManager = ({ data }) => {
                             </div>
                         </div>
                     ))}
-                    {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有樓層統計資料</div>}
+                    {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有樓層統計資料</div>}
                 </div>
             )}
         </div>
