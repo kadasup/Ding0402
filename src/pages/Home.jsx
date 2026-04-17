@@ -39,6 +39,12 @@ const Home = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [memberPage, setMemberPage] = useState(0);
+    const FLOOR_OPTIONS = ['1樓', '14樓', '15樓'];
+    const getMemberFloor = (memberName) => {
+        const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
+        return matched ? `${matched[1]}樓` : '';
+    };
+    const [selectedFloor, setSelectedFloor] = useState(() => getMemberFloor(localStorage.getItem('ding_member') || ''));
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
@@ -77,6 +83,9 @@ const Home = () => {
         setSearchTerm('');
         setMemberPage(0);
         setSelectedMember(name);
+        if (name) {
+            setSelectedFloor(getMemberFloor(name));
+        }
         setCart([]); // Clear cart when switching members
         if (name) {
             localStorage.setItem('ding_member', name);
@@ -88,7 +97,8 @@ const Home = () => {
         }
     };
 
-    const filteredMembers = (data?.members || []).filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
+    const membersByFloor = (data?.members || []).filter(m => getMemberFloor(m) === selectedFloor);
+    const filteredMembers = membersByFloor.filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
     const memberPageSize = 6;
     const memberTotalPages = Math.max(1, Math.ceil(filteredMembers.length / memberPageSize));
     const safeMemberPage = Math.min(memberPage, memberTotalPages - 1);
@@ -471,7 +481,7 @@ const Home = () => {
                                     <div className="relative w-full">
                                         <input
                                             type="text"
-                                            placeholder="-- 搜尋或選擇你的角色 --"
+                                            placeholder={selectedFloor ? '-- 搜尋或選擇你的角色 --' : '-- 請先選擇樓層 --'}
                                             value={selectedMember && !isDropdownOpen ? selectedMember : searchTerm}
                                             onChange={(e) => {
                                                 setSearchTerm(e.target.value);
@@ -508,7 +518,35 @@ const Home = () => {
 
                                         {isDropdownOpen && (
                                             <div className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden left-0 top-full">
-                                                {filteredMembers.length > 0 ? (
+                                                <div className="px-3 pt-3 pb-2 border-b bg-[#F8FAFC]">
+                                                    <div className="text-[11px] font-black text-gray-500 mb-2 tracking-wide">先選擇樓層</div>
+                                                    <div className="flex gap-2">
+                                                        {FLOOR_OPTIONS.map(floor => (
+                                                            <button
+                                                                key={floor}
+                                                                type="button"
+                                                                onMouseDown={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setSelectedFloor(floor);
+                                                                    setMemberPage(0);
+                                                                    setSearchTerm('');
+                                                                }}
+                                                                className="px-3 py-1.5 rounded-full border text-sm font-black transition-all"
+                                                                style={{
+                                                                    background: selectedFloor === floor ? '#EAF6FF' : '#fff',
+                                                                    borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',
+                                                                    color: selectedFloor === floor ? '#0F766E' : '#4B5563'
+                                                                }}
+                                                            >
+                                                                {floor}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                {!selectedFloor ? (
+                                                    <div className="px-4 py-4 text-gray-400 text-center cursor-default">請先點選樓層，再顯示成員</div>
+                                                ) : filteredMembers.length > 0 ? (
                                                     <>
                                                         <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
                                                             {pagedMembers.map(m => (
