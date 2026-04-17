@@ -729,7 +729,7 @@ export const DingProvider = ({ children }) => {
         dedupeKey: 'orders:clear',
       });
     },
-    placeOrder: (member, items) => {
+    placeOrder: async (member, items) => {
       lastOrderUpdate.current = Date.now();
       const orderId = `order_${Date.now()}`;
       const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
@@ -744,11 +744,16 @@ export const DingProvider = ({ children }) => {
       };
 
       setData(prev => ({ ...prev, orders: [...prev.orders, newOrder] }));
-      void callGAS('addOrder', { member, items, total, orderId, menuId }, {
+      const result = await callGAS('addOrder', { member, items, total, orderId, menuId }, {
         refreshSections: ['orders'],
         label: '送出訂單中...',
         dedupeKey: `order:add:${orderId}`,
       });
+      if (result?.error) {
+        setData(prev => ({ ...prev, orders: prev.orders.filter(o => o.id !== orderId) }));
+        return { ok: false, error: result.error };
+      }
+      return { ok: true, orderId };
     },
     deleteOrder: (id) => {
       lastOrderUpdate.current = Date.now();

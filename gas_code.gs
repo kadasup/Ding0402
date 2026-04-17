@@ -53,11 +53,22 @@ function doPost(e) {
       return handleResponse({ success: true, text: params.text || "" });
 
     case "addOrder":
+      var orderMemberName = normalizeMemberName(params.member);
+      if (!orderMemberName) {
+        return handleResponse({ error: "Member name is required" });
+      }
+      if (!memberExists(orderMemberName)) {
+        return handleResponse({ error: "Member not found: " + orderMemberName });
+      }
+      var orderItems = Array.isArray(params.items) ? params.items : [];
+      if (orderItems.length === 0) {
+        return handleResponse({ error: "Order items are required" });
+      }
       var orderSheet = getOrCreateSheet("Orders");
       orderSheet.appendRow([
         new Date(),
-        params.member,
-        JSON.stringify(params.items),
+        orderMemberName,
+        JSON.stringify(orderItems),
         params.total,
         params.orderId || Utilities.getUuid(),
         params.menuId || ""
@@ -532,6 +543,18 @@ function getOrCreateSheet(name) {
 function normalizeMemberName(value) {
   if (value === undefined || value === null) return "";
   return String(value).replace(/\s+/g, " ").trim();
+}
+
+function memberExists(memberName) {
+  var normalized = normalizeMemberName(memberName).toLowerCase();
+  if (!normalized) return false;
+  var members = getMembersList();
+  for (var i = 0; i < members.length; i++) {
+    if (normalizeMemberName(members[i]).toLowerCase() === normalized) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function parseSheetBoolean(value) {

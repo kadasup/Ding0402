@@ -11,6 +11,7 @@ import leafIcon from '../assets/img/leaf.svg';
 const Home = () => {
     const { data, actions, loading } = useDing();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
+    const normalizeName = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const loadOrdersForMember = () => {
         void actions.fetchData(['orders'], {
             silent: true,
@@ -111,6 +112,17 @@ const Home = () => {
         }
     };
 
+    const memberNameSet = new Set((data?.members || []).map(m => normalizeName(m)).filter(Boolean));
+    const selectedMemberValid = !!selectedMember && memberNameSet.has(normalizeName(selectedMember));
+
+    useEffect(() => {
+        if (!selectedMember) return;
+        if (loading) return;
+        if (selectedMemberValid) return;
+        handleMemberLogin('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMember, selectedMemberValid, loading]);
+
     const membersByFloor = (data?.members || []).filter(m => getMemberFloor(m) === selectedFloor);
     const filteredMembers = membersByFloor.filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
     const memberPageSize = 6;
@@ -131,8 +143,12 @@ const Home = () => {
         setCart(newCart);
     };
 
-    const executeOrder = () => {
-        actions.placeOrder(selectedMember, cart);
+    const executeOrder = async () => {
+        const result = await actions.placeOrder(selectedMember, cart);
+        if (result?.ok === false) {
+            window.alert(result?.error || '下單失敗，請重新選擇成員後再試。');
+            return;
+        }
         setCart([]);
         setShowConfirmModal(false);
         setTimeout(() => setSuccessModal(true), 200);
@@ -148,6 +164,11 @@ const Home = () => {
 
     const submitOrder = () => {
         if (cart.length === 0) return;
+        if (!selectedMember || !selectedMemberValid) {
+            window.alert('此成員已不存在，請重新選擇角色後再下單。');
+            handleMemberLogin('');
+            return;
+        }
 
         // Warn if user already ordered today
         const todayStr = getLocalDateKey();
@@ -162,7 +183,7 @@ const Home = () => {
             return;
         }
 
-        executeOrder();
+        void executeOrder();
     };
 
     // Safety check: Only show full-page loader if initial data hasn't arrived yet.
