@@ -10,6 +10,7 @@ import bellsIcon from '../assets/img/bells.svg';
 const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
+    const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
     const isMenuHydrating = activeTab === 'menu'
         && !!ui?.pending
         && !data?.menu?.lastUpdated
@@ -23,6 +24,7 @@ const Admin = () => {
     }, [user?.role]);
 
     useEffect(() => {
+        let cancelled = false;
         const tabSectionsMap = {
             stats: ['orders'],
             library: ['library'],
@@ -31,11 +33,28 @@ const Admin = () => {
         const sections = tabSectionsMap[activeTab];
         if (!sections) return;
 
-        void actions.fetchData(sections, {
-            silent: true,
-            timeoutMs: 8000,
-            retries: 0,
-        });
+        const isFirstLibraryLoad = activeTab === 'library' && (data?.menuLibrary || []).length === 0;
+        if (isFirstLibraryLoad) {
+            setIsLibraryBootLoading(true);
+        }
+
+        void (async () => {
+            try {
+                await actions.fetchData(sections, {
+                    silent: true,
+                    timeoutMs: 8000,
+                    retries: 0,
+                });
+            } finally {
+                if (!cancelled && isFirstLibraryLoad) {
+                    setIsLibraryBootLoading(false);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
@@ -151,7 +170,7 @@ const Admin = () => {
                             <div style={{ display: activeTab === 'menu' ? 'block' : 'none' }}>
                                 {isMenuHydrating ? <AdminMenuSkeleton /> : <MenuManager data={data} actions={actions} />}
                             </div>
-                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} /></div>}
+                            {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} isInitialLoading={isLibraryBootLoading} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
                             {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} /></div>}
                             {activeTab === 'public' && <div key="public" className="animate-pop"><NoticeManager data={data} actions={actions} /></div>}
@@ -795,7 +814,7 @@ const MenuManager = ({ data, actions }) => {
 // ========================
 // Menu Library Manager
 // ========================
-const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud }) => {
+const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, isInitialLoading = false }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('all');
     const [showFavOnly, setShowFavOnly] = useState(false);
@@ -1142,7 +1161,15 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     const getCategoryColor = (id) => (MENU_CATEGORIES.find(c => c.id === id) || {}).color || '#95A5A6';
 
     return (
-        <div className="p-4 flex flex-col gap-4">
+        <div className="p-4 flex flex-col gap-4 relative">
+            {isInitialLoading && (
+                <div className="absolute inset-0 z-20 flex items-start justify-center pt-14">
+                    <div className="bg-white/95 border border-blue-200 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-3">
+                        <Loader size={18} className="animate-spin text-ac-blue" />
+                        <span className="font-bold text-ac-brown">菜單庫資料載入中...</span>
+                    </div>
+                </div>
+            )}
             {/* Toolbar */}
             <div className="flex flex-col gap-3">
                 {isLoadingToDaily && (
