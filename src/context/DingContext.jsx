@@ -558,19 +558,41 @@ export const DingProvider = ({ children }) => {
     loginMember: (name) => setUser(name ? { name, role: 'member' } : null),
     logout: () => setUser(null),
     fetchData: (sections, options) => fetchData(sections, options),
-    addMember: (name) => {
-      const nextName = String(name || '').trim();
-      if (!nextName) return;
+    addMember: async (name) => {
+      const nextName = String(name || '').replace(/\s+/g, ' ').trim();
+      if (!nextName) return { ok: false, reason: 'empty' };
 
+      const normalizedName = nextName.toLowerCase();
+      let existsLocally = false;
       setData(prev => {
-        if (prev.members.includes(nextName)) return prev;
+        existsLocally = (prev.members || []).some(
+          member => String(member || '').replace(/\s+/g, ' ').trim().toLowerCase() === normalizedName
+        );
+        if (existsLocally) return prev;
         return { ...prev, members: [...prev.members, nextName] };
       });
-      void callGAS('addMember', { name: nextName }, {
+
+      if (existsLocally) {
+        return { ok: true, skipped: true, reason: 'exists_local' };
+      }
+
+      const result = await callGAS('addMember', { name: nextName }, {
         refreshSections: ['members'],
         label: '新增成員中...',
-        dedupeKey: `member:add:${nextName}`,
+        dedupeKey: `member:add:${normalizedName}`,
       });
+
+      if (result?.error) {
+        setData(prev => ({
+          ...prev,
+          members: (prev.members || []).filter(
+            member => String(member || '').replace(/\s+/g, ' ').trim().toLowerCase() !== normalizedName
+          ),
+        }));
+        return { ok: false, reason: 'request_failed', error: result.error };
+      }
+
+      return { ok: true, skipped: result?.exists === true };
     },
     removeMember: (name) => {
       setData(prev => ({ ...prev, members: prev.members.filter(m => m !== name) }));

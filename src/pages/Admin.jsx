@@ -1542,6 +1542,7 @@ const MemberManager = ({ data, actions }) => {
     const [newName, setNewName] = useState('');
     const [editingMember, setEditingMember] = useState(null);
     const [editName, setEditName] = useState('');
+    const [isAdding, setIsAdding] = useState(false);
 
     const startEdit = (member) => {
         setEditingMember(member);
@@ -1560,6 +1561,20 @@ const MemberManager = ({ data, actions }) => {
         setEditingMember(null);
     };
 
+    const handleAddMember = async () => {
+        const nextName = String(newName || '').replace(/\s+/g, ' ').trim();
+        if (!nextName || isAdding) return;
+        setIsAdding(true);
+        try {
+            const result = await actions.addMember(nextName);
+            if (result?.ok !== false) {
+                setNewName('');
+            }
+        } finally {
+            setIsAdding(false);
+        }
+    };
+
     return (
         <div className="p-4 flex flex-col gap-4">
             <div className="flex gap-2">
@@ -1568,8 +1583,20 @@ const MemberManager = ({ data, actions }) => {
                     placeholder="輸入新成員名稱..."
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void handleAddMember();
+                        }
+                    }}
                 />
-                <Button onClick={() => { if (newName) { actions.addMember(newName); setNewName(''); } }} className="whitespace-nowrap"><Plus size={16} /> 新增</Button>
+                <Button
+                    onClick={() => void handleAddMember()}
+                    className="whitespace-nowrap"
+                    disabled={isAdding || !String(newName || '').trim()}
+                >
+                    <Plus size={16} /> {isAdding ? '新增中...' : '新增'}
+                </Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {data.members.map(m => (

@@ -83,39 +83,98 @@ function doPost(e) {
       return handleResponse({ success: found });
 
     case "addMember":
-      var memSheet = getOrCreateSheet("Members");
-      memSheet.appendRow([params.name, new Date()]);
-      return handleResponse({ success: true });
+      var nextMemberName = normalizeMemberName(params.name);
+      if (!nextMemberName) {
+        return handleResponse({ error: "Member name is required" });
+      }
+      var addLock = LockService.getScriptLock();
+      addLock.waitLock(5000);
+      try {
+        var memSheet = getOrCreateSheet("Members");
+        var memRowsForAdd = memSheet.getDataRange().getValues();
+        var targetMemberNormalized = nextMemberName.toLowerCase();
+        for (var mi = 1; mi < memRowsForAdd.length; mi++) {
+          var existingName = normalizeMemberName(memRowsForAdd[mi][0]);
+          if (!existingName) continue;
+          if (existingName.toLowerCase() === targetMemberNormalized) {
+            return handleResponse({ success: true, exists: true, name: existingName });
+          }
+        }
+        memSheet.appendRow([nextMemberName, new Date()]);
+        return handleResponse({ success: true, created: true, name: nextMemberName });
+      } finally {
+        addLock.releaseLock();
+      }
 
     case "removeMember":
-      var memSheet2 = getOrCreateSheet("Members");
-      var memRows = memSheet2.getDataRange().getValues();
-      for (var i2 = memRows.length - 1; i2 >= 1; i2--) {
-        if (memRows[i2][0] === params.name) {
-          memSheet2.deleteRow(i2 + 1);
+      var removeName = normalizeMemberName(params.name);
+      if (!removeName) return handleResponse({ success: false, error: "Member name is required" });
+      var removeNameKey = removeName.toLowerCase();
+      var removeLock = LockService.getScriptLock();
+      removeLock.waitLock(5000);
+      try {
+        var memSheet2 = getOrCreateSheet("Members");
+        var memRows = memSheet2.getDataRange().getValues();
+        for (var i2 = memRows.length - 1; i2 >= 1; i2--) {
+          var rowMember = normalizeMemberName(memRows[i2][0]);
+          if (rowMember && rowMember.toLowerCase() === removeNameKey) {
+            memSheet2.deleteRow(i2 + 1);
+          }
         }
+        return handleResponse({ success: true });
+      } finally {
+        removeLock.releaseLock();
       }
-      return handleResponse({ success: true });
 
     case "updateMember":
-      var memberSheet = getOrCreateSheet("Members");
-      var memberRows = memberSheet.getDataRange().getValues();
-      var renamed = false;
-      for (var j = 1; j < memberRows.length; j++) {
-        if (memberRows[j][0] === params.oldName) {
-          memberSheet.getRange(j + 1, 1).setValue(params.newName);
-          renamed = true;
-        }
+      var oldMemberName = normalizeMemberName(params.oldName);
+      var newMemberName = normalizeMemberName(params.newName);
+      if (!oldMemberName || !newMemberName) {
+        return handleResponse({ success: false, error: "Both oldName and newName are required" });
       }
+      var oldMemberKey = oldMemberName.toLowerCase();
+      var newMemberKey = newMemberName.toLowerCase();
+      if (oldMemberKey === newMemberKey) {
+        return handleResponse({ success: false, error: "oldName and newName are identical" });
+      }
+      var updateLock = LockService.getScriptLock();
+      updateLock.waitLock(5000);
+      try {
+        var memberSheet = getOrCreateSheet("Members");
+        var memberRows = memberSheet.getDataRange().getValues();
+        var renamed = false;
+        var targetExists = false;
+        for (var ck = 1; ck < memberRows.length; ck++) {
+          var candidate = normalizeMemberName(memberRows[ck][0]);
+          if (!candidate) continue;
+          if (candidate.toLowerCase() === newMemberKey) {
+            targetExists = true;
+            break;
+          }
+        }
+        if (targetExists) {
+          return handleResponse({ success: false, error: "Target member already exists" });
+        }
+        for (var j = 1; j < memberRows.length; j++) {
+          var oldCandidate = normalizeMemberName(memberRows[j][0]);
+          if (oldCandidate && oldCandidate.toLowerCase() === oldMemberKey) {
+            memberSheet.getRange(j + 1, 1).setValue(newMemberName);
+            renamed = true;
+          }
+        }
 
-      var ordersSheetForRename = getOrCreateSheet("Orders");
-      var orderRowsForRename = ordersSheetForRename.getDataRange().getValues();
-      for (var ri = 1; ri < orderRowsForRename.length; ri++) {
-        if (orderRowsForRename[ri][1] === params.oldName) {
-          ordersSheetForRename.getRange(ri + 1, 2).setValue(params.newName);
+        var ordersSheetForRename = getOrCreateSheet("Orders");
+        var orderRowsForRename = ordersSheetForRename.getDataRange().getValues();
+        for (var ri = 1; ri < orderRowsForRename.length; ri++) {
+          var orderMember = normalizeMemberName(orderRowsForRename[ri][1]);
+          if (orderMember && orderMember.toLowerCase() === oldMemberKey) {
+            ordersSheetForRename.getRange(ri + 1, 2).setValue(newMemberName);
+          }
         }
+        return handleResponse({ success: renamed });
+      } finally {
+        updateLock.releaseLock();
       }
-      return handleResponse({ success: renamed });
 
     case "addMenuHistory":
       var histSheet = getOrCreateSheet("MenuHistory");
@@ -142,6 +201,8 @@ function doPost(e) {
 
     case "addMenuLibrary":
       var libSheet = getOrCreateSheet("MenuLibrary");
+      var libRemarkValue = params.remark || params.tags || "";
+      var libIsFavorite = parseSheetBoolean(params.isFavorite);
       libSheet.appendRow([
         params.id || Utilities.getUuid(),
         params.name,
@@ -149,8 +210,11 @@ function doPost(e) {
         JSON.stringify(params.storeInfo || {}),
         JSON.stringify(params.items || []),
         params.image || "",
-        params.remark || params.tags || "",
-        params.isFavorite || false
+        libRemarkValue,
+        new Date().getTime(),
+        libIsFavorite,
+        "",
+        libRemarkValue
       ]);
       return handleResponse({ success: true });
 
@@ -166,16 +230,21 @@ function doPost(e) {
       }
 
       if (foundIndex !== -1) {
-        if (params.name) libSheet2.getRange(foundIndex, 2).setValue(params.name);
-        if (params.category) libSheet2.getRange(foundIndex, 3).setValue(params.category);
-        if (params.storeInfo) libSheet2.getRange(foundIndex, 4).setValue(JSON.stringify(params.storeInfo));
-        if (params.items) libSheet2.getRange(foundIndex, 5).setValue(JSON.stringify(params.items));
+        var hasParam = function (key) { return Object.prototype.hasOwnProperty.call(params, key); };
+        if (hasParam("name")) libSheet2.getRange(foundIndex, 2).setValue(params.name || "");
+        if (hasParam("category")) libSheet2.getRange(foundIndex, 3).setValue(params.category || "");
+        if (hasParam("storeInfo")) libSheet2.getRange(foundIndex, 4).setValue(JSON.stringify(params.storeInfo || {}));
+        if (hasParam("items")) libSheet2.getRange(foundIndex, 5).setValue(JSON.stringify(params.items || []));
         if (params.image !== undefined) libSheet2.getRange(foundIndex, 6).setValue(params.image);
-        if (params.remark || params.tags) {
+        if (hasParam("isFavorite")) {
+          libSheet2.getRange(foundIndex, 9).setValue(parseSheetBoolean(params.isFavorite));
+        }
+        if (hasParam("remark") || hasParam("tags")) {
           var remarkValue = params.remark || params.tags;
           libSheet2.getRange(foundIndex, 7).setValue(remarkValue);
           libSheet2.getRange(foundIndex, 11).setValue(remarkValue); // Keep remark in column K
         }
+        libSheet2.getRange(foundIndex, 8).setValue(new Date().getTime());
         return handleResponse({ success: true });
       }
       return handleResponse({ error: "Menu library item not found by ID" });
@@ -196,7 +265,12 @@ function doPost(e) {
       var libRows4 = libSheet4.getDataRange().getValues();
       for (var fi = 1; fi < libRows4.length; fi++) {
         if (libRows4[fi][0] === params.id) {
-          libSheet4.getRange(fi + 1, 8).setValue(!libRows4[fi][7]);
+          var currentFav = parseSheetBoolean(libRows4[fi][8]);
+          if (libRows4[fi][8] === "" && libRows4[fi][7] !== "") {
+            currentFav = parseSheetBoolean(libRows4[fi][7]);
+          }
+          libSheet4.getRange(fi + 1, 9).setValue(!currentFav);
+          libSheet4.getRange(fi + 1, 8).setValue(new Date().getTime());
           break;
         }
       }
@@ -349,7 +423,7 @@ function getLibraryList() {
         items: JSON.parse(rows[i][4] || "[]"),
         image: rows[i][5],
         remark: rows[i][10] || rows[i][6], // Prefer column K remark, fallback to old column
-        isFavorite: rows[i][7] === true || String(rows[i][7]).toUpperCase() === "TRUE"
+        isFavorite: parseSheetBoolean(rows[i][8] !== "" ? rows[i][8] : rows[i][7])
       });
     } catch (e) {}
   }
@@ -403,7 +477,18 @@ function getHistoryList() {
 function getMembersList() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Members");
   if (!sheet) return [];
-  return sheet.getRange("A2:A").getValues().map(function (r) { return r[0]; }).filter(Boolean);
+  var rawRows = sheet.getRange("A2:A").getValues();
+  var seen = {};
+  var uniqueMembers = [];
+  for (var i = 0; i < rawRows.length; i++) {
+    var normalized = normalizeMemberName(rawRows[i][0]);
+    if (!normalized) continue;
+    var dedupeKey = normalized.toLowerCase();
+    if (seen[dedupeKey]) continue;
+    seen[dedupeKey] = true;
+    uniqueMembers.push(normalized);
+  }
+  return uniqueMembers;
 }
 
 function getOrdersData() {
@@ -442,6 +527,19 @@ function getOrCreateSheet(name) {
     if (name === "MenuHistory") sheet.appendRow(["ID", "名稱", "品項JSON", "圖片", "店家資訊JSON", "備註"]);
   }
   return sheet;
+}
+
+function normalizeMemberName(value) {
+  if (value === undefined || value === null) return "";
+  return String(value).replace(/\s+/g, " ").trim();
+}
+
+function parseSheetBoolean(value) {
+  if (value === true || value === false) return value;
+  if (value === 1) return true;
+  if (value === 0) return false;
+  var normalized = String(value === undefined || value === null ? "" : value).trim().toUpperCase();
+  return normalized === "TRUE" || normalized === "1" || normalized === "YES";
 }
 
 function formatSheetDateKey(value) {
