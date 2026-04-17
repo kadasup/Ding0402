@@ -39,10 +39,13 @@ const Home = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [memberPage, setMemberPage] = useState(0);
-    const FLOOR_OPTIONS = ['1樓', '14樓', '15樓'];
+    const BASE_FLOOR_OPTIONS = ['1樓', '14樓', '15樓'];
+    const FLOOR_OPTIONS = [...BASE_FLOOR_OPTIONS, 'VIP'];
     const getMemberFloor = (memberName) => {
         const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
-        return matched ? `${matched[1]}樓` : '';
+        const detectedFloor = matched ? `${matched[1]}樓` : '';
+        if (!detectedFloor) return 'VIP';
+        return BASE_FLOOR_OPTIONS.includes(detectedFloor) ? detectedFloor : 'VIP';
     };
     const [selectedFloor, setSelectedFloor] = useState(() => getMemberFloor(localStorage.getItem('ding_member') || ''));
     const [showScrollTop, setShowScrollTop] = useState(false);
@@ -532,7 +535,7 @@ const Home = () => {
                                                                     setMemberPage(0);
                                                                     setSearchTerm('');
                                                                 }}
-                                                                className="px-3 py-1.5 rounded-full border text-sm font-black transition-all"
+                                                                className="px-4 py-2 rounded-full border text-base font-black transition-all"
                                                                 style={{
                                                                     background: selectedFloor === floor ? '#EAF6FF' : '#fff',
                                                                     borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',

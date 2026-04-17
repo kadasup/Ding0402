@@ -1161,9 +1161,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     const getCategoryColor = (id) => (MENU_CATEGORIES.find(c => c.id === id) || {}).color || '#95A5A6';
 
     return (
-        <div className="p-4 flex flex-col gap-4 relative">
+        <div className="p-4 flex flex-col gap-4">
             {isInitialLoading && (
-                <div className="absolute inset-0 z-20 flex items-start justify-center pt-14">
+                <div className="fixed inset-0 z-[2147483000] pointer-events-none flex items-start justify-center pt-24">
                     <div className="bg-white/95 border border-blue-200 rounded-2xl shadow-xl px-5 py-3 flex items-center gap-3">
                         <Loader size={18} className="animate-spin text-ac-blue" />
                         <span className="font-bold text-ac-brown">菜單庫資料載入中...</span>
@@ -1347,11 +1347,11 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
                                <h4 className="font-black text-sm text-ac-brown">品項清單 ({formItems.length})</h4>
                                <button 
                                   onClick={() => setShowAddItemModal(true)} 
-                                  className="ac-btn secondary text-xs" 
-                                  style={{ padding: '6px 14px', boxSize: 'border-box', height: 'auto', fontSize: '0.8rem' }}
-                               >
+                                  className="ac-btn secondary text-xs sm:text-sm whitespace-nowrap shrink-0" 
+                                  style={{ padding: '8px 14px', boxSizing: 'border-box', minHeight: '38px', fontSize: '0.85rem' }}
+                                >
                                   <Plus size={14} /> 新增品項
-                               </button>
+                                </button>
                             </div>
                             {formItems.length === 0 ? (
                                 <div className="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100 text-gray-400 text-xs font-bold">
@@ -1392,9 +1392,22 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
                             )}
                         </div>
 
-                        <div className="flex gap-4 justify-center mt-4 pt-6 border-t font-black">
-                            <Button variant="secondary" onClick={resetForm} style={{ padding: '12px 40px' }} disabled={isSaving}>取消</Button>
-                            <Button onClick={handleSave} style={{ padding: '12px 40px' }} disabled={isSaving}>
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-4 pt-6 border-t font-black">
+                            <Button
+                                variant="secondary"
+                                onClick={resetForm}
+                                className="w-full sm:w-auto sm:min-w-[168px] whitespace-nowrap"
+                                style={{ padding: '12px 28px', minHeight: '52px' }}
+                                disabled={isSaving}
+                            >
+                                取消
+                            </Button>
+                            <Button
+                                onClick={handleSave}
+                                className="w-full sm:w-auto sm:min-w-[168px] whitespace-nowrap"
+                                style={{ padding: '12px 28px', minHeight: '52px' }}
+                                disabled={isSaving}
+                            >
                                 {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 儲存中...</span> : (editingId ? '更新菜單' : '建立菜單')}
                             </Button>
                         </div>
