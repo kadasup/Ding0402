@@ -39,6 +39,10 @@ const Home = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [memberPage, setMemberPage] = useState(0);
+    const [isMobileViewport, setIsMobileViewport] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.innerWidth < 768;
+    });
     const BASE_FLOOR_OPTIONS = ['1樓', '14樓', '15樓'];
     const FLOOR_OPTIONS = [...BASE_FLOOR_OPTIONS, 'VIP'];
     const getMemberFloor = (memberName) => {
@@ -56,6 +60,13 @@ const Home = () => {
         };
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    useEffect(() => {
+        const handleViewport = () => setIsMobileViewport(window.innerWidth < 768);
+        handleViewport();
+        window.addEventListener('resize', handleViewport);
+        return () => window.removeEventListener('resize', handleViewport);
     }, []);
     const [randomItem, setRandomItem] = useState(null);
     const [isRolling, setIsRolling] = useState(false);
@@ -200,31 +211,69 @@ const Home = () => {
 
     return (
         <div className="flex flex-col gap-4 max-w-4xl mx-auto pb-40">
+            {/* Mobile quick links (non-fixed to prevent overlap) */}
+            {isMobileViewport && (
+            <div className="px-4">
+                <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+                    <Link
+                        to="/guide"
+                        className="hover:scale-105 active:scale-95 transition-all"
+                        title="操作說明"
+                    >
+                        <Button
+                            variant="secondary"
+                            className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
+                            style={{ backgroundColor: '#FFB84D', color: '#FFF' }}
+                        >
+                            <HelpCircle size={16} />
+                            <span className="font-bold tracking-wide">操作說明</span>
+                        </Button>
+                    </Link>
+                    <Link
+                        to="/admin"
+                        className="hover:scale-105 active:scale-95 transition-all"
+                        title="管理員入口"
+                    >
+                        <Button
+                            variant="secondary"
+                            className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
+                        >
+                            <Lock size={16} />
+                            <span className="font-bold tracking-wide">管理員</span>
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+            )}
             {/* Admin Portal Entry (Fixed to avoid overlap) */}
-            <Link 
-                to="/admin" 
-                className="ac-admin-link hover:scale-105 active:scale-95 transition-all"
-                style={{ position: 'fixed', top: '24px', right: '24px', left: 'auto', zIndex: 99999, opacity: 0.8 }}
-                title="進入後台"
-            >
-                <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
-                    <Lock size={18} /> 
-                    <span className="font-bold tracking-widest hidden sm:inline">管理員</span>
-                </Button>
-            </Link>
+            {!isMobileViewport && (
+                <Link 
+                    to="/admin" 
+                    className="ac-admin-link hover:scale-105 active:scale-95 transition-all"
+                    style={{ position: 'fixed', top: '24px', right: '24px', left: 'auto', zIndex: 99999, opacity: 0.8 }}
+                    title="進入後台"
+                >
+                    <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
+                        <Lock size={18} /> 
+                        <span className="font-bold tracking-widest">管理員</span>
+                    </Button>
+                </Link>
+            )}
 
             {/* Guide Entry */}
-            <Link 
-                to="/guide" 
-                className="hover:scale-105 active:scale-95 transition-all"
-                style={{ position: 'fixed', top: '24px', left: '24px', right: 'auto', zIndex: 99999, opacity: 0.8 }}
-                title="操作說明"
-            >
-                <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2" style={{ backgroundColor: '#FFB84D', color: '#FFF' }}>
-                    <HelpCircle size={18} /> 
-                    <span className="font-bold tracking-widest hidden sm:inline">操作說明</span>
-                </Button>
-            </Link>
+            {!isMobileViewport && (
+                <Link 
+                    to="/guide" 
+                    className="hover:scale-105 active:scale-95 transition-all"
+                    style={{ position: 'fixed', top: '24px', left: '24px', right: 'auto', zIndex: 99999, opacity: 0.8 }}
+                    title="操作說明"
+                >
+                    <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2" style={{ backgroundColor: '#FFB84D', color: '#FFF' }}>
+                        <HelpCircle size={18} /> 
+                        <span className="font-bold tracking-widest">操作說明</span>
+                    </Button>
+                </Link>
+            )}
 
             {/* Header / Announcement */}
             <div className="flex flex-col items-center mb-6 relative px-4">
@@ -523,7 +572,10 @@ const Home = () => {
                                             <div className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden left-0 top-full">
                                                 <div className="px-3 pt-3 pb-2 border-b bg-[#F8FAFC]">
                                                     <div className="text-[11px] font-black text-gray-500 mb-2 tracking-wide">先選擇樓層</div>
-                                                    <div className="flex gap-2">
+                                                    <div
+                                                        className="flex gap-2"
+                                                        style={{ flexWrap: 'nowrap', overflowX: 'auto' }}
+                                                    >
                                                         {FLOOR_OPTIONS.map(floor => (
                                                             <button
                                                                 key={floor}
@@ -535,8 +587,11 @@ const Home = () => {
                                                                     setMemberPage(0);
                                                                     setSearchTerm('');
                                                                 }}
-                                                                className="px-4 py-2 rounded-full border text-base font-black transition-all"
+                                                                className="whitespace-nowrap px-3 py-2 rounded-full border leading-none font-black transition-all"
                                                                 style={{
+                                                                    flex: 1,
+                                                                    minWidth: 72,
+                                                                    fontSize: isMobileViewport ? '1rem' : '1.125rem',
                                                                     background: selectedFloor === floor ? '#EAF6FF' : '#fff',
                                                                     borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',
                                                                     color: selectedFloor === floor ? '#0F766E' : '#4B5563'
