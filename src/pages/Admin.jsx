@@ -1543,6 +1543,7 @@ const MemberManager = ({ data, actions }) => {
     const [editingMember, setEditingMember] = useState(null);
     const [editName, setEditName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
+    const [removingName, setRemovingName] = useState('');
 
     const startEdit = (member) => {
         setEditingMember(member);
@@ -1572,6 +1573,17 @@ const MemberManager = ({ data, actions }) => {
             }
         } finally {
             setIsAdding(false);
+        }
+    };
+
+    const handleRemoveMember = async (member) => {
+        const target = String(member || '').trim();
+        if (!target || removingName === target) return;
+        setRemovingName(target);
+        try {
+            await actions.removeMember(target);
+        } finally {
+            setRemovingName('');
         }
     };
 
@@ -1621,7 +1633,14 @@ const MemberManager = ({ data, actions }) => {
                                 <span className="font-bold truncate mr-2">{m}</span>
                                 <div className="flex gap-2 flex-shrink-0">
                                     <button onClick={() => startEdit(m)} className="text-ac-blue hover:text-blue-600 bg-blue-50 p-1.5 rounded-lg transition-colors"><Edit size={18} /></button>
-                                    <button onClick={() => actions.removeMember(m)} className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                                    <button
+                                        onClick={() => void handleRemoveMember(m)}
+                                        disabled={removingName === m}
+                                        className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={removingName === m ? '刪除中...' : '刪除成員'}
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
                                 </div>
                             </>
                         )}

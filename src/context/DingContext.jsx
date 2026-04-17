@@ -594,13 +594,36 @@ export const DingProvider = ({ children }) => {
 
       return { ok: true, skipped: result?.exists === true };
     },
-    removeMember: (name) => {
-      setData(prev => ({ ...prev, members: prev.members.filter(m => m !== name) }));
-      void callGAS('removeMember', { name }, {
+    removeMember: async (name) => {
+      const normalizedName = String(name || '').replace(/\s+/g, ' ').trim();
+      if (!normalizedName) return { ok: false, reason: 'empty' };
+      const normalizedKey = normalizedName.toLowerCase();
+      const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+      setData(prev => ({
+        ...prev,
+        members: (prev.members || []).filter(member => normalize(member) !== normalizedKey),
+      }));
+
+      const result = await callGAS('removeMember', { name: normalizedName }, {
         refreshSections: ['members'],
         label: '刪除成員中...',
-        dedupeKey: `member:remove:${name}`,
+        dedupeKey: `member:remove:${normalizedKey}`,
       });
+
+      if (result?.error) {
+        setData(prev => {
+          const exists = (prev.members || []).some(member => normalize(member) === normalizedKey);
+          if (exists) return prev;
+          return { ...prev, members: [...(prev.members || []), normalizedName] };
+        });
+        return { ok: false, reason: 'request_failed', error: result.error };
+      }
+
+      setTimeout(() => {
+        void fetchData(['members'], { silent: true, timeoutMs: 8000, retries: 0 });
+      }, 600);
+      return { ok: true };
     },
     updateMember: (oldName, newName) => {
       const nextName = String(newName || '').trim();
