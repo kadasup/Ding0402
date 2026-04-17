@@ -821,16 +821,16 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
         if (draftStr) {
             try {
                 const draft = JSON.parse(draftStr);
-                if (draft.showAddForm) {
-                    setShowAddForm(draft.showAddForm);
-                    setEditingId(draft.editingId);
-                    setFormName(draft.formName || '');
-                    setFormCategory(draft.formCategory || 'chinese');
-                    setFormStoreInfo(draft.formStoreInfo || { name: '', address: '', phone: '' });
-                    setFormItems(draft.formItems || []);
-                    setFormImage(draft.formImage || '');
-                    setFormRemark(draft.formRemark || '');
-                }
+                // Do not persist expanded/collapsed state: always start collapsed.
+                // Keep draft field values only.
+                setEditingId(draft.editingId || null);
+                setFormName(draft.formName || '');
+                setFormCategory(draft.formCategory || 'chinese');
+                setFormStoreInfo(draft.formStoreInfo || { name: '', address: '', phone: '' });
+                setFormItems(draft.formItems || []);
+                setFormImage(draft.formImage || '');
+                setFormRemark(draft.formRemark || '');
+                setShowAddForm(false);
             } catch (e) {
                 console.error("Failed to parse library draft:", e);
             }
@@ -840,9 +840,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
     // Save draft state to sessionStorage
     useEffect(() => {
         sessionStorage.setItem('menu_library_draft', JSON.stringify({
-            showAddForm, editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark
+            editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark
         }));
-    }, [showAddForm, editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark]);
+    }, [editingId, formName, formCategory, formStoreInfo, formItems, formImage, formRemark]);
 
     // States for Add Item Modal
     const [showAddItemModal, setShowAddItemModal] = useState(false);
@@ -1070,17 +1070,17 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                 // Optimize image before sending to GAS Proxy
                 const base64Orig = await new Promise(r => { const rd = new FileReader(); rd.onload = ev => r(ev.target.result); rd.readAsDataURL(files[i]); });
                 
-                // Create a resized version to save bandwidth and speed up proxying
+                // OCR mode: keep more detail for dense menu tables.
                 const img = new Image();
                 await new Promise(r => { img.onload = r; img.src = base64Orig; });
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000; // resize to reduce GAS payload size
-                const scale = MAX_WIDTH / img.width;
-                canvas.width = MAX_WIDTH;
-                canvas.height = img.height * scale;
+                const MAX_WIDTH = 1800;
+                const scale = Math.min(1, MAX_WIDTH / img.width); // do not upscale
+                canvas.width = Math.max(1, Math.round(img.width * scale));
+                canvas.height = Math.max(1, Math.round(img.height * scale));
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85); 
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
                 // Extract pure base64 payload from Data URL.
                 const pureBase64 = dataUrl.split(',')[1];
 
@@ -1223,7 +1223,16 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                     </div>
                                 </div>
                             ) : (
-                                <label className="cursor-pointer flex flex-col items-center justify-center gap-3 py-4 hover:scale-[1.02] active:scale-95 transition-all">
+                                <label
+                                    className="group cursor-pointer w-full flex flex-col items-center justify-center gap-3 py-5 px-4 rounded-2xl border shadow-sm hover:scale-[1.01] active:scale-[0.99] transition-all"
+                                    style={{
+                                        backgroundColor: '#EAF6FF',
+                                        borderColor: '#B9E3FF',
+                                        boxShadow: 'inset 0 0 0 1px rgba(185,227,255,0.45)'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#DDF0FF'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#EAF6FF'; }}
+                                >
                                     <div className="w-16 h-16 bg-white rounded-full shadow-md flex items-center justify-center border-4 border-blue-100 group-hover:border-ac-blue transition-colors">
                                         <Upload size={32} className="text-ac-blue" />
                                     </div>
@@ -1231,7 +1240,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud })
                                         <span className="font-black text-lg text-ac-brown">
                                             上傳菜單圖片
                                         </span>
-                                        <span className="text-xs text-gray-400 font-bold px-4 py-1 rounded-full bg-white/50 inline-block mt-1">
+                                        <span className="text-xs text-gray-500 font-bold px-4 py-1 rounded-full bg-white/75 inline-block mt-1">
                                             AI 自動辨識品項與店家資訊
                                         </span>
                                     </div>

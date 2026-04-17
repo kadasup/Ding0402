@@ -606,7 +606,7 @@ function handleOcr(params) {
       messages: [{
         role: "user",
         content: [
-          { type: "text", text: "Analyze this menu image and return JSON only: {\"items\":[{\"name\":\"...\",\"price\":0}],\"storeInfo\":{\"name\":\"...\",\"phone\":\"...\",\"address\":\"...\"},\"remark\":\"...\"}" },
+          { type: "text", text: "Analyze this menu image and return JSON only: {\"items\":[{\"name\":\"...\",\"price\":0}],\"storeInfo\":{\"name\":\"...\",\"phone\":\"...\",\"address\":\"...\"},\"remark\":\"...\"}. Important language rule: output item names in Traditional Chinese. If both Chinese and English appear for the same item, use the Chinese name only (do not output English translation)." },
           { type: "image_url", image_url: { url: imagePayload, detail: "high" } }
         ]
       }],
