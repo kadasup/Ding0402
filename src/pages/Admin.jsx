@@ -1544,6 +1544,7 @@ const MemberManager = ({ data, actions }) => {
     const [editName, setEditName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
     const [removingName, setRemovingName] = useState('');
+    const { showConfirm, PopupRenderer: MemberPopup } = usePopup();
 
     const startEdit = (member) => {
         setEditingMember(member);
@@ -1579,6 +1580,16 @@ const MemberManager = ({ data, actions }) => {
     const handleRemoveMember = async (member) => {
         const target = String(member || '').trim();
         if (!target || removingName === target) return;
+        const ok = await showConfirm({
+            icon: '⚠️',
+            iconBg: '#FEE2E2',
+            title: `刪除成員「${target}」？`,
+            message: '刪除後會同步移除該成員名稱，且無法復原。',
+            confirmText: '確認刪除',
+            cancelText: '取消',
+            confirmColor: '#DC2626',
+        });
+        if (!ok) return;
         setRemovingName(target);
         try {
             await actions.removeMember(target);
@@ -1647,6 +1658,7 @@ const MemberManager = ({ data, actions }) => {
                     </div>
                 ))}
             </div>
+            <MemberPopup />
         </div>
     );
 };
