@@ -1724,6 +1724,19 @@ const StatsManager = ({ data }) => {
     const [selectedDate, setSelectedDate] = useState(getLocalDateKey());
     const [statsTab, setStatsTab] = useState('member');
     const dateInputRef = useRef(null);
+    const getOrderFloor = (memberName) => {
+        const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
+        return matched ? `${matched[1]}樓` : 'VIP';
+    };
+    const getItemQty = (item) => {
+        const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
+        return Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
+    };
+    const floorSortValue = (floorName) => {
+        if (floorName === 'VIP') return Number.MAX_SAFE_INTEGER;
+        const matched = String(floorName || '').match(/^(\d+)\s*樓/);
+        return matched ? Number(matched[1]) : Number.MAX_SAFE_INTEGER - 1;
+    };
 
     const openDatePicker = () => {
         const input = dateInputRef.current;
@@ -1765,14 +1778,40 @@ const StatsManager = ({ data }) => {
         orders.reduce((acc, order) => {
             (order.items || []).forEach((item) => {
                 const name = String(item?.name || '').trim() || '未命名品項';
-                const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
-                const qty = Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
+                const qty = getItemQty(item);
                 acc[name] = (acc[name] || 0) + qty;
             });
             return acc;
         }, {})
     ).sort((a, b) => b[1] - a[1]);
     const itemTotalQty = itemStats.reduce((sum, [, qty]) => sum + qty, 0);
+
+    const floorStats = Object.entries(
+        orders.reduce((acc, order) => {
+            const floor = getOrderFloor(order.member);
+            const memberName = String(order?.member || '').trim() || '未命名成員';
+            if (!acc[floor]) {
+                acc[floor] = { itemMap: {}, totalQty: 0, orderCount: 0, memberMap: {} };
+            }
+            acc[floor].orderCount += 1;
+            acc[floor].memberMap[memberName.toLowerCase()] = memberName;
+            (order.items || []).forEach((item) => {
+                const name = String(item?.name || '').trim() || '未命名品項';
+                const qty = getItemQty(item);
+                acc[floor].itemMap[name] = (acc[floor].itemMap[name] || 0) + qty;
+                acc[floor].totalQty += qty;
+            });
+            return acc;
+        }, {})
+    )
+        .map(([floor, stat]) => ({
+            floor,
+            orderCount: stat.orderCount,
+            totalQty: stat.totalQty,
+            members: Object.values(stat.memberMap).sort(),
+            items: Object.entries(stat.itemMap).sort((a, b) => b[1] - a[1]),
+        }))
+        .sort((a, b) => floorSortValue(a.floor) - floorSortValue(b.floor));
 
     const memberEntries = Object.entries(byMember)
         .sort((a, b) => (b[1].count - a[1].count) || (b[1].total - a[1].total));
@@ -1828,9 +1867,15 @@ const StatsManager = ({ data }) => {
                 >
                     品項統計（數量）
                 </button>
+                <button
+                    onClick={() => setStatsTab('floor')}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'floor' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                >
+                    樓層統計
+                </button>
             </div>
 
-            {statsTab === 'member' ? (
+            {statsTab === 'member' && (
                 <div className="flex flex-col gap-2">
                     <h3 className="font-bold border-b pb-2">成員統計</h3>
                     {memberEntries.map(([member, stat]) => (
@@ -1844,7 +1889,8 @@ const StatsManager = ({ data }) => {
                     ))}
                     {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有成員統計資料</div>}
                 </div>
-            ) : (
+            )}
+            {statsTab === 'item' && (
                 <div className="flex flex-col gap-2">
                     <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
                     {itemStats.map(([itemName, qty]) => (
@@ -1860,6 +1906,36 @@ const StatsManager = ({ data }) => {
                         </div>
                     )}
                     {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有品項統計資料</div>}
+                </div>
+            )}
+            {statsTab === 'floor' && (
+                <div className="flex flex-col gap-3">
+                    <h3 className="font-bold border-b pb-2">樓層統計（品項 / 數量）</h3>
+                    {floorStats.map((floorStat) => (
+                        <div key={floorStat.floor} className="bg-white border rounded-xl p-3 shadow-sm">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="font-black text-ac-brown">{floorStat.floor}</span>
+                                <span className="text-xs font-bold text-gray-500">
+                                    訂單 {floorStat.orderCount} 筆 ・ 總數量 x {floorStat.totalQty}
+                                </span>
+                            </div>
+                            <div className="text-xs text-gray-500 mb-2">
+                                成員：{floorStat.members.length > 0 ? floorStat.members.join('、') : '無'}
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                {floorStat.items.map(([itemName, qty]) => (
+                                    <div key={`${floorStat.floor}-${itemName}`} className="bg-gray-50 rounded-lg px-3 py-2 flex justify-between items-center text-sm">
+                                        <span className="font-bold text-gray-700">{itemName}</span>
+                                        <span className="font-black text-ac-green">x {qty}</span>
+                                    </div>
+                                ))}
+                                {floorStat.items.length === 0 && (
+                                    <div className="text-center italic text-gray-400 py-3">此樓層當日無品項資料</div>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">這天沒有樓層統計資料</div>}
                 </div>
             )}
         </div>
