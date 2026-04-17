@@ -601,6 +601,7 @@ export const DingProvider = ({ children }) => {
       const nowStr = keepVersion && data.menu.lastUpdated ? data.menu.lastUpdated : Date.now().toString();
       lastMenuUpdate.current = Date.now();
       pendingMenuState.current = posted;
+      const previousMenu = data.menu;
 
       const newMenu = {
         date: getLocalDateKey(),
@@ -615,20 +616,32 @@ export const DingProvider = ({ children }) => {
 
       setData(prev => ({ ...prev, menu: newMenu }));
       if (fastMode) {
-        void callGAS('updateMenu', newMenu, {
-          fireAndForget: true,
+        const fastResult = await callGAS('updateMenu', newMenu, {
           refreshDelay: 600,
           refreshSections: ['menu'],
           silent: true,
           dedupeKey: `menu:update:fast:${posted ? 'posted' : 'draft'}`,
         });
+        if (fastResult?.error) {
+          pendingMenuState.current = null;
+          setData(prev => ({ ...prev, menu: previousMenu }));
+          throw new Error(fastResult.error || '更新菜單失敗');
+        }
+        setTimeout(() => {
+          void fetchData(['menu'], { silent: true, timeoutMs: 8000, retries: 0 });
+        }, 1200);
         return;
       }
-      await callGAS('updateMenu', newMenu, {
+      const result = await callGAS('updateMenu', newMenu, {
         refreshSections: ['menu'],
         label: posted ? '上架中...' : '儲存菜單中...',
         dedupeKey: `menu:update:${posted ? 'posted' : 'draft'}`,
       });
+      if (result?.error) {
+        pendingMenuState.current = null;
+        setData(prev => ({ ...prev, menu: previousMenu }));
+        throw new Error(result.error || '更新菜單失敗');
+      }
     },
     addMenuHistory: (name, items, image, storeInfo, remark = '') => {
       lastHistoryUpdate.current = Date.now();
