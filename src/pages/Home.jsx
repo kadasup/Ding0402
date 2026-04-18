@@ -171,15 +171,19 @@ const Home = () => {
     const executeOrder = async () => {
         if (isSubmittingOrder) return;
         setIsSubmittingOrder(true);
+        const submittingItems = [...cart];
+        // Optimistic UX: close modal and show success immediately while request runs in background.
+        setCart([]);
+        setShowConfirmModal(false);
+        setTimeout(() => setSuccessModal(true), 80);
         try {
-            const result = await actions.placeOrder(selectedMember, cart);
+            const result = await actions.placeOrder(selectedMember, submittingItems);
             if (result?.ok === false) {
+                setSuccessModal(false);
+                setCart(prev => (prev.length === 0 ? submittingItems : prev));
                 window.alert(result?.error || '下單失敗，請稍後再試。');
                 return;
             }
-            setCart([]);
-            setShowConfirmModal(false);
-            setTimeout(() => setSuccessModal(true), 80);
         } finally {
             setIsSubmittingOrder(false);
         }
