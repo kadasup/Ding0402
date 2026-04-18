@@ -259,12 +259,7 @@ const Home = () => {
             return acc;
         }, {})
     );
-    const todayOrderMap = todayOrderSummary.reduce((acc, stat) => {
-        acc[normalizeName(stat.name)] = stat;
-        return acc;
-    }, {});
-    const cartAddOnLineCount = cart.filter(item => !!todayOrderMap[normalizeName(item?.name)]).length;
-    const cartNewLineCount = Math.max(0, cart.length - cartAddOnLineCount);
+    const hasOrderedInCurrentRound = myTodayOrders.length > 0;
 
     // Calculate Most Popular by current menu round (menuId), not by date.
     const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
@@ -893,7 +888,12 @@ const Home = () => {
                                     <div className="px-3 pb-2" style={{ backgroundColor: '#FDFBF7' }}>
                                         <div className="rounded-xl border border-[#F4D7A2] bg-[#FFF9EE] px-3 py-2">
                                             <div className="flex items-center justify-between">
-                                                <span className="text-xs font-black tracking-wide text-[#9A6A2E]">今日點餐狀態</span>
+                                                <span
+                                                    className="font-black px-3 py-1 rounded-lg"
+                                                    style={{ backgroundColor: '#FFF3C4', color: '#9A6A2E', border: '1px solid #F4D7A2', fontSize: '0.95rem', letterSpacing: '0.03em' }}
+                                                >
+                                                    今日點餐狀態
+                                                </span>
                                                 {myTodayOrders.length > 0 ? (
                                                     <span
                                                         className="text-xs font-black px-2 py-0.5 rounded-full"
@@ -912,20 +912,15 @@ const Home = () => {
                                             </div>
                                             {myTodayOrders.length > 0 ? (
                                                 <>
-                                                    <div className="text-xs font-bold text-[#7C5A28] mt-1">
+                                                    <div className="text-base font-black text-[#7C5A28] mt-1">
                                                         已點 {myTodayOrders.length} 筆，應繳金額 ${myTodayTotal}
                                                     </div>
                                                     <div className="mt-1 flex flex-wrap gap-1">
-                                                        {todayOrderSummary.slice(0, 3).map((stat) => (
+                                                        {todayOrderSummary.map((stat) => (
                                                             <span key={stat.name} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#F0E2C5] text-[#8B5E2B]">
                                                                 {stat.name} x{stat.qty}
                                                             </span>
                                                         ))}
-                                                        {todayOrderSummary.length > 3 && (
-                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#F0E2C5] text-[#8B5E2B]">
-                                                                +{todayOrderSummary.length - 3} 項
-                                                            </span>
-                                                        )}
                                                     </div>
                                                 </>
                                             ) : null}
@@ -937,22 +932,21 @@ const Home = () => {
                                         <div style={{ backgroundColor: '#FFF0F5' }} className="p-2 max-h-[40vh] overflow-y-auto animate-slide-up">
                                             <div className="flex flex-col gap-2">
                                                 <div className="text-[11px] font-black text-[#9A6A2E] bg-[#FFF9EE] border border-[#F4D7A2] rounded-lg px-2 py-1.5">
-                                                    本次待送出：{cart.length} 項（加點 {cartAddOnLineCount} / 新點 {cartNewLineCount}）
+                                                    本次待送出：{cart.length} 項{hasOrderedInCurrentRound ? '（加點）' : ''}
                                                 </div>
                                                 {cart.map((item, idx) => {
-                                                    const todayStat = todayOrderMap[normalizeName(item?.name)];
-                                                    const isAddOnItem = !!todayStat;
                                                     return (
                                                         <div key={idx} className="flex justify-between items-center bg-white/80 border border-dashed border-red-200 p-2 rounded-xl shadow-sm">
                                                             <div className="flex flex-col pl-2">
                                                                 <span className="font-bold text-gray-700">{item.name}</span>
-                                                                <span className={`text-[11px] font-black px-2 py-0.5 rounded-full w-fit mt-1 ${
-                                                                    isAddOnItem
-                                                                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
-                                                                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                                                                }`}>
-                                                                    {isAddOnItem ? `加點（已點 x${todayStat.qty}）` : '新點'}
-                                                                </span>
+                                                                {hasOrderedInCurrentRound && (
+                                                                    <span
+                                                                        className="text-[11px] font-black px-2 py-0.5 rounded-full w-fit mt-1"
+                                                                        style={{ backgroundColor: '#FFF3C4', color: '#B45309', border: '1px solid #F4D7A2' }}
+                                                                    >
+                                                                        加點
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-bold text-gray-400 text-sm">${item.price}</span>
