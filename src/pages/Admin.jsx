@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
-import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown } from 'lucide-react';
+import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -1723,6 +1723,7 @@ const StatsManager = ({ data }) => {
     // Round Filter State (menuId-first; fallback to legacy date bucket)
     const [selectedRoundKey, setSelectedRoundKey] = useState('');
     const [statsTab, setStatsTab] = useState('member');
+    const statsPrintRef = useRef(null);
     const getOrderFloor = (memberName) => {
         const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
         return matched ? `${matched[1]}樓` : 'VIP';
@@ -1730,6 +1731,14 @@ const StatsManager = ({ data }) => {
     const getItemQty = (item) => {
         const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
         return Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
+    };
+    const getOrderTotal = (order) => {
+        const rawTotal = Number(order?.total);
+        if (Number.isFinite(rawTotal) && rawTotal >= 0) return rawTotal;
+        return (order?.items || []).reduce((sum, item) => {
+            const price = Number(item?.price || 0);
+            return sum + (Number.isFinite(price) ? price : 0);
+        }, 0);
     };
     const floorSortValue = (floorName) => {
         if (floorName === 'VIP') return Number.MAX_SAFE_INTEGER;
@@ -1827,6 +1836,12 @@ const StatsManager = ({ data }) => {
         const storeName = resolveRoundStoreName(round);
         return `上架：${startStr}｜店名：${storeName}｜${round.count}筆`;
     };
+    const escapeHtml = (raw = '') => String(raw)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
     useEffect(() => {
         if (!roundOptions.length) {
@@ -1844,13 +1859,13 @@ const StatsManager = ({ data }) => {
 
     const selectedRound = roundOptions.find((round) => round.key === selectedRoundKey) || null;
     const orders = selectedRound ? selectedRound.orders : [];
-    const total = orders.reduce((sum, o) => sum + o.total, 0);
+    const total = orders.reduce((sum, o) => sum + getOrderTotal(o), 0);
 
     // Group by member
     const byMember = orders.reduce((acc, o) => {
         if (!acc[o.member]) acc[o.member] = { count: 0, total: 0, items: [] };
         acc[o.member].count += 1;
-        acc[o.member].total += o.total;
+        acc[o.member].total += getOrderTotal(o);
         acc[o.member].items.push(...o.items);
         return acc;
     }, {});
@@ -1873,9 +1888,10 @@ const StatsManager = ({ data }) => {
             const floor = getOrderFloor(order.member);
             const memberName = String(order?.member || '').trim() || '未命名成員';
             if (!acc[floor]) {
-                acc[floor] = { itemMap: {}, totalQty: 0, orderCount: 0, memberMap: {} };
+                acc[floor] = { itemMap: {}, totalQty: 0, totalAmount: 0, orderCount: 0, memberMap: {} };
             }
             acc[floor].orderCount += 1;
+            acc[floor].totalAmount += getOrderTotal(order);
             acc[floor].memberMap[memberName.toLowerCase()] = memberName;
             (order.items || []).forEach((item) => {
                 const name = String(item?.name || '').trim() || '未命名品項';
@@ -1890,6 +1906,7 @@ const StatsManager = ({ data }) => {
             floor,
             orderCount: stat.orderCount,
             totalQty: stat.totalQty,
+            totalAmount: stat.totalAmount,
             members: Object.values(stat.memberMap).sort(),
             items: Object.entries(stat.itemMap).sort((a, b) => b[1] - a[1]),
         }))
@@ -1897,6 +1914,74 @@ const StatsManager = ({ data }) => {
 
     const memberEntries = Object.entries(byMember)
         .sort((a, b) => (b[1].count - a[1].count) || (b[1].total - a[1].total));
+    const handlePrintStats = () => {
+        const printableNode = statsPrintRef.current;
+        if (!printableNode) return;
+
+        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+        if (!printWindow) {
+            window.alert('無法開啟列印視窗，請允許彈出視窗後再試一次。');
+            return;
+        }
+
+        const styleNodes = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+            .map((node) => node.outerHTML)
+            .join('\n');
+        const tabLabel = statsTab === 'member'
+            ? '成員統計'
+            : statsTab === 'item'
+                ? '品項統計（數量）'
+                : '樓層統計（品項 / 數量 / 金額）';
+        const selectedRoundLabel = selectedRound ? getRoundLabel(selectedRound) : '未選擇輪次';
+        const printedAt = formatDateTime(Date.now());
+
+        printWindow.document.open();
+        printWindow.document.write(`<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>統計資料列印</title>
+  ${styleNodes}
+  <style>
+    body { background: #fff; }
+    .stats-print-root { max-width: 980px; margin: 0 auto; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div class="stats-print-root">
+    <h1 class="text-2xl font-black text-ac-brown mb-2">統計資料</h1>
+    <div class="text-sm text-gray-600 mb-4">
+      <div>輪次：${escapeHtml(selectedRoundLabel)}</div>
+      <div>頁籤：${escapeHtml(tabLabel)}</div>
+      <div>列印時間：${escapeHtml(printedAt)}</div>
+    </div>
+    ${printableNode.innerHTML}
+  </div>
+</body>
+</html>`);
+        printWindow.document.close();
+
+        // Close only after print dialog is completed/cancelled.
+        printWindow.onafterprint = () => {
+            try {
+                if (!printWindow.closed) {
+                    printWindow.close();
+                }
+            } catch {
+                // Ignore close errors.
+            }
+        };
+
+        try {
+            // Invoke print directly in click flow to avoid popup blockers
+            // that may reject delayed/asynchronous print triggers.
+            printWindow.focus();
+            printWindow.print();
+        } catch {
+            window.alert('列印功能被瀏覽器阻擋，請在新視窗按 Ctrl+P（或 Cmd+P）列印。');
+        }
+    };
 
     return (
         <div className="p-4 flex flex-col gap-6">
@@ -1914,107 +1999,120 @@ const StatsManager = ({ data }) => {
                         </option>
                     ))}
                 </select>
-            </div>
-            {roundOptions.length === 0 && (
-                <div className="text-center italic text-gray-400 py-2">目前沒有可統計的訂單輪次</div>
-            )}
-
-            <div className="flex gap-4">
-                <div className="flex-1 bg-ac-green text-white p-4 rounded-2xl shadow-md text-center">
-                    <div className="text-3xl font-bold">{orders.length}</div>
-                    <div className="text-sm opacity-90">訂單數</div>
-                </div>
-                <div className="flex-1 bg-ac-orange text-white p-4 rounded-2xl shadow-md text-center relative overflow-hidden">
-                    <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" loading="lazy" decoding="async" />
-                    <div className="text-3xl font-bold relative z-10">${total}</div>
-                    <div className="text-sm opacity-90 relative z-10">總金額</div>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                <button
-                    onClick={() => setStatsTab('member')}
-                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'member' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                <Button
+                    onClick={handlePrintStats}
+                    variant="secondary"
+                    className="whitespace-nowrap py-1.5 px-3"
+                    disabled={roundOptions.length === 0}
                 >
-                    成員統計
-                </button>
-                <button
-                    onClick={() => setStatsTab('item')}
-                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
-                >
-                    品項統計（數量）
-                </button>
-                <button
-                    onClick={() => setStatsTab('floor')}
-                    className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'floor' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
-                >
-                    樓層統計
-                </button>
+                    <Printer size={16} /> 列印
+                </Button>
             </div>
+            <div ref={statsPrintRef} className="flex flex-col gap-6">
+                {roundOptions.length === 0 && (
+                    <div className="text-center italic text-gray-400 py-2">目前沒有可統計的訂單輪次</div>
+                )}
 
-            {statsTab === 'member' && (
-                <div className="flex flex-col gap-2">
-                    <h3 className="font-bold border-b pb-2">成員統計</h3>
-                    {memberEntries.map(([member, stat]) => (
-                        <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
-                            <div>
-                                <span className="font-bold text-lg mr-2">{member}</span>
-                                <span className="text-gray-500">{stat.items.map(i => i.name).join(', ')}</span>
-                            </div>
-                            <div className="font-bold text-ac-orange">${stat.total}</div>
-                        </div>
-                    ))}
-                    {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有成員統計資料</div>}
+                <div className="flex gap-4">
+                    <div className="flex-1 bg-ac-green text-white p-4 rounded-2xl shadow-md text-center">
+                        <div className="text-3xl font-bold">{orders.length}</div>
+                        <div className="text-sm opacity-90">訂單數</div>
+                    </div>
+                    <div className="flex-1 bg-ac-orange text-white p-4 rounded-2xl shadow-md text-center relative overflow-hidden">
+                        <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" loading="lazy" decoding="async" />
+                        <div className="text-3xl font-bold relative z-10">${total}</div>
+                        <div className="text-sm opacity-90 relative z-10">總金額</div>
+                    </div>
                 </div>
-            )}
-            {statsTab === 'item' && (
-                <div className="flex flex-col gap-2">
-                    <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
-                    {itemStats.map(([itemName, qty]) => (
-                        <div key={itemName} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
-                            <span className="font-bold text-gray-700">{itemName}</span>
-                            <span className="font-black text-ac-green">x {qty}</span>
-                        </div>
-                    ))}
-                    {itemStats.length > 0 && (
-                        <div className="bg-green-50 p-3 rounded-lg flex justify-between items-center text-sm border border-green-200">
-                            <span className="font-black text-green-700">總計</span>
-                            <span className="font-black text-green-700">x {itemTotalQty}</span>
-                        </div>
-                    )}
-                    {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有品項統計資料</div>}
+
+                <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+                    <button
+                        onClick={() => setStatsTab('member')}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'member' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                    >
+                        成員統計
+                    </button>
+                    <button
+                        onClick={() => setStatsTab('item')}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                    >
+                        品項統計（數量）
+                    </button>
+                    <button
+                        onClick={() => setStatsTab('floor')}
+                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'floor' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                    >
+                        樓層統計
+                    </button>
                 </div>
-            )}
-            {statsTab === 'floor' && (
-                <div className="flex flex-col gap-3">
-                    <h3 className="font-bold border-b pb-2">樓層統計（品項 / 數量）</h3>
-                    {floorStats.map((floorStat) => (
-                        <div key={floorStat.floor} className="bg-white border rounded-xl p-3 shadow-sm">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="font-black text-ac-brown">{floorStat.floor}</span>
-                                <span className="text-xs font-bold text-gray-500">
-                                    訂單 {floorStat.orderCount} 筆 ・ 總數量 x {floorStat.totalQty}
-                                </span>
+
+                {statsTab === 'member' && (
+                    <div className="flex flex-col gap-2">
+                        <h3 className="font-bold border-b pb-2">成員統計</h3>
+                        {memberEntries.map(([member, stat]) => (
+                            <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
+                                <div>
+                                    <span className="font-bold text-lg mr-2">{member}</span>
+                                    <span className="text-gray-500">{stat.items.map(i => i.name).join(', ')}</span>
+                                </div>
+                                <div className="font-bold text-ac-orange">${stat.total}</div>
                             </div>
-                            <div className="text-xs text-gray-500 mb-2">
-                                成員：{floorStat.members.length > 0 ? floorStat.members.join('、') : '無'}
+                        ))}
+                        {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有成員統計資料</div>}
+                    </div>
+                )}
+                {statsTab === 'item' && (
+                    <div className="flex flex-col gap-2">
+                        <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
+                        {itemStats.map(([itemName, qty]) => (
+                            <div key={itemName} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
+                                <span className="font-bold text-gray-700">{itemName}</span>
+                                <span className="font-black text-ac-green">x {qty}</span>
                             </div>
-                            <div className="flex flex-col gap-1.5">
-                                {floorStat.items.map(([itemName, qty]) => (
-                                    <div key={`${floorStat.floor}-${itemName}`} className="bg-gray-50 rounded-lg px-3 py-2 flex justify-between items-center text-sm">
-                                        <span className="font-bold text-gray-700">{itemName}</span>
-                                        <span className="font-black text-ac-green">x {qty}</span>
+                        ))}
+                        {itemStats.length > 0 && (
+                            <div className="bg-green-50 p-3 rounded-lg flex justify-between items-center text-sm border border-green-200">
+                                <span className="font-black text-green-700">總計</span>
+                                <span className="font-black text-green-700">x {itemTotalQty}</span>
+                            </div>
+                        )}
+                        {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有品項統計資料</div>}
+                    </div>
+                )}
+                {statsTab === 'floor' && (
+                    <div className="flex flex-col gap-3">
+                        <h3 className="font-bold border-b pb-2">樓層統計（品項 / 數量 / 金額）</h3>
+                        {floorStats.map((floorStat) => (
+                            <div key={floorStat.floor} className="bg-white border rounded-xl p-3 shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="font-black text-ac-brown">{floorStat.floor}</span>
+                                    <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
+                                        <span>訂單 {floorStat.orderCount} 筆 ・ 總數量 x {floorStat.totalQty}</span>
+                                        <span className="text-sm md:text-base font-black text-ac-orange">
+                                            總金額 ${floorStat.totalAmount}
+                                        </span>
                                     </div>
-                                ))}
-                                {floorStat.items.length === 0 && (
-                                    <div className="text-center italic text-gray-400 py-3">此樓層當日無品項資料</div>
-                                )}
+                                </div>
+                                <div className="text-xs text-gray-500 mb-2">
+                                    成員：{floorStat.members.length > 0 ? floorStat.members.join('、') : '無'}
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    {floorStat.items.map(([itemName, qty]) => (
+                                        <div key={`${floorStat.floor}-${itemName}`} className="bg-gray-50 rounded-lg px-3 py-2 flex justify-between items-center text-sm">
+                                            <span className="font-bold text-gray-700">{itemName}</span>
+                                            <span className="font-black text-ac-green">x {qty}</span>
+                                        </div>
+                                    ))}
+                                    {floorStat.items.length === 0 && (
+                                        <div className="text-center italic text-gray-400 py-3">此樓層當日無品項資料</div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                    {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有樓層統計資料</div>}
-                </div>
-            )}
+                        ))}
+                        {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有樓層統計資料</div>}
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
