@@ -11,10 +11,25 @@ const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
     const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
+    const libraryPrefetchedRef = useRef(false);
+    const libraryFetchInFlightRef = useRef(null);
     const isMenuHydrating = activeTab === 'menu'
         && !!ui?.pending
         && !data?.menu?.lastUpdated
         && (data?.menu?.items || []).length === 0;
+
+    const fetchLibraryData = React.useCallback(() => {
+        if (libraryFetchInFlightRef.current) return libraryFetchInFlightRef.current;
+        const task = actions.fetchData(['library'], {
+            silent: true,
+            timeoutMs: 8000,
+            retries: 0,
+        }).finally(() => {
+            libraryFetchInFlightRef.current = null;
+        });
+        libraryFetchInFlightRef.current = task;
+        return task;
+    }, [actions]);
 
     useEffect(() => {
         if (user?.role !== 'admin') {
@@ -22,6 +37,14 @@ const Admin = () => {
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
+
+    useEffect(() => {
+        if (user?.role !== 'admin') return;
+        if (libraryPrefetchedRef.current) return;
+        libraryPrefetchedRef.current = true;
+        if ((data?.menuLibrary || []).length > 0) return;
+        void fetchLibraryData();
+    }, [user?.role, data?.menuLibrary?.length, fetchLibraryData]);
 
     useEffect(() => {
         let cancelled = false;
@@ -40,11 +63,15 @@ const Admin = () => {
 
         void (async () => {
             try {
-                await actions.fetchData(sections, {
-                    silent: true,
-                    timeoutMs: 8000,
-                    retries: 0,
-                });
+                if (activeTab === 'library') {
+                    await fetchLibraryData();
+                } else {
+                    await actions.fetchData(sections, {
+                        silent: true,
+                        timeoutMs: 8000,
+                        retries: 0,
+                    });
+                }
             } finally {
                 if (!cancelled && isFirstLibraryLoad) {
                     setIsLibraryBootLoading(false);
@@ -56,7 +83,7 @@ const Admin = () => {
             cancelled = true;
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab]);
+    }, [activeTab, fetchLibraryData]);
 
 
 
@@ -138,6 +165,11 @@ const Admin = () => {
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
+                            onMouseEnter={() => {
+                                if (tab.id !== 'library') return;
+                                if ((data?.menuLibrary || []).length > 0) return;
+                                void fetchLibraryData();
+                            }}
                             className={`text-left px-5 py-4 rounded-xl font-black flex items-center gap-3 transition-all animate-pop ${activeTab === tab.id ? 'bg-ac-green text-white shadow-md transform scale-105' : 'bg-white hover-bg-leaf-light'}`}
                             style={{ animationDelay: `${idx * 0.05}s`, fontSize: '1.05rem', letterSpacing: '0.08em' }}
                         >
@@ -216,6 +248,7 @@ const MenuManager = ({ data, actions }) => {
     const [closingTime, setClosingTime] = useState(data.menu.closingTime || '');
     const [menuImage, setMenuImage] = useState(data.menu.image || '');
     const [showHistory, setShowHistory] = useState(false);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'unpublish' | 'closeOrder'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
@@ -223,9 +256,11 @@ const MenuManager = ({ data, actions }) => {
     const [actionLoadingText, setActionLoadingText] = useState('處理中，請稍候...');
     const [historyPage, setHistoryPage] = useState(1);
     const HISTORY_PAGE_SIZE = 12;
-    
+
     const { showAlert, showConfirm, PopupRenderer } = usePopup();
     const lastSyncRef = React.useRef(data.menu.lastUpdated);
+    const historyFetchedOnceRef = React.useRef(false);
+    const isHistoryLoadingRef = React.useRef(false);
 
     // Sync from global data on first load OR when local draft is empty but global data exists
     const [hasInitialized, setHasInitialized] = useState(false);
@@ -268,16 +303,33 @@ const MenuManager = ({ data, actions }) => {
         setHistoryPage(1);
     }, [showHistory, data.menuHistory?.length]);
 
+    const fetchHistoryInBackground = React.useCallback(async () => {
+        if (isHistoryLoadingRef.current) return;
+        isHistoryLoadingRef.current = true;
+        setIsHistoryLoading(true);
+        try {
+            await actions.fetchData(['history'], {
+                silent: true,
+                timeoutMs: 8000,
+                retries: 0,
+            });
+        } finally {
+            isHistoryLoadingRef.current = false;
+            setIsHistoryLoading(false);
+        }
+    }, [actions]);
+
+    useEffect(() => {
+        if (historyFetchedOnceRef.current) return;
+        historyFetchedOnceRef.current = true;
+        void fetchHistoryInBackground();
+    }, [fetchHistoryInBackground]);
+
     useEffect(() => {
         if (!showHistory) return;
         if ((data.menuHistory || []).length > 0) return;
-        void actions.fetchData(['history'], {
-            silent: true,
-            timeoutMs: 8000,
-            retries: 0,
-        });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [showHistory, data.menuHistory?.length]);
+        void fetchHistoryInBackground();
+    }, [showHistory, data.menuHistory?.length, fetchHistoryInBackground]);
 
 
 
@@ -756,7 +808,12 @@ const MenuManager = ({ data, actions }) => {
                 {showHistory && (
                     <div className="bg-gray-50 p-4 rounded-xl mt-2 border border-dashed border-gray-300 animate-slide-up">
                         <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-                            {sortedHistory.length === 0 ? (
+                            {isHistoryLoading && sortedHistory.length === 0 ? (
+                                <div className="text-center text-gray-500 text-sm py-8 flex items-center justify-center gap-2">
+                                    <Loader size={14} className="animate-spin" />
+                                    菜單歷史讀取中...
+                                </div>
+                            ) : sortedHistory.length === 0 ? (
                                 <div className="text-center text-gray-400 text-sm py-8">目前沒有歷史菜單</div>
                             ) : (
                                 pagedHistory.map(hist => (
