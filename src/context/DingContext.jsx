@@ -395,12 +395,17 @@ export const DingProvider = ({ children }) => {
         ? String(window.location.hash || '').replace(/^#/, '') || '/'
         : '/';
       const isHomeRoute = hashPath === '/';
+      const hasCoreCache = hydrateCoreFromCache();
       if (!isHomeRoute) {
-        hydrateCoreFromCache();
         hydrateBackofficeFromCache();
       }
 
-      const coreData = await fetchData(INITIAL_SECTIONS, isHomeRoute ? {} : { silent: true, retries: 0 });
+      const coreData = await fetchData(
+        INITIAL_SECTIONS,
+        isHomeRoute
+          ? (hasCoreCache ? { silent: true, retries: 0, timeoutMs: 8000 } : {})
+          : { silent: true, retries: 0, timeoutMs: 8000 }
+      );
       const coreMenuId = String(coreData?.menu?.lastUpdated || '');
       if (!cancelled && coreMenuId) {
         hydrateOrdersFromCache(coreMenuId);

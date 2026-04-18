@@ -143,10 +143,12 @@ const Home = () => {
     useEffect(() => {
         if (!selectedMember) return;
         if (loading) return;
+        // Wait until member list is available; avoid clearing remembered role too early on refresh.
+        if ((data?.members || []).length === 0) return;
         if (selectedMemberValid) return;
         handleMemberLogin('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedMember, selectedMemberValid, loading]);
+    }, [selectedMember, selectedMemberValid, loading, data?.members]);
 
     const membersByFloor = (data?.members || []).filter(m => getMemberFloor(m) === selectedFloor);
     const filteredMembers = membersByFloor.filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
@@ -697,8 +699,8 @@ const Home = () => {
                                     <div className="mt-6 flex justify-center">
                                         <button
                                             onClick={startRandomPick}
-                                            className="inline-flex items-center justify-center gap-2 text-white px-8 py-2 rounded-full border-2 font-black transition-all hover:brightness-110 hover:scale-[1.01] active:scale-[0.99] group shadow-lg"
-                                            style={{ backgroundColor: '#FF6B35', borderColor: '#FFE08A' }}
+                                            className="inline-flex items-center justify-center gap-2 text-white px-8 py-2 rounded-full border-2 font-black transition-all hover:brightness-105 hover:scale-[1.01] active:scale-[0.99] group shadow-lg animate-cta-pulse"
+                                            style={{ background: 'linear-gradient(180deg, #D48745 0%, #B9672D 100%)', borderColor: '#E7C392', cursor: 'pointer' }}
                                         >
                                             <span className="text-base sm:text-lg group-hover:scale-110 transition-transform">⭐</span>
                                             <span className="text-sm sm:text-base tracking-wide">不知道今天吃什麼</span>
@@ -913,7 +915,7 @@ const Home = () => {
                                             {myTodayOrders.length > 0 ? (
                                                 <>
                                                     <div className="text-base font-black text-[#7C5A28] mt-1">
-                                                        已點 {myTodayOrders.length} 筆，應繳金額 ${myTodayTotal}
+                                                        已點 {myTodayOrders.length} 筆，應繳金額 <span style={{ color: '#D97706' }}>${myTodayTotal}</span>
                                                     </div>
                                                     <div className="mt-1 flex flex-wrap gap-1">
                                                         {todayOrderSummary.map((stat) => (

@@ -889,6 +889,21 @@ body {
   animation: status-pulse 1.5s infinite ease-in-out;
 }
 
+@keyframes cta-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 8px 18px rgba(185, 103, 45, 0.24);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 12px 24px rgba(185, 103, 45, 0.34);
+  }
+}
+
+.animate-cta-pulse {
+  animation: cta-pulse 1.8s infinite ease-in-out;
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

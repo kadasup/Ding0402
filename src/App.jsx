@@ -1,8 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { DingProvider, useDing } from './context/DingContext';
+import Home from './pages/Home';
 
-const Home = lazy(() => import('./pages/Home'));
 const Admin = lazy(() => import('./pages/Admin'));
 const Guide = lazy(() => import('./pages/Guide'));
 
