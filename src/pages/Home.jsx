@@ -133,6 +133,12 @@ const Home = () => {
 
     const memberNameSet = new Set((data?.members || []).map(m => normalizeName(m)).filter(Boolean));
     const selectedMemberValid = !!selectedMember && memberNameSet.has(normalizeName(selectedMember));
+    const adminAllowedMemberSet = new Set([
+        '1樓李尚聲',
+        '1樓周文琳',
+        '14樓林信綜',
+    ].map(normalizeName));
+    const canSeeAdminPortal = selectedMemberValid && adminAllowedMemberSet.has(normalizeName(selectedMember));
 
     useEffect(() => {
         if (!selectedMember) return;
@@ -279,24 +285,26 @@ const Home = () => {
                             <span className="font-bold tracking-wide">操作說明</span>
                         </Button>
                     </Link>
-                    <Link
-                        to="/admin"
-                        className="hover:scale-105 active:scale-95 transition-all"
-                        title="管理後台"
-                    >
-                        <Button
-                            variant="secondary"
-                            className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
+                    {canSeeAdminPortal && (
+                        <Link
+                            to="/admin"
+                            className="hover:scale-105 active:scale-95 transition-all"
+                            title="管理後台"
                         >
-                            <Lock size={16} />
-                            <span className="font-bold tracking-wide">管理</span>
-                        </Button>
-                    </Link>
+                            <Button
+                                variant="secondary"
+                                className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
+                            >
+                                <Lock size={16} />
+                                <span className="font-bold tracking-wide">管理</span>
+                            </Button>
+                        </Link>
+                    )}
                 </div>
             </div>
             )}
             {/* Admin Portal Entry (Fixed to avoid overlap) */}
-            {!isMobileViewport && (
+            {!isMobileViewport && canSeeAdminPortal && (
                 <Link 
                     to="/admin" 
                     className="ac-admin-link hover:scale-105 active:scale-95 transition-all"
@@ -369,7 +377,7 @@ const Home = () => {
                 <DialogBox title="選擇角色" className="overflow-visible">
                     <div className="flex flex-col items-center gap-4 py-4 relative z-10 w-full">
                         {selectedMember && (
-                            <div className="w-full max-w-md bg-orange-50 border-2 border-ac-orange rounded-2xl px-4 py-3 shadow-sm">
+                            <div className="w-full max-w-md bg-white border-2 border-ac-orange rounded-2xl px-4 py-3 shadow-sm">
                                 <div className="text-xs font-black text-ac-orange tracking-widest mb-1">您已選擇：</div>
                                 <div className="flex items-center justify-between gap-3">
                                     <div className="text-2xl font-black text-ac-brown leading-tight">{selectedMember}</div>
