@@ -244,6 +244,27 @@ const Home = () => {
         String(o.menuId || '').trim() === roundMenuId
     );
     const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
+    const todayOrderSummary = Object.values(
+        myTodayOrders.reduce((acc, order) => {
+            (order.items || []).forEach((item) => {
+                const name = String(item?.name || '').trim() || '未知餐點';
+                const key = normalizeName(name);
+                const price = Number(item?.price || 0);
+                if (!acc[key]) {
+                    acc[key] = { name, qty: 0, subtotal: 0 };
+                }
+                acc[key].qty += 1;
+                acc[key].subtotal += Number.isFinite(price) ? price : 0;
+            });
+            return acc;
+        }, {})
+    );
+    const todayOrderMap = todayOrderSummary.reduce((acc, stat) => {
+        acc[normalizeName(stat.name)] = stat;
+        return acc;
+    }, {});
+    const cartAddOnLineCount = cart.filter(item => !!todayOrderMap[normalizeName(item?.name)]).length;
+    const cartNewLineCount = Math.max(0, cart.length - cartAddOnLineCount);
 
     // Calculate Most Popular by current menu round (menuId), not by date.
     const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
@@ -869,24 +890,82 @@ const Home = () => {
                                         </span>
                                     </div>
 
+                                    <div className="px-3 pb-2" style={{ backgroundColor: '#FDFBF7' }}>
+                                        <div className="rounded-xl border border-[#F4D7A2] bg-[#FFF9EE] px-3 py-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-black tracking-wide text-[#9A6A2E]">今日點餐狀態</span>
+                                                {myTodayOrders.length > 0 ? (
+                                                    <span
+                                                        className="text-xs font-black px-2 py-0.5 rounded-full"
+                                                        style={{ backgroundColor: '#D1FAE5', color: '#047857', border: '1px solid #A7F3D0' }}
+                                                    >
+                                                        已點過
+                                                    </span>
+                                                ) : (
+                                                    <span
+                                                        className="text-xs font-black px-3 py-1 rounded-full shadow-sm animate-status-pulse"
+                                                        style={{ backgroundColor: '#FFE4B3', color: '#B45309', border: '2px solid #F59E0B' }}
+                                                    >
+                                                        尚未點餐
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {myTodayOrders.length > 0 ? (
+                                                <>
+                                                    <div className="text-xs font-bold text-[#7C5A28] mt-1">
+                                                        已點 {myTodayOrders.length} 筆，應繳金額 ${myTodayTotal}
+                                                    </div>
+                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                        {todayOrderSummary.slice(0, 3).map((stat) => (
+                                                            <span key={stat.name} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#F0E2C5] text-[#8B5E2B]">
+                                                                {stat.name} x{stat.qty}
+                                                            </span>
+                                                        ))}
+                                                        {todayOrderSummary.length > 3 && (
+                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#F0E2C5] text-[#8B5E2B]">
+                                                                +{todayOrderSummary.length - 3} 項
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
                                     {/* Content (Only show if items exist or user clicks header to expand - keeping simple expanded view for now per request) */}
                                     {cart.length > 0 && (
                                         <div style={{ backgroundColor: '#FFF0F5' }} className="p-2 max-h-[40vh] overflow-y-auto animate-slide-up">
                                             <div className="flex flex-col gap-2">
-                                                {cart.map((item, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center bg-white/80 border border-dashed border-red-200 p-2 rounded-xl shadow-sm">
-                                                        <span className="font-bold text-gray-700 pl-2">{item.name}</span>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-gray-400 text-sm">${item.price}</span>
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); removeFromCart(idx); }}
-                                                                className="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center hover:bg-red-50 rounded-full transition-colors"
-                                                            >
-                                                                x
-                                                            </button>
+                                                <div className="text-[11px] font-black text-[#9A6A2E] bg-[#FFF9EE] border border-[#F4D7A2] rounded-lg px-2 py-1.5">
+                                                    本次待送出：{cart.length} 項（加點 {cartAddOnLineCount} / 新點 {cartNewLineCount}）
+                                                </div>
+                                                {cart.map((item, idx) => {
+                                                    const todayStat = todayOrderMap[normalizeName(item?.name)];
+                                                    const isAddOnItem = !!todayStat;
+                                                    return (
+                                                        <div key={idx} className="flex justify-between items-center bg-white/80 border border-dashed border-red-200 p-2 rounded-xl shadow-sm">
+                                                            <div className="flex flex-col pl-2">
+                                                                <span className="font-bold text-gray-700">{item.name}</span>
+                                                                <span className={`text-[11px] font-black px-2 py-0.5 rounded-full w-fit mt-1 ${
+                                                                    isAddOnItem
+                                                                        ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                                                        : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                                                                }`}>
+                                                                    {isAddOnItem ? `加點（已點 x${todayStat.qty}）` : '新點'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-gray-400 text-sm">${item.price}</span>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); removeFromCart(idx); }}
+                                                                    className="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center hover:bg-red-50 rounded-full transition-colors"
+                                                                >
+                                                                    x
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
 
                                                 <div className="pt-2 px-1">
                                                     <Button onClick={submitOrder} className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all">
@@ -898,7 +977,7 @@ const Home = () => {
                                     )}
                                     {cart.length === 0 && (
                                         <div className="py-2 text-center text-gray-400 text-sm bg-yellow-50/30">
-                                            ( 購物車還是空的喔 )
+                                            {myTodayOrders.length > 0 ? '( 今天已點過餐，想加點可直接點菜單 )' : '( 今天還沒點餐，快去挑幾樣吧 )'}
                                         </div>
                                     )}
                                 </div>
