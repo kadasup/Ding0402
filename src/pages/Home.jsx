@@ -597,8 +597,8 @@ const Home = () => {
 
                             {/* Remark Section */}
                             {data.menu.remark && (
-                                <div className="px-4 py-3 border-b-4 border-ac-brown border-dashed animate-pop" style={{ backgroundColor: '#FFF8E7' }}>
-                                    <div className="rounded-2xl border-2 border-[#F4C86A] px-4 py-4 text-center" style={{ backgroundColor: '#FFF1B8' }}>
+                                <div className="px-4 py-3 border-b-4 border-ac-brown border-dashed animate-pop">
+                                    <div className="rounded-2xl border-2 border-[#F4C86A] px-4 py-4 text-center" style={{ backgroundColor: '#FFF8E7' }}>
                                         <div className="inline-block bg-[#FFE29A] text-[#B87434] px-3 py-1 rounded-full border border-[#F4C86A] font-black text-xs mb-2 shadow-sm">
                                             📢 貼心提醒 / 備註
                                         </div>
@@ -682,7 +682,7 @@ const Home = () => {
                                 {/* Integrated Most Popular Section */}
                                 {!hasNoOrderInCurrentRound && (
                                     <div className="mt-12 pt-8 border-t-2 border-dashed border-gray-300 w-full animate-pop">
-                                        <div className="rounded-2xl border-2 border-[#F4C86A] px-4 py-4" style={{ backgroundColor: '#FFF1B8' }}>
+                                        <div className="rounded-2xl border-2 border-[#F4C86A] px-4 py-4" style={{ backgroundColor: '#FFF8E7' }}>
                                             <div className="flex justify-center mb-4">
                                                 <div className="bg-hot-yellow text-ac-brown px-6 py-1 rounded-full shadow-md border-2 border-white transform -rotate-1">
                                                     <span className="font-black text-sm tracking-widest leading-none block whitespace-nowrap">最多人點 🔥</span>
