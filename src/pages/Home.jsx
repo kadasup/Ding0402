@@ -206,14 +206,15 @@ const Home = () => {
     });
     const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
 
-    // Calculate Today's Most Popular (Global) - Filtered by current menu items
+    // Calculate Most Popular by current menu round (menuId), not by date.
     const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
-    const allTodayOrders = (data.orders || []).filter(o =>
-        isSameLocalDate(o.date, todayStr) &&
-        String(o.menuId || '') === String(currentMenuId || '')
+    const roundMenuId = String(currentMenuId || '').trim();
+    const currentRoundOrders = (data.orders || []).filter(o =>
+        !!roundMenuId &&
+        String(o.menuId || '').trim() === roundMenuId
     );
     const itemCounts = {};
-    allTodayOrders.forEach(order => {
+    currentRoundOrders.forEach(order => {
         (order.items || []).forEach(item => {
             const name = item.name.trim();
             // Only count if it's in the CURRENT menu
@@ -226,7 +227,7 @@ const Home = () => {
     const mostPopularItems = Object.entries(itemCounts)
         .filter((entry) => entry[1] === maxCount && entry[1] > 0)
         .map(([name]) => name);
-    const isFirstOrderToday = allTodayOrders.length === 0;
+    const hasNoOrderInCurrentRound = currentRoundOrders.length === 0;
 
 
 
@@ -448,11 +449,11 @@ const Home = () => {
                                 </div>
                                 
                                 {/* Integrated Most Popular Section */}
-                                {!isFirstOrderToday && (
+                                {!hasNoOrderInCurrentRound && (
                                     <div className="mt-12 pt-8 border-t-2 border-dashed border-gray-300 w-full animate-pop">
                                         <div className="flex justify-center mb-4">
                                             <div className="bg-hot-yellow text-ac-brown px-6 py-1 rounded-full shadow-md border-2 border-white transform -rotate-1">
-                                                <span className="font-black text-sm tracking-widest leading-none block whitespace-nowrap">今日最多人點 🔥</span>
+                                                <span className="font-black text-sm tracking-widest leading-none block whitespace-nowrap">最多人點 🔥</span>
                                             </div>
                                         </div>
                                         <div className="flex flex-wrap justify-center gap-4">
