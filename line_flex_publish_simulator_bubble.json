@@ -1,0 +1,167 @@
+{
+  "type": "bubble",
+  "hero": {
+    "type": "image",
+    "url": "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900",
+    "size": "full",
+    "aspectRatio": "20:11",
+    "aspectMode": "fit"
+  },
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "backgroundColor": "#78B159",
+    "paddingAll": "12px",
+    "contents": [
+      {
+        "type": "text",
+        "text": "\u83dc\u55ae\u4e0a\u67b6\u901a\u77e5",
+        "color": "#FFFFFF",
+        "size": "sm",
+        "weight": "bold"
+      },
+      {
+        "type": "text",
+        "text": "\u5df2\u4e0a\u67b6",
+        "color": "#FFFFFF",
+        "size": "xs",
+        "align": "end"
+      }
+    ]
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "spacing": "sm",
+    "paddingAll": "14px",
+    "contents": [
+      {
+        "type": "text",
+        "text": "\u4eca\u65e5\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
+        "weight": "bold",
+        "size": "xl",
+        "color": "#5A4D41",
+        "wrap": true
+      },
+      {
+        "type": "box",
+        "layout": "baseline",
+        "spacing": "sm",
+        "margin": "md",
+        "contents": [
+          {
+            "type": "text",
+            "text": "\u220e \u5e97\u5bb6",
+            "size": "md",
+            "color": "#7C6044",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "\u6e2c\u8a66\u5e97\u5bb6",
+            "size": "md",
+            "color": "#5A4D41",
+            "wrap": true,
+            "flex": 5
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "baseline",
+        "spacing": "sm",
+        "margin": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "\u220e \u54c1\u9805",
+            "size": "md",
+            "color": "#7C6044",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "3 \u9805",
+            "size": "md",
+            "color": "#5A4D41",
+            "wrap": true,
+            "flex": 5
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "baseline",
+        "spacing": "sm",
+        "margin": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "\u220e \u622a\u6b62",
+            "size": "md",
+            "color": "#7C6044",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "2026/04/19 (\u65e5) 11:30",
+            "size": "md",
+            "color": "#5A4D41",
+            "wrap": true,
+            "flex": 5
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "baseline",
+        "spacing": "sm",
+        "margin": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "\u220e \u7cbe\u9078",
+            "size": "md",
+            "color": "#7C6044",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "\u6e2c\u8a66\u62db\u724c\u98ef, \u6e2c\u8a66\u96de\u817f\u4fbf\u7576, \u6e2c\u8a66\u852c\u98df\u9910\u76d2",
+            "size": "md",
+            "color": "#5A4D41",
+            "wrap": true,
+            "flex": 5
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "type": "box",
+    "layout": "vertical",
+    "spacing": "sm",
+    "paddingAll": "12px",
+    "backgroundColor": "#FFFBE6",
+    "contents": [
+      {
+        "type": "button",
+        "style": "primary",
+        "color": "#78B159",
+        "action": {
+          "type": "uri",
+          "label": "\u7acb\u5373\u9ede\u9910",
+          "uri": "https://example.com/ding"
+        }
+      }
+    ]
+  },
+  "styles": {
+    "body": {
+      "backgroundColor": "#FFFBE6"
+    },
+    "footer": {
+      "separator": true
+    }
+  }
+}

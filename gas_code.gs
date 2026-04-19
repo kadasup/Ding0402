@@ -37,7 +37,8 @@ function doPost(e) {
       return handleResponse(getData());
 
     case "updateMenu":
-      updateWorksheetObject("Settings", "current_menu", {
+      var previousMenu = getWorksheetObject("Settings", "current_menu") || {};
+      var nextMenu = {
         posted: params.posted,
         items: params.items,
         closingTime: params.closingTime,
@@ -45,8 +46,76 @@ function doPost(e) {
         storeInfo: params.storeInfo || {},
         remark: params.remark || "",
         lastUpdated: params.lastUpdated || new Date().getTime().toString()
+      };
+
+      updateWorksheetObject("Settings", "current_menu", nextMenu);
+
+      var wasPosted = parseSheetBoolean(previousMenu.posted);
+      var isPosted = parseSheetBoolean(nextMenu.posted);
+      var lineNotifyResult = { sent: false, skipped: true, reason: "status_unchanged" };
+
+      if (!wasPosted && isPosted) {
+        lineNotifyResult = sendLineMenuStatusNotification("publish", nextMenu);
+      } else if (wasPosted && !isPosted) {
+        var downMenu = {
+          posted: false,
+          items: (previousMenu && Array.isArray(previousMenu.items) && previousMenu.items.length > 0) ? previousMenu.items : (nextMenu.items || []),
+          closingTime: previousMenu && previousMenu.closingTime ? previousMenu.closingTime : (nextMenu.closingTime || ""),
+          image: previousMenu && previousMenu.image ? previousMenu.image : (nextMenu.image || ""),
+          storeInfo: previousMenu && previousMenu.storeInfo ? previousMenu.storeInfo : (nextMenu.storeInfo || {}),
+          remark: previousMenu && previousMenu.remark ? previousMenu.remark : (nextMenu.remark || ""),
+          lastUpdated: nextMenu.lastUpdated
+        };
+        lineNotifyResult = sendLineMenuStatusNotification("unpublish", downMenu);
+      }
+
+      return handleResponse({ success: true, lineNotify: lineNotifyResult });
+
+    case "lineTestPublishNotification":
+      return handleResponse({
+        success: true,
+        lineNotify: sendLineMenuStatusNotification("publish", buildLineTestMenuPayload(params, "publish"))
       });
-      return handleResponse({ success: true });
+
+    case "lineTestUnpublishNotification":
+      return handleResponse({
+        success: true,
+        lineNotify: sendLineMenuStatusNotification("unpublish", buildLineTestMenuPayload(params, "unpublish"))
+      });
+
+    case "lineTestBothNotifications":
+      var testPublishResult = sendLineMenuStatusNotification("publish", buildLineTestMenuPayload(params, "publish"));
+      Utilities.sleep(500);
+      var testUnpublishResult = sendLineMenuStatusNotification("unpublish", buildLineTestMenuPayload(params, "unpublish"));
+      return handleResponse({
+        success: true,
+        publish: testPublishResult,
+        unpublish: testUnpublishResult
+      });
+
+    case "linePreviewPayload":
+      var previewStatus = String(params.status || params.mode || "publish").toLowerCase() === "unpublish"
+        ? "unpublish"
+        : "publish";
+      var previewMenu = buildLineTestMenuPayload(params, previewStatus);
+      var previewFlex = buildMenuStatusFlexMessage(previewStatus, previewMenu, getLineNotifyConfig().appFrontendUrl);
+      return handleResponse({
+        success: true,
+        status: previewStatus,
+        simulatorBubble: previewFlex.contents,
+        messagePayload: {
+          type: "flex",
+          altText: previewFlex.altText,
+          contents: previewFlex.contents
+        },
+        validatePushPayload: {
+          messages: [{
+            type: "flex",
+            altText: previewFlex.altText,
+            contents: previewFlex.contents
+          }]
+        }
+      });
 
     case "updateAnnouncement":
       updateWorksheetObject("Settings", "announcement", params.text || "");
@@ -609,6 +678,382 @@ function updateWorksheetObject(sheetName, key, obj) {
   sheet.appendRow([key, valStr]);
 }
 
+function getLineNotifyConfig() {
+  var props = PropertiesService.getScriptProperties();
+  var channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || "";
+  var channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || "";
+  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || "";
+  var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
+
+  return {
+    channelAccessToken: String(channelAccessToken || "").trim(),
+    channelSecret: String(channelSecret || "").trim(),
+    targetGroupId: String(targetGroupId || "").trim(),
+    appFrontendUrl: String(appFrontendUrl || "").trim()
+  };
+}
+
+function buildLineTestMenuPayload(params, status) {
+  var p = params || {};
+  var current = getWorksheetObject("Settings", "current_menu") || {};
+  var now = new Date();
+  var oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+  var isPublish = String(status || "").toLowerCase() === "publish";
+
+  var defaultItems = [
+    { name: "測試招牌飯", price: 110 },
+    { name: "測試雞腿便當", price: 120 },
+    { name: "測試蔬食餐盒", price: 100 }
+  ];
+
+  var parsedItems = Array.isArray(p.items) ? p.items : null;
+  var fallbackItems = Array.isArray(current.items) && current.items.length > 0 ? current.items : defaultItems;
+
+  return {
+    posted: isPublish,
+    items: parsedItems && parsedItems.length > 0 ? parsedItems : fallbackItems,
+    closingTime: p.closingTime || current.closingTime || Utilities.formatDate(oneHourLater, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"),
+    image: p.image || current.image || "",
+    storeInfo: p.storeInfo || current.storeInfo || { name: p.storeName || "測試店家", phone: "", address: "" },
+    remark: p.remark || current.remark || (isPublish ? "這是上架測試通知，可直接開始點餐。" : "這是下架測試通知，本輪已截止。"),
+    lastUpdated: String(new Date().getTime())
+  };
+}
+
+function sendLineMenuStatusNotification(status, menu) {
+  try {
+    var config = getLineNotifyConfig();
+    if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
+    if (!config.targetGroupId) return { sent: false, skipped: true, reason: "missing_line_target_group_id" };
+
+    var menuData = menu || {};
+    var flex = buildMenuStatusFlexMessage(status, menuData, config.appFrontendUrl);
+    if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "invalid_flex_payload" };
+
+    var payload = {
+      to: config.targetGroupId,
+      messages: [{
+        type: "flex",
+        altText: flex.altText,
+        contents: flex.contents
+      }]
+    };
+
+    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        Authorization: "Bearer " + config.channelAccessToken
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return { sent: true, code: code };
+    }
+    return {
+      sent: false,
+      code: code,
+      error: response.getContentText()
+    };
+  } catch (err) {
+    return { sent: false, error: err.toString() };
+  }
+}
+
+function buildMenuStatusFlexMessage(status, menu, appFrontendUrl) {
+  var safeMenu = menu || {};
+  var isPublish = String(status || "").toLowerCase() === "publish";
+  if (isPublish) {
+    return buildLinePublishFlexMessage(safeMenu, appFrontendUrl);
+  }
+  return buildLineUnpublishFlexMessage(safeMenu, appFrontendUrl);
+}
+
+function buildLinePublishFlexMessage(menu, appFrontendUrl) {
+  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "未命名店家";
+  var itemCount = Array.isArray(menu.items) ? menu.items.length : 0;
+  var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
+  var topItems = summarizeMenuItemNames(menu.items, 3) || "暫無精選品項";
+  var fixedHeroSource = "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900";
+  var heroImageUrl = resolveLineImageUrl(fixedHeroSource) || "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900";
+  var orderUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
+
+  return {
+    altText: "【今日菜單已上架】" + storeName + "，共 " + itemCount + " 項",
+    contents: {
+      type: "bubble",
+      hero: {
+        type: "image",
+        url: heroImageUrl,
+        size: "full",
+        aspectRatio: "20:11",
+        aspectMode: "fit"
+      },
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#78B159",
+        paddingAll: "12px",
+        contents: [
+          {
+            type: "text",
+            text: "菜單上架通知",
+            color: "#FFFFFF",
+            size: "sm",
+            weight: "bold"
+          },
+          {
+            type: "text",
+            text: "已上架",
+            color: "#FFFFFF",
+            size: "xs",
+            align: "end"
+          }
+        ]
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "14px",
+        contents: [
+          {
+            type: "text",
+            text: "今日菜單已上架，開始點餐囉！",
+            weight: "bold",
+            size: "xl",
+            color: "#5A4D41",
+            wrap: true
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "md",
+            contents: [
+              { type: "text", text: "∎ 店家", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "∎ 品項", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: itemCount + " 項", size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "∎ 截止", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "∎ 精選", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: topItems, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "12px",
+        backgroundColor: "#FFFBE6",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: "#78B159",
+            action: {
+              type: "uri",
+              label: "立即點餐",
+              uri: orderUrl
+            }
+          }
+        ]
+      },
+      styles: {
+        body: { backgroundColor: "#FFFBE6" },
+        footer: { separator: true }
+      }
+    }
+  };
+}
+
+function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
+  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "未命名店家";
+  var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
+  var fixedHeroSource = "https://drive.google.com/open?id=1FCMEIgLXSVxCXB_nzP5-OBPhdnsTfNBw&usp=drive_fs";
+  var heroImageUrl = resolveLineImageUrl(fixedHeroSource) || "https://lh3.googleusercontent.com/d/1FCMEIgLXSVxCXB_nzP5-OBPhdnsTfNBw=w900";
+  var viewUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
+
+  return {
+    altText: "【結單通知】" + storeName + "，已結單，下次請早！",
+    contents: {
+      type: "bubble",
+      hero: {
+        type: "image",
+        url: heroImageUrl,
+        size: "full",
+        aspectRatio: "20:11",
+        aspectMode: "fit"
+      },
+      header: {
+        type: "box",
+        layout: "horizontal",
+        backgroundColor: "#B87434",
+        paddingAll: "12px",
+        contents: [
+          { type: "text", text: "結單通知", color: "#FFFFFF", size: "sm", weight: "bold" },
+          { type: "text", text: "已結單", color: "#FFFFFF", size: "xs", align: "end" }
+        ]
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "14px",
+        contents: [
+          {
+            type: "text",
+            text: "已結單，下次請早！",
+            weight: "bold",
+            size: "xl",
+            color: "#5A4D41",
+            wrap: true
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "md",
+            contents: [
+              { type: "text", text: "∎ 店家", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          },
+          {
+            type: "box",
+            layout: "baseline",
+            spacing: "sm",
+            margin: "sm",
+            contents: [
+              { type: "text", text: "∎ 截止", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "12px",
+        backgroundColor: "#FFFBE6",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: "#B87434",
+            action: {
+              type: "uri",
+              label: "查看訂單明細",
+              uri: viewUrl
+            }
+          }
+        ]
+      },
+      styles: {
+        body: { backgroundColor: "#FFFBE6" },
+        footer: { separator: true }
+      }
+    }
+  };
+}
+
+function summarizeMenuItemNames(items, maxCount) {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  var limit = Number(maxCount || 4);
+  var names = [];
+  for (var i = 0; i < items.length && names.length < limit; i++) {
+    var name = String(items[i] && items[i].name ? items[i].name : "").trim();
+    if (!name) continue;
+    names.push(name);
+  }
+  if (names.length === 0) return "";
+  if (items.length > names.length) {
+    return names.join(", ") + ", ...";
+  }
+  return names.join(", ");
+}
+
+function formatLineClosingTime(value) {
+  if (!value) return "未設定";
+  var date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy/MM/dd (E) HH:mm");
+}
+
+function formatLineClosingTimeZh(value) {
+  if (!value) return "未設定";
+  var date = new Date(value);
+  if (isNaN(date.getTime())) return String(value);
+  var weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+  var datePart = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy/MM/dd");
+  var timePart = Utilities.formatDate(date, Session.getScriptTimeZone(), "HH:mm");
+  return datePart + " (" + weekdays[date.getDay()] + ") " + timePart;
+}
+
+function isValidHttpsUrl(value) {
+  var text = String(value || "").trim();
+  if (!text) return false;
+  return /^https:\/\/.+/i.test(text);
+}
+
+function resolveLineImageUrl(value) {
+
+  var url = String(value || "").trim();
+  if (!url || !isValidHttpsUrl(url)) return "";
+  if (/^https:\/\/drive\.google\.com\/file\/d\//i.test(url)) {
+    var m = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m && m[1]) {
+      return "https://lh3.googleusercontent.com/d/" + m[1] + "=w900";
+    }
+  }
+  if (/^https:\/\/drive\.google\.com\/open/i.test(url) || /^https:\/\/drive\.google\.com\/uc/i.test(url)) {
+    var m2 = url.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+    if (m2 && m2[1]) {
+      return "https://lh3.googleusercontent.com/d/" + m2[1] + "=w900";
+    }
+  }
+  return url;
+}
+
+// Manual testing helper: run in Apps Script editor when menu state can't be toggled right now.
+function testSendLineMenuCards() {
+  var publishResult = sendLineMenuStatusNotification("publish", buildLineTestMenuPayload({}, "publish"));
+  Utilities.sleep(500);
+  var unpublishResult = sendLineMenuStatusNotification("unpublish", buildLineTestMenuPayload({}, "unpublish"));
+  Logger.log(JSON.stringify({ publish: publishResult, unpublish: unpublishResult }));
+}
+
 function handleOcr(params) {
   try {
     var props = PropertiesService.getScriptProperties();
@@ -726,3 +1171,4 @@ function authTrigger() {
   var drive = DriveApp.getRootFolder(); // Trigger Drive scope permission
   Logger.log("Auth trigger OK, response code: " + response.getResponseCode());
 }
+
