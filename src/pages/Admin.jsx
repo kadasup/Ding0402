@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
-import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, Printer } from 'lucide-react';
+import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -10,6 +10,7 @@ import bellsIcon from '../assets/img/bells.svg';
 const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
     const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
+    const [showScrollTop, setShowScrollTop] = useState(false);
     const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
     const libraryPrefetchedRef = useRef(false);
     const libraryFetchInFlightRef = useRef(null);
@@ -85,6 +86,16 @@ const Admin = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, fetchLibraryData]);
 
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(window.scrollY > 300);
+        };
+        handleScroll();
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const shouldShowTopArrow = ['menu', 'library', 'members', 'stats'].includes(activeTab);
 
 
     // Auto-login for admin (No password required)
@@ -211,6 +222,24 @@ const Admin = () => {
                     </DialogBox>
                 </div>
             </div>
+
+            {showScrollTop && shouldShowTopArrow && (
+                <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="fixed ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"
+                    style={{
+                        position: 'fixed',
+                        right: '20px',
+                        left: 'auto',
+                        margin: 0,
+                        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))'
+                    }}
+                    title="回到頂部"
+                    aria-label="回到頂部"
+                >
+                    <ChevronUp size={24} color="white" strokeWidth={3} />
+                </button>
+            )}
         </div>
     );
 };
@@ -2384,4 +2413,5 @@ const DebugConnection = ({ url }) => {
 };
 
 export default Admin;
+
 
