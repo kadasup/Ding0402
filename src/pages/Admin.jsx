@@ -150,15 +150,12 @@ const Admin = () => {
                     管理後台
                 </h1>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto justify-center">
-                <Link to="/" className="flex-1 sm:flex-none">
-                    <Button variant="secondary" className="w-full text-sm py-2 px-4 shadow-sm">
-                        <ArrowLeft size={16} /> 返回前台
+            <div className="w-full sm:w-auto flex justify-center">
+                <Link to="/" className="w-full sm:w-auto">
+                    <Button variant="secondary" className="w-full text-base sm:text-lg py-2.5 px-5 shadow-sm font-bold">
+                        <ArrowLeft size={18} /> 返回前台
                     </Button>
                 </Link>
-                <Button onClick={actions.logout} variant="danger" className="flex-1 sm:flex-none text-sm py-2 px-4 shadow-sm">
-                    <X size={16} /> 登出
-                </Button>
             </div>
         </div>
 
