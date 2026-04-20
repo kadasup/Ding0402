@@ -597,7 +597,7 @@ const Home = () => {
                             <div className="py-16 text-center bg-white rounded-3xl border-2 border-dashed border-gray-300" style={{ opacity: 0.8 }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '12px' }}>😴</div>
                                 <h2 className="text-2xl font-black text-ac-brown mb-2" style={{ letterSpacing: '0.1em' }}>今日尚未開放點餐</h2>
-                                <p className="text-gray-400 font-medium">請等待店家開啟菜單後再點餐</p>
+                                <p className="text-gray-400 font-medium">請等待管理員上架菜單！</p>
                             </div>
                         </div>
                     )}
@@ -895,7 +895,7 @@ const Home = () => {
                                                     className="font-black px-3 py-1 rounded-lg"
                                                     style={{ backgroundColor: '#FFF3C4', color: '#9A6A2E', border: '1px solid #F4D7A2', fontSize: '0.95rem', letterSpacing: '0.03em' }}
                                                 >
-                                                    今日點餐狀態
+                                                    本輪點餐狀態
                                                 </span>
                                                 {myTodayOrders.length > 0 ? (
                                                     <span
