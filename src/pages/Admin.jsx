@@ -713,14 +713,14 @@ const MenuManager = ({ data, actions }) => {
             </div>
 
             {/* Publish Action Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-2 md:px-3 py-2" style={{ minHeight: '220px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-2 md:px-3 py-2" style={{ minHeight: '196px' }}>
                     <button
                         type="button"
                         onClick={() => !isActionLoading && isPosted && setConfirmAction('closeOrder')}
                         onMouseEnter={() => { if (isPosted && !isActionLoading) setHoveredActionCard('close'); }}
                         onMouseLeave={() => setHoveredActionCard(null)}
                         disabled={!isPosted || isActionLoading}
-                        className="relative overflow-hidden flex flex-col items-center justify-center px-6 py-6 text-left border shadow-sm transition-all duration-200"
+                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
                         style={{
                             background: isPosted
                                 ? 'linear-gradient(180deg, rgba(255,248,250,0.88) 0%, rgba(255,232,238,0.74) 100%)'
@@ -762,9 +762,9 @@ const MenuManager = ({ data, actions }) => {
                             className="pointer-events-none absolute left-6 top-6 w-6 h-6 rounded-full"
                             style={{ background: 'rgba(255,255,255,0.5)' }}
                         />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-4 text-center w-full max-w-[24rem] mx-auto">
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
                             <div
-                                className="w-14 h-14 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
                                 style={{
                                     background: isPosted
                                         ? 'radial-gradient(circle at 35% 35%, #FB7185 0%, #E11D48 60%, #9F1239 100%)'
@@ -783,7 +783,7 @@ const MenuManager = ({ data, actions }) => {
                             </div>
                             <div className="flex items-center justify-center gap-2 flex-wrap">
                                 <span
-                                    className="text-sm font-black px-4 py-2 rounded-full"
+                                    className="text-sm font-black px-3 py-1.5 rounded-full"
                                     style={{
                                         background: 'rgba(255,255,255,0.45)',
                                         color: isPosted ? '#991B1B' : '#6B7280',
@@ -810,7 +810,7 @@ const MenuManager = ({ data, actions }) => {
                         onMouseEnter={() => { if (!isPosted && hasMenuDraft && !isActionLoading) setHoveredActionCard('publish'); }}
                         onMouseLeave={() => setHoveredActionCard(null)}
                         disabled={isPosted || isActionLoading || !hasMenuDraft}
-                        className="relative overflow-hidden flex flex-col items-center justify-center px-6 py-6 text-left border shadow-sm transition-all duration-200"
+                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
                         style={{
                             background: !isPosted
                                 ? (hasMenuDraft
@@ -854,9 +854,9 @@ const MenuManager = ({ data, actions }) => {
                             className="pointer-events-none absolute right-6 top-6 w-6 h-6 rounded-full"
                             style={{ background: 'rgba(255,255,255,0.5)' }}
                         />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-4 text-center w-full max-w-[24rem] mx-auto">
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
                             <div
-                                className="w-14 h-14 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
                                 style={{
                                     background: !isPosted
                                         ? (hasMenuDraft
@@ -879,7 +879,7 @@ const MenuManager = ({ data, actions }) => {
                             </div>
                             <div className="flex items-center justify-center gap-2 flex-wrap">
                                 <span
-                                    className="text-sm font-black px-4 py-2 rounded-full"
+                                    className="text-sm font-black px-3 py-1.5 rounded-full"
                                     style={{
                                         background: 'rgba(255,255,255,0.45)',
                                         color: !isPosted ? (hasMenuDraft ? '#065F46' : '#6B7280') : '#065F46',
