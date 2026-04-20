@@ -134,8 +134,9 @@ const Home = () => {
     const memberNameSet = new Set((data?.members || []).map(m => normalizeName(m)).filter(Boolean));
     const selectedMemberValid = !!selectedMember && memberNameSet.has(normalizeName(selectedMember));
     const adminAllowedMemberSet = new Set([
-        '1樓李尚聲',
-        '1樓周文琳',
+        '1樓尚聲',
+        '1樓文琳',
+        '1樓振利',
         '14樓林信綜',
     ].map(normalizeName));
     const canSeeAdminPortal = selectedMemberValid && adminAllowedMemberSet.has(normalizeName(selectedMember));
