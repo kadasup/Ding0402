@@ -929,6 +929,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     const [loadingDailyName, setLoadingDailyName] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const editFormRef = useRef(null);
+    const editHighlightTimerRef = useRef(null);
+    const [highlightEditForm, setHighlightEditForm] = useState(false);
     const { gasUrl } = useDing();
 
     // Add/Edit form state
@@ -1001,11 +1004,19 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
         setLibraryPage(1);
     }, [searchTerm, filterCategory, showFavOnly, data.menuLibrary?.length]);
 
+    useEffect(() => {
+        return () => {
+            if (editHighlightTimerRef.current) {
+                clearTimeout(editHighlightTimerRef.current);
+            }
+        };
+    }, []);
+
     const resetForm = () => {
         setFormName(''); setFormCategory('chinese');
         setFormStoreInfo({ name: '', address: '', phone: '' });
         setFormItems([]); setFormImage(''); setFormRemark('');
-        setEditingId(null); setShowAddForm(false);
+        setEditingId(null); setShowAddForm(false); setHighlightEditForm(false);
     };
 
     const handleConfirmAddItem = () => {
@@ -1026,14 +1037,37 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     };
 
     const startEdit = (menu) => {
-        setEditingId(menu.id);
-        setFormName(menu.name || '');
-        setFormCategory(menu.category || 'other');
-        setFormStoreInfo(menu.storeInfo || { name: '', address: '', phone: '' });
-        setFormItems(menu.items || []);
-        setFormImage(menu.image || '');
-        setFormRemark(menu.remark || '');
+        const safeStoreInfo = (menu && menu.storeInfo && typeof menu.storeInfo === 'object')
+            ? menu.storeInfo
+            : { name: '', address: '', phone: '' };
+        const safeItems = Array.isArray(menu && menu.items) ? menu.items : [];
+
+        setEditingId(menu && menu.id ? menu.id : null);
+        setFormName((menu && menu.name) || '');
+        setFormCategory((menu && menu.category) || 'other');
+        setFormStoreInfo({
+            name: safeStoreInfo.name || '',
+            address: safeStoreInfo.address || '',
+            phone: safeStoreInfo.phone || ''
+        });
+        setFormItems(safeItems);
+        setFormImage((menu && menu.image) || '');
+        setFormRemark((menu && menu.remark) || '');
         setShowAddForm(true);
+        setHighlightEditForm(true);
+        if (editHighlightTimerRef.current) clearTimeout(editHighlightTimerRef.current);
+        editHighlightTimerRef.current = setTimeout(() => {
+            setHighlightEditForm(false);
+        }, 1100);
+
+        // Ensure the edit form is visible after clicking "編輯" in long lists.
+        setTimeout(() => {
+            if (editFormRef.current && typeof editFormRef.current.scrollIntoView === 'function') {
+                editFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }, 0);
     };
 
     const handleSave = async () => {
@@ -1323,7 +1357,16 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
 
             {/* Add/Edit Form */}
             {showAddForm && (
-                <div className="ac-panel border-2 border-ac-green shadow-lg animate-slide-up bg-white mb-6 p-6">
+                <div
+                    ref={editFormRef}
+                    className="ac-panel border-2 border-ac-green shadow-lg animate-slide-up bg-white mb-6 p-6"
+                    style={{
+                        transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+                        boxShadow: highlightEditForm
+                            ? '0 0 0 4px rgba(95,205,228,0.45), 0 12px 28px rgba(95,205,228,0.28)'
+                            : undefined
+                    }}
+                >
                     <h3 className="font-black text-ac-brown mb-6 text-xl flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-ac-green flex items-center justify-center text-white text-sm">
                            {editingId ? '✏️' : '➕'}
