@@ -137,7 +137,8 @@ const Home = () => {
         '1樓尚聲',
         '1樓文琳',
         '1樓振利',
-        '14樓林信綜',
+        '14樓信綜',
+        '15樓秀琴',
     ].map(normalizeName));
     const canSeeAdminPortal = selectedMemberValid && adminAllowedMemberSet.has(normalizeName(selectedMember));
 
@@ -815,7 +816,7 @@ const Home = () => {
                                     <div className="flex flex-col gap-3 w-full">
                                         {myTodayOrders.length === 0 && (
                                             <div className="text-center italic text-gray-400 py-6 bg-white rounded-xl border border-dashed">
-                                                <div className="font-bold text-gray-500 not-italic">尚未點餐，往上滑看一眼賀甲A菜單！</div>
+                                                <div className="font-bold text-gray-500 not-italic">尚未點餐</div>
                                             </div>
                                         )}
 

@@ -544,9 +544,20 @@ const MenuManager = ({ data, actions }) => {
         setClosingTime(`${newDate} ${newTime}`);
     };
 
+    const isClosingTimeLocked = isPosted || isActionLoading;
     const availableHours = getWholeHours(datePart);
+    const dateOptions = React.useMemo(() => {
+        const base = getNext3Days();
+        if (!datePart) return base;
+        if (base.some((d) => d.value === datePart)) return base;
+        return [{ value: datePart, label: datePart }, ...base];
+    }, [datePart]);
+    const displayHours = isClosingTimeLocked
+        ? (timePart ? [timePart] : [])
+        : availableHours;
 
     useEffect(() => {
+        if (isClosingTimeLocked) return;
         if (availableHours.length === 0) {
             if (timePart) {
                 setClosingTime(`${datePart} `);
@@ -557,7 +568,7 @@ const MenuManager = ({ data, actions }) => {
         if (!availableHours.includes(timePart)) {
             updateDateTime(datePart, availableHours[0]);
         }
-    }, [availableHours, datePart, timePart]);
+    }, [availableHours, datePart, timePart, isClosingTimeLocked]);
 
     const sortedHistory = [...(data.menuHistory || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
     const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
@@ -647,9 +658,12 @@ const MenuManager = ({ data, actions }) => {
                     <div className="flex flex-col gap-1 w-full sm:w-[160px]">
                         <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">日期</span>
                         <select
-                            className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
+                            className={`ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl ${
+                                isClosingTimeLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                            }`}
                             style={{ background: '#fff', width: '100%' }}
                             value={datePart}
+                            disabled={isClosingTimeLocked}
                             onChange={(e) => {
                                 const nextDate = e.target.value;
                                 const nextHours = getWholeHours(nextDate);
@@ -657,7 +671,7 @@ const MenuManager = ({ data, actions }) => {
                                 updateDateTime(nextDate, nextTime);
                             }}
                         >
-                            {getNext3Days().map(d => (
+                            {dateOptions.map(d => (
                                 <option key={d.value} value={d.value}>{d.label}</option>
                             ))}
                         </select>
@@ -666,16 +680,21 @@ const MenuManager = ({ data, actions }) => {
                     <div className="flex flex-col gap-1 w-full sm:w-[130px]">
                         <span className="text-xs font-black text-blue-500 ml-1 uppercase tracking-widest">時間</span>
                         <select
-                            className="ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl cursor-pointer"
+                            className={`ac-input py-2.5 px-4 text-base border shadow-sm rounded-xl ${
+                                (isClosingTimeLocked || availableHours.length === 0) ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'
+                            }`}
                             style={{ background: '#fff', width: '100%' }}
                             value={timePart}
-                            disabled={availableHours.length === 0}
+                            disabled={isClosingTimeLocked || availableHours.length === 0}
                             onChange={(e) => updateDateTime(datePart, e.target.value)}
                         >
-                            {availableHours.length === 0 && (
+                            {isClosingTimeLocked && !timePart && (
+                                <option value="">未設定</option>
+                            )}
+                            {!isClosingTimeLocked && availableHours.length === 0 && (
                                 <option value="">今日已無可選時段</option>
                             )}
-                            {availableHours.map(h => (
+                            {displayHours.map(h => (
                                 <option key={h} value={h}>{h}</option>
                             ))}
                         </select>
