@@ -1162,7 +1162,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
             try {
                 // Fast path: optimistic local update + background write.
                 await actions.clearOrders(true);
-                await actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false, true);
+                await actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false, true, true);
                 await showAlert({
                     icon: '✅',
                     title: '已載入到今日菜單',

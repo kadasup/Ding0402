@@ -645,7 +645,7 @@ export const DingProvider = ({ children }) => {
         dedupeKey: `member:update:${oldName}:${nextName}`,
       });
     },
-    updateMenu: async (items, posted, closingTime, image, storeInfo, remark, keepVersion = true, fastMode = false) => {
+    updateMenu: async (items, posted, closingTime, image, storeInfo, remark, keepVersion = true, fastMode = false, nonBlocking = false) => {
       const nowStr = keepVersion && data.menu.lastUpdated ? data.menu.lastUpdated : Date.now().toString();
       lastMenuUpdate.current = Date.now();
       pendingMenuState.current = posted;
@@ -664,6 +664,20 @@ export const DingProvider = ({ children }) => {
 
       setData(prev => ({ ...prev, menu: newMenu }));
       if (fastMode) {
+        if (nonBlocking) {
+          // Ultra-fast path: write in background, then verify by re-fetching menu state.
+          void callGAS('updateMenu', newMenu, {
+            fireAndForget: true,
+            refreshDelay: 600,
+            refreshSections: ['menu'],
+            silent: true,
+            dedupeKey: `menu:update:fast:bg:${posted ? 'posted' : 'draft'}`,
+          });
+          setTimeout(() => {
+            void fetchData(['menu'], { silent: true, timeoutMs: 8000, retries: 0 });
+          }, 1400);
+          return;
+        }
         const fastResult = await callGAS('updateMenu', newMenu, {
           refreshDelay: 600,
           refreshSections: ['menu'],
