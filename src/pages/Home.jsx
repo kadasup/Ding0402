@@ -76,6 +76,10 @@ const Home = () => {
     const [isRolling, setIsRolling] = useState(false);
     const [showRandomModal, setShowRandomModal] = useState(false);
     const currentRoundSectionRef = useRef(null);
+    const memberSelectorRef = useRef(null);
+    const memberInputRef = useRef(null);
+    const switchFeedbackTimerRef = useRef(null);
+    const [showSwitchFeedback, setShowSwitchFeedback] = useState(false);
     const cartTotal = cart.reduce((sum, item) => sum + Number(item?.price || 0), 0);
     const cartSummary = Object.entries(
         cart.reduce((acc, item) => {
@@ -111,12 +115,48 @@ const Home = () => {
         }, 80);
     };
 
+    useEffect(() => {
+        return () => {
+            if (switchFeedbackTimerRef.current) {
+                clearTimeout(switchFeedbackTimerRef.current);
+            }
+        };
+    }, []);
+
+    const openMemberSelector = (withFeedback = false) => {
+        setIsSwitchingMember(true);
+        setIsDropdownOpen(true);
+        setSearchTerm('');
+        setMemberPage(0);
+
+        if (withFeedback) {
+            setShowSwitchFeedback(true);
+            if (switchFeedbackTimerRef.current) {
+                clearTimeout(switchFeedbackTimerRef.current);
+            }
+            switchFeedbackTimerRef.current = setTimeout(() => {
+                setShowSwitchFeedback(false);
+            }, 1600);
+        }
+
+        window.requestAnimationFrame(() => {
+            setTimeout(() => {
+                memberSelectorRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+                memberInputRef.current?.focus();
+            }, 80);
+        });
+    };
+
     const handleMemberLogin = (name) => {
         setSearchTerm('');
         setMemberPage(0);
         setSelectedMember(name);
         setIsSwitchingMember(false);
         setIsDropdownOpen(false);
+        setShowSwitchFeedback(false);
         if (name) {
             setSelectedFloor(getMemberFloor(name));
         }
@@ -407,25 +447,31 @@ const Home = () => {
                                     <div className="text-2xl font-black text-ac-brown leading-tight">{selectedMember}</div>
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setIsSwitchingMember(true);
-                                            setIsDropdownOpen(true);
-                                            setSearchTerm('');
-                                            setMemberPage(0);
-                                        }}
+                                        onClick={() => openMemberSelector(true)}
                                         className="shrink-0 px-3 py-1.5 rounded-full border-2 border-ac-orange text-ac-orange bg-white font-black text-sm hover:bg-orange-100 transition-colors"
                                     >
                                         切換角色
                                     </button>
                                 </div>
+                                {showSwitchFeedback && (
+                                    <div className="mt-2 text-xs font-black text-ac-blue bg-blue-50 border border-blue-200 rounded-full px-3 py-1 inline-block">
+                                        已開啟成員選單，請在下方選擇
+                                    </div>
+                                )}
                             </div>
                         )}
 
                         {(!selectedMember || isSwitchingMember) && (
-                        <div className="flex items-center gap-2 w-full max-w-md relative z-50">
+                        <div
+                            ref={memberSelectorRef}
+                            className={`flex items-center gap-2 w-full max-w-md relative z-50 transition-all ${
+                                showSwitchFeedback ? 'ring-2 ring-blue-200 rounded-2xl p-1 bg-blue-50/60' : ''
+                            }`}
+                        >
                             <User className="text-ac-green shrink-0" />
                             <div className="relative w-full">
                                 <input
+                                    ref={memberInputRef}
                                     type="text"
                                     placeholder={selectedFloor ? '-- 請輸入或選擇成員 --' : '-- 請先選擇樓層 --'}
                                     value={selectedMember && !isDropdownOpen && !isSwitchingMember ? selectedMember : searchTerm}
