@@ -426,19 +426,20 @@ const Home = () => {
                 </div>
             </div>
 
-            <div className="max-w-3xl mx-auto w-full">
-                <DialogBox title="公布欄" className="mb-2 bg-ac-panel relative overflow-visible">
-
-                    <div className="p-2 text-center">
-                        <span className="inline-block bg-white text-ac-orange px-4 py-1 rounded-full border-2 border-ac-orange font-black text-lg tracking-widest shadow-sm rotate-1">
-                            📢 公布訊息
-                        </span>
-                    </div>
-                    <div className="p-6 text-center text-xl font-bold text-ac-brown min-h-[60px] flex items-center justify-center whitespace-pre-line">
-                        {data.announcement}
-                    </div>
-                </DialogBox>
-            </div>
+            {false && (
+                <div className="max-w-3xl mx-auto w-full">
+                    <DialogBox title="公布欄" className="mb-2 bg-ac-panel relative overflow-visible">
+                        <div className="p-2 text-center">
+                            <span className="inline-block bg-white text-ac-orange px-4 py-1 rounded-full border-2 border-ac-orange font-black text-lg tracking-widest shadow-sm rotate-1">
+                                📢 公布訊息
+                            </span>
+                        </div>
+                        <div className="p-6 text-center text-xl font-bold text-ac-brown min-h-[60px] flex items-center justify-center whitespace-pre-line">
+                            {data.announcement}
+                        </div>
+                    </DialogBox>
+                </div>
+            )}
 
 
 

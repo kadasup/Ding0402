@@ -9,7 +9,7 @@ import bellsIcon from '../assets/img/bells.svg';
 
 const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
-    const [activeTab, setActiveTab] = useState('menu'); // menu, members, stats, public
+    const [activeTab, setActiveTab] = useState('menu'); // menu, library, members, stats, settings
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
     const libraryPrefetchedRef = useRef(false);
@@ -167,7 +167,6 @@ const Admin = () => {
                         { id: 'library', icon: BookOpen, label: '菜單庫' },
                         { id: 'members', icon: Users, label: '成員管理' },
                         { id: 'stats', icon: DollarSign, label: '統計資料' },
-                        { id: 'public', icon: Edit, label: '公告編輯' },
                         { id: 'settings', icon: Settings, label: '系統設定' },
                     ].map((tab, idx) => (
                         <button
@@ -200,9 +199,9 @@ const Admin = () => {
                                         ? '成員管理'
                                         : activeTab === 'stats'
                                             ? '統計資料'
-                                            : activeTab === 'settings'
-                                                ? '系統設定'
-                                                : '公告編輯'
+                                        : activeTab === 'settings'
+                                            ? '系統設定'
+                                                : '今日菜單'
                         }
                         className="min-h-[400px]"
                     >
@@ -213,7 +212,6 @@ const Admin = () => {
                             {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} isInitialLoading={isLibraryBootLoading} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
                             {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} /></div>}
-                            {activeTab === 'public' && <div key="public" className="animate-pop"><NoticeManager data={data} actions={actions} /></div>}
                             {activeTab === 'settings' && <div key="settings" className="animate-pop"><SettingsManager /></div>}
                         </div>
                     </DialogBox>
