@@ -904,6 +904,53 @@ body {
   animation: cta-pulse 1.8s infinite ease-in-out;
 }
 
+@keyframes action-card-breathe-mobile {
+  0%, 100% {
+    transform: scale(1);
+    filter: saturate(1);
+  }
+  50% {
+    transform: scale(1.02);
+    filter: saturate(1.06);
+  }
+}
+
+@keyframes action-card-text-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.9;
+  }
+}
+
+@media (max-width: 767px) {
+  .mobile-action-card-primary {
+    order: -1;
+  }
+
+  .action-card-breathe {
+    animation: action-card-breathe-mobile 2.2s ease-in-out infinite;
+    will-change: transform, filter;
+  }
+}
+
+.action-card-breathe-text {
+  animation: action-card-text-breathe 2.2s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-card-breathe {
+    animation: none !important;
+  }
+  .action-card-breathe-text {
+    animation: none !important;
+  }
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

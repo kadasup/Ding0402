@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronDown, ChevronUp, X, Trash2, HelpCircle } from 'lucide-react';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronUp, X, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -39,8 +39,6 @@ const Home = () => {
     const [successModal, setSuccessModal] = useState(false);
     const [deleteModal, setDeleteModal] = useState(false);
     const [orderToDelete, setOrderToDelete] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isSwitchingMember, setIsSwitchingMember] = useState(false);
     const [memberPage, setMemberPage] = useState(0);
     const [isMobileViewport, setIsMobileViewport] = useState(() => {
@@ -77,7 +75,6 @@ const Home = () => {
     const [showRandomModal, setShowRandomModal] = useState(false);
     const currentRoundSectionRef = useRef(null);
     const memberSelectorRef = useRef(null);
-    const memberInputRef = useRef(null);
     const switchFeedbackTimerRef = useRef(null);
     const [showSwitchFeedback, setShowSwitchFeedback] = useState(false);
     const cartTotal = cart.reduce((sum, item) => sum + Number(item?.price || 0), 0);
@@ -125,8 +122,6 @@ const Home = () => {
 
     const openMemberSelector = (withFeedback = false) => {
         setIsSwitchingMember(true);
-        setIsDropdownOpen(true);
-        setSearchTerm('');
         setMemberPage(0);
 
         if (withFeedback) {
@@ -145,17 +140,14 @@ const Home = () => {
                     behavior: 'smooth',
                     block: 'center',
                 });
-                memberInputRef.current?.focus();
             }, 80);
         });
     };
 
     const handleMemberLogin = (name) => {
-        setSearchTerm('');
         setMemberPage(0);
         setSelectedMember(name);
         setIsSwitchingMember(false);
-        setIsDropdownOpen(false);
         setShowSwitchFeedback(false);
         if (name) {
             setSelectedFloor(getMemberFloor(name));
@@ -193,11 +185,10 @@ const Home = () => {
     }, [selectedMember, selectedMemberValid, loading, data?.members]);
 
     const membersByFloor = (data?.members || []).filter(m => getMemberFloor(m) === selectedFloor);
-    const filteredMembers = membersByFloor.filter(m => String(m || '').toLowerCase().includes(String(searchTerm || '').toLowerCase()));
     const memberPageSize = 6;
-    const memberTotalPages = Math.max(1, Math.ceil(filteredMembers.length / memberPageSize));
+    const memberTotalPages = Math.max(1, Math.ceil(membersByFloor.length / memberPageSize));
     const safeMemberPage = Math.min(memberPage, memberTotalPages - 1);
-    const pagedMembers = filteredMembers.slice(
+    const pagedMembers = membersByFloor.slice(
         safeMemberPage * memberPageSize,
         safeMemberPage * memberPageSize + memberPageSize
     );
@@ -469,155 +460,92 @@ const Home = () => {
                             }`}
                         >
                             <User className="text-ac-green shrink-0" />
-                            <div className="relative w-full">
-                                <input
-                                    ref={memberInputRef}
-                                    type="text"
-                                    placeholder={selectedFloor ? '-- 請輸入或選擇成員 --' : '-- 請先選擇樓層 --'}
-                                    value={selectedMember && !isDropdownOpen && !isSwitchingMember ? selectedMember : searchTerm}
-                                    onChange={(e) => {
-                                        setSearchTerm(e.target.value);
-                                        setMemberPage(0);
-                                        setIsDropdownOpen(true);
-                                    }}
-                                    onFocus={() => {
-                                        setIsDropdownOpen(true);
-                                        setSearchTerm('');
-                                        setMemberPage(0);
-                                    }}
-                                    onBlur={() => setTimeout(() => {
-                                        setIsDropdownOpen(false);
-                                        if (selectedMember) {
-                                            setIsSwitchingMember(false);
-                                        }
-                                    }, 200)}
-                                    className="ac-input w-full pr-20 cursor-text"
-                                />
-
-                                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                    <ChevronDown className="text-gray-400" size={20} />
+                            <div className="w-full bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden">
+                                <div className="px-3 pt-3 pb-2 border-b bg-[#F8FAFC]">
+                                    <div className="text-[11px] font-black text-gray-500 mb-2 tracking-wide">選擇樓層</div>
+                                    <div className="flex gap-2" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
+                                        {FLOOR_OPTIONS.map((floor) => (
+                                            <button
+                                                key={floor}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedFloor(floor);
+                                                    setMemberPage(0);
+                                                    if (selectedMember && getMemberFloor(selectedMember) !== floor) {
+                                                        handleMemberLogin('');
+                                                    }
+                                                }}
+                                                className="whitespace-nowrap px-3 py-2 rounded-full border leading-none font-black transition-all"
+                                                style={{
+                                                    flex: 1,
+                                                    minWidth: 72,
+                                                    fontSize: isMobileViewport ? '1rem' : '1.125rem',
+                                                    background: selectedFloor === floor ? '#EAF6FF' : '#fff',
+                                                    borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',
+                                                    color: selectedFloor === floor ? '#0F766E' : '#4B5563',
+                                                }}
+                                            >
+                                                {floor}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
-                                {(selectedMember || searchTerm) && (
-                                    <button
-                                        onMouseDown={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleMemberLogin('');
-                                            setMemberPage(0);
-                                            if (searchTerm) setIsDropdownOpen(true);
-                                        }}
-                                        className="absolute right-12 top-1/2 -translate-y-1/2 ac-clear-btn z-20"
-                                        title="清除選擇"
-                                    >
-                                        <Trash2 size={18} strokeWidth={2.5} />
-                                    </button>
-                                )}
+                                {membersByFloor.length > 0 ? (
+                                    <>
+                                        <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
+                                            {pagedMembers.map((m) => (
+                                                <li
+                                                    key={m}
+                                                    className={`px-3 py-2 rounded-lg hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold text-center border border-gray-100 ${
+                                                        selectedMember === m ? 'bg-[#FFF8E7] border-ac-green' : 'bg-white'
+                                                    }`}
+                                                    onClick={() => handleMemberLogin(m)}
+                                                >
+                                                    {m}
+                                                </li>
+                                            ))}
+                                        </ul>
 
-                                {isDropdownOpen && (
-                                    <div className="absolute z-999 w-full mt-1 bg-white border-2 border-ac-green rounded-xl shadow-xl overflow-hidden left-0 top-full">
-                                        <div className="px-3 pt-3 pb-2 border-b bg-[#F8FAFC]">
-                                            <div className="text-[11px] font-black text-gray-500 mb-2 tracking-wide">選擇樓層</div>
-                                            <div className="flex gap-2" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
-                                                {FLOOR_OPTIONS.map((floor) => (
-                                                    <button
-                                                        key={floor}
-                                                        type="button"
-                                                        onMouseDown={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setSelectedFloor(floor);
-                                                            setMemberPage(0);
-                                                            setSearchTerm('');
-                                                        }}
-                                                        className="whitespace-nowrap px-3 py-2 rounded-full border leading-none font-black transition-all"
-                                                        style={{
-                                                            flex: 1,
-                                                            minWidth: 72,
-                                                            fontSize: isMobileViewport ? '1rem' : '1.125rem',
-                                                            background: selectedFloor === floor ? '#EAF6FF' : '#fff',
-                                                            borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',
-                                                            color: selectedFloor === floor ? '#0F766E' : '#4B5563',
-                                                        }}
-                                                    >
-                                                        {floor}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                        {memberTotalPages > 1 && (
+                                            <div className="flex items-center justify-between px-3 py-2 border-t bg-[#F8FAFC]">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMemberPage((prev) => Math.max(0, prev - 1))}
+                                                    disabled={safeMemberPage === 0}
+                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                    style={{
+                                                        opacity: safeMemberPage === 0 ? 0.45 : 1,
+                                                        cursor: safeMemberPage === 0 ? 'not-allowed' : 'pointer',
+                                                        background: '#fff',
+                                                    }}
+                                                >
+                                                    上一頁
+                                                </button>
 
-                                        {!selectedFloor ? (
-                                            <div className="px-4 py-4 text-gray-400 text-center cursor-default">
-                                                請先選擇樓層再選成員
-                                            </div>
-                                        ) : filteredMembers.length > 0 ? (
-                                            <>
-                                                <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
-                                                    {pagedMembers.map((m) => (
-                                                        <li
-                                                            key={m}
-                                                            className={`px-3 py-2 rounded-lg hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold text-center border border-gray-100 ${
-                                                                selectedMember === m ? 'bg-[#FFF8E7] border-ac-green' : 'bg-white'
-                                                            }`}
-                                                            onMouseDown={() => {
-                                                                handleMemberLogin(m);
-                                                                setIsDropdownOpen(false);
-                                                            }}
-                                                        >
-                                                            {m}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                                <span className="text-xs font-bold text-gray-500">
+                                                    {safeMemberPage + 1} / {memberTotalPages}
+                                                </span>
 
-                                                {memberTotalPages > 1 && (
-                                                    <div className="flex items-center justify-between px-3 py-2 border-t bg-[#F8FAFC]">
-                                                        <button
-                                                            type="button"
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setMemberPage((prev) => Math.max(0, prev - 1));
-                                                            }}
-                                                            disabled={safeMemberPage === 0}
-                                                            className="px-3 py-1 rounded-full border text-sm font-bold"
-                                                            style={{
-                                                                opacity: safeMemberPage === 0 ? 0.45 : 1,
-                                                                cursor: safeMemberPage === 0 ? 'not-allowed' : 'pointer',
-                                                                background: '#fff',
-                                                            }}
-                                                        >
-                                                            上一頁
-                                                        </button>
-
-                                                        <span className="text-xs font-bold text-gray-500">
-                                                            {safeMemberPage + 1} / {memberTotalPages}
-                                                        </span>
-
-                                                        <button
-                                                            type="button"
-                                                            onMouseDown={(e) => {
-                                                                e.preventDefault();
-                                                                e.stopPropagation();
-                                                                setMemberPage((prev) => Math.min(memberTotalPages - 1, prev + 1));
-                                                            }}
-                                                            disabled={safeMemberPage >= memberTotalPages - 1}
-                                                            className="px-3 py-1 rounded-full border text-sm font-bold"
-                                                            style={{
-                                                                opacity: safeMemberPage >= memberTotalPages - 1 ? 0.45 : 1,
-                                                                cursor: safeMemberPage >= memberTotalPages - 1 ? 'not-allowed' : 'pointer',
-                                                                background: '#fff',
-                                                            }}
-                                                        >
-                                                            下一頁
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <div className="px-4 py-3 text-gray-400 text-center cursor-default">
-                                                找不到符合條件的成員
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setMemberPage((prev) => Math.min(memberTotalPages - 1, prev + 1))}
+                                                    disabled={safeMemberPage >= memberTotalPages - 1}
+                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
+                                                    style={{
+                                                        opacity: safeMemberPage >= memberTotalPages - 1 ? 0.45 : 1,
+                                                        cursor: safeMemberPage >= memberTotalPages - 1 ? 'not-allowed' : 'pointer',
+                                                        background: '#fff',
+                                                    }}
+                                                >
+                                                    下一頁
+                                                </button>
                                             </div>
                                         )}
+                                    </>
+                                ) : (
+                                    <div className="px-4 py-3 text-gray-400 text-center cursor-default">
+                                        此樓層目前沒有可選成員
                                     </div>
                                 )}
                             </div>
@@ -642,7 +570,9 @@ const Home = () => {
                     {!data.menu.posted && (
                         <div className="max-w-3xl mx-auto w-full">
                             <div className="py-16 text-center bg-white rounded-3xl border-2 border-dashed border-gray-300" style={{ opacity: 0.8 }}>
-                                <div style={{ fontSize: '3rem', marginBottom: '12px' }}>😴</div>
+                                <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+                                    <img src={leafIcon} alt="動森葉子圖示" className="w-9 h-9 opacity-90" />
+                                </div>
                                 <h2 className="text-2xl font-black text-ac-brown mb-2" style={{ letterSpacing: '0.1em' }}>今日尚未開放點餐</h2>
                                 <p className="text-gray-400 font-medium">請等待管理員上架菜單！</p>
                             </div>
@@ -1165,7 +1095,7 @@ const Home = () => {
             )}
 
             {/* Scroll to Top Button */}
-            {showScrollTop && !isDropdownOpen && (
+            {showScrollTop && (
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     className="fixed ac-scroll-top hover:scale-110 active:scale-95 transition-all animate-pop z-[99999]"

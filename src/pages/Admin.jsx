@@ -408,6 +408,17 @@ const MenuManager = ({ data, actions }) => {
         setActionLoadingText(status ? '處理中，正在上架菜單...' : '處理中，正在下架菜單...');
         setIsActionLoading(true);
         isSyncingRef.current = true; // avoid sync race while publishing/unpublishing
+        const clearTodayMenuDraft = () => {
+            const emptyItems = [];
+            const emptyImage = '';
+            const emptyStore = { name: '', address: '', phone: '' };
+            const emptyRemark = '';
+            setDraftItems(emptyItems);
+            setMenuImage(emptyImage);
+            setStoreInfo(emptyStore);
+            setMenuRemark(emptyRemark);
+            return { emptyItems, emptyImage, emptyStore, emptyRemark };
+        };
         try {
         if (!status) {
             // Unpublish flow
@@ -417,15 +428,7 @@ const MenuManager = ({ data, actions }) => {
             const autoSaveName = `${dateStr} 下架存檔 - ${name}`;
             actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
-            const emptyItems = [];
-            const emptyImage = '';
-            const emptyStore = { name: '', address: '', phone: '' };
-            const emptyRemark = '';
-            
-            setDraftItems(emptyItems);
-            setMenuImage(emptyImage);
-            setStoreInfo(emptyStore);
-            setMenuRemark(emptyRemark);
+            const { emptyItems, emptyImage, emptyStore, emptyRemark } = clearTodayMenuDraft();
             setIsPosted(false);
             
             await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark, true, true);
@@ -470,6 +473,17 @@ const MenuManager = ({ data, actions }) => {
         if (isActionLoading) return;
         setActionLoadingText('處理中，正在結單...');
         setIsActionLoading(true);
+        const clearTodayMenuDraft = () => {
+            const emptyItems = [];
+            const emptyImage = '';
+            const emptyStore = { name: '', address: '', phone: '' };
+            const emptyRemark = '';
+            setDraftItems(emptyItems);
+            setMenuImage(emptyImage);
+            setStoreInfo(emptyStore);
+            setMenuRemark(emptyRemark);
+            return { emptyItems, emptyImage, emptyStore, emptyRemark };
+        };
         try {
         // Auto-save specific for Closing
         const today = new Date();
@@ -479,8 +493,9 @@ const MenuManager = ({ data, actions }) => {
         actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
         // Unpost
+        const { emptyItems, emptyImage, emptyStore, emptyRemark } = clearTodayMenuDraft();
         setIsPosted(false);
-        await actions.updateMenu(draftItems, false, closingTime, menuImage, storeInfo, menuRemark, true, true);
+        await actions.updateMenu(emptyItems, false, closingTime, emptyImage, emptyStore, emptyRemark, true, true);
 
         await showAlert({
             icon: '✅',
@@ -573,6 +588,8 @@ const MenuManager = ({ data, actions }) => {
     const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
     const pagedHistory = sortedHistory.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE);
     const hasMenuDraft = draftItems.length > 0 || !!menuImage || !!storeInfo.name;
+    const canCloseOrder = isPosted && !isActionLoading;
+    const canPublishMenu = !isPosted && hasMenuDraft && !isActionLoading;
 
     return (
         <div className="flex flex-col gap-6 p-4">
@@ -713,21 +730,21 @@ const MenuManager = ({ data, actions }) => {
             </div>
 
             {/* Publish Action Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-2 md:px-3 py-2" style={{ minHeight: '196px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-2 md:px-3 py-2" style={{ minHeight: '170px' }}>
                     <button
                         type="button"
-                        onClick={() => !isActionLoading && isPosted && setConfirmAction('closeOrder')}
-                        onMouseEnter={() => { if (isPosted && !isActionLoading) setHoveredActionCard('close'); }}
+                        onClick={() => canCloseOrder && setConfirmAction('closeOrder')}
+                        onMouseEnter={() => { if (canCloseOrder) setHoveredActionCard('close'); }}
                         onMouseLeave={() => setHoveredActionCard(null)}
-                        disabled={!isPosted || isActionLoading}
-                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
+                        disabled={!canCloseOrder}
+                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 ${canCloseOrder ? 'mobile-action-card-primary action-card-breathe' : ''}`}
                         style={{
                             background: isPosted
                                 ? 'linear-gradient(180deg, rgba(255,248,250,0.88) 0%, rgba(255,232,238,0.74) 100%)'
                                 : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
                             borderColor: isPosted ? 'rgba(244,114,182,0.32)' : 'rgba(255,255,255,0.55)',
                             borderWidth: '1px',
-                            borderRadius: '2.5rem',
+                            borderRadius: '2rem',
                             backdropFilter: 'blur(16px)',
                             WebkitBackdropFilter: 'blur(16px)',
                             appearance: 'none',
@@ -737,7 +754,7 @@ const MenuManager = ({ data, actions }) => {
                                     ? '0 26px 46px rgba(190, 24, 93, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
                                     : '0 18px 40px rgba(190, 24, 93, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
                                 : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-                            cursor: !isPosted || isActionLoading ? 'not-allowed' : 'pointer',
+                            cursor: !canCloseOrder ? 'not-allowed' : 'pointer',
                             transform: hoveredActionCard === 'close' ? 'translateY(-8px)' : 'translateY(0)',
                             opacity: !isPosted ? 0.78 : 1
                         }}
@@ -762,43 +779,17 @@ const MenuManager = ({ data, actions }) => {
                             className="pointer-events-none absolute left-6 top-6 w-6 h-6 rounded-full"
                             style={{ background: 'rgba(255,255,255,0.5)' }}
                         />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-2 text-center w-full max-w-[18rem] mx-auto min-h-[120px]">
                             <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                className="w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0"
                                 style={{
                                     background: isPosted
                                         ? 'radial-gradient(circle at 35% 35%, #FB7185 0%, #E11D48 60%, #9F1239 100%)'
                                         : 'radial-gradient(circle at 35% 35%, #F3F4F6 0%, #D1D5DB 60%, #9CA3AF 100%)'
                                 }}
                             />
-                            <div className="flex flex-col items-center text-center">
-                                <div className="font-black text-3xl mb-2" style={{ color: isPosted ? '#991B1B' : '#94A3B8' }}>
-                                    下架 / 結單
-                                </div>
-                                <div className="text-sm font-bold leading-relaxed" style={{ color: isPosted ? '#7F1D1D' : '#9CA3AF', maxWidth: '24rem' }}>
-                                    {isPosted
-                                        ? '本輪正在開放點餐，可選擇暫時下架或直接結單。'
-                                        : '目前尚未上架，這一區暫時不能操作。'}
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-center gap-2 flex-wrap">
-                                <span
-                                    className="text-sm font-black px-3 py-1.5 rounded-full"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.45)',
-                                        color: isPosted ? '#991B1B' : '#6B7280',
-                                        border: isPosted ? '1px solid rgba(244,114,182,0.34)' : '1px solid rgba(255,255,255,0.6)',
-                                        backdropFilter: 'blur(10px)',
-                                        WebkitBackdropFilter: 'blur(10px)'
-                                    }}
-                                >
-                                    {isPosted ? '目前可操作' : '等待上架中'}
-                                </span>
-                                {isPosted && (
-                                    <span className="text-xs font-bold text-gray-600">
-                                        結單時間：{closingTime || '尚未設定'}
-                                    </span>
-                                )}
+                            <div className={`font-black text-2xl leading-tight ${canCloseOrder ? 'action-card-breathe-text' : ''}`} style={{ color: isPosted ? '#991B1B' : '#94A3B8' }}>
+                                下架 / 結單
                             </div>
                         </div>
 
@@ -806,11 +797,11 @@ const MenuManager = ({ data, actions }) => {
 
                     <button
                         type="button"
-                        onClick={() => !isActionLoading && !isPosted && hasMenuDraft && setConfirmAction('publish')}
-                        onMouseEnter={() => { if (!isPosted && hasMenuDraft && !isActionLoading) setHoveredActionCard('publish'); }}
+                        onClick={() => canPublishMenu && setConfirmAction('publish')}
+                        onMouseEnter={() => { if (canPublishMenu) setHoveredActionCard('publish'); }}
                         onMouseLeave={() => setHoveredActionCard(null)}
-                        disabled={isPosted || isActionLoading || !hasMenuDraft}
-                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
+                        disabled={!canPublishMenu}
+                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 ${canPublishMenu ? 'mobile-action-card-primary action-card-breathe' : ''}`}
                         style={{
                             background: !isPosted
                                 ? (hasMenuDraft
@@ -819,7 +810,7 @@ const MenuManager = ({ data, actions }) => {
                                 : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
                             borderColor: !isPosted && hasMenuDraft ? 'rgba(74, 222, 128, 0.34)' : 'rgba(255,255,255,0.55)',
                             borderWidth: '1px',
-                            borderRadius: '2.5rem',
+                            borderRadius: '2rem',
                             backdropFilter: 'blur(16px)',
                             WebkitBackdropFilter: 'blur(16px)',
                             appearance: 'none',
@@ -829,7 +820,7 @@ const MenuManager = ({ data, actions }) => {
                                     ? '0 26px 46px rgba(22, 163, 74, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
                                     : '0 18px 40px rgba(22, 163, 74, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
                                 : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-                            cursor: isPosted || isActionLoading || !hasMenuDraft ? 'not-allowed' : 'pointer',
+                            cursor: !canPublishMenu ? 'not-allowed' : 'pointer',
                             transform: hoveredActionCard === 'publish' ? 'translateY(-8px)' : 'translateY(0)',
                             opacity: isPosted || !hasMenuDraft ? 0.82 : 1
                         }}
@@ -854,9 +845,9 @@ const MenuManager = ({ data, actions }) => {
                             className="pointer-events-none absolute right-6 top-6 w-6 h-6 rounded-full"
                             style={{ background: 'rgba(255,255,255,0.5)' }}
                         />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-2 text-center w-full max-w-[18rem] mx-auto min-h-[120px]">
                             <div
-                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                className="w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0"
                                 style={{
                                     background: !isPosted
                                         ? (hasMenuDraft
@@ -865,34 +856,8 @@ const MenuManager = ({ data, actions }) => {
                                         : 'radial-gradient(circle at 35% 35%, #BBF7D0 0%, #86EFAC 55%, #22C55E 100%)'
                                 }}
                             />
-                            <div className="flex flex-col items-center text-center">
-                                <div className="font-black text-3xl mb-2" style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
-                                    上架
-                                </div>
-                                <div className="text-sm font-bold leading-relaxed" style={{ color: !isPosted ? '#065F46' : '#9CA3AF', maxWidth: '24rem' }}>
-                                    {!isPosted
-                                        ? (hasMenuDraft
-                                            ? '目前是草稿狀態，確認無誤後即可上架。'
-                                            : '目前沒有可上架的內容，請先準備菜單。')
-                                        : '菜單已經上架中，若要更新內容請先下架或結單。'}
-                                </div>
-                            </div>
-                            <div className="flex items-center justify-center gap-2 flex-wrap">
-                                <span
-                                    className="text-sm font-black px-3 py-1.5 rounded-full"
-                                    style={{
-                                        background: 'rgba(255,255,255,0.45)',
-                                        color: !isPosted ? (hasMenuDraft ? '#065F46' : '#6B7280') : '#065F46',
-                                        border: !isPosted ? (hasMenuDraft ? '1px solid rgba(74,222,128,0.34)' : '1px solid rgba(255,255,255,0.6)') : '1px solid rgba(74,222,128,0.28)',
-                                        backdropFilter: 'blur(10px)',
-                                        WebkitBackdropFilter: 'blur(10px)'
-                                    }}
-                                >
-                                    {isPosted ? '目前狀態' : (hasMenuDraft ? '可立即發布' : '尚未準備完成')}
-                                </span>
-                                {isPosted && (
-                                    <span className="text-xs font-bold text-gray-600">前台目前已開放點餐</span>
-                                )}
+                            <div className={`font-black text-2xl leading-tight ${canPublishMenu ? 'action-card-breathe-text' : ''}`} style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
+                                上架
                             </div>
                         </div>
 
