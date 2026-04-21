@@ -2,14 +2,14 @@
   "type": "bubble",
   "hero": {
     "type": "image",
-    "url": "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900",
+    "url": "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/publish.png",
     "size": "full",
     "aspectRatio": "20:11",
     "aspectMode": "fit"
   },
   "header": {
     "type": "box",
-    "layout": "vertical",
+    "layout": "baseline",
     "backgroundColor": "#78B159",
     "paddingAll": "12px",
     "contents": [
@@ -37,7 +37,7 @@
     "contents": [
       {
         "type": "text",
-        "text": "\u4eca\u65e5\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
+        "text": "\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
         "weight": "bold",
         "size": "xl",
         "color": "#5A4D41",
@@ -46,21 +46,25 @@
       {
         "type": "box",
         "layout": "baseline",
-        "spacing": "sm",
         "margin": "md",
+        "paddingAll": "10px",
+        "backgroundColor": "#FEF3C7",
+        "cornerRadius": "10px",
         "contents": [
           {
             "type": "text",
-            "text": "\u220e \u5e97\u5bb6",
-            "size": "md",
-            "color": "#7C6044",
+            "text": "\u220e \u5e97\u5bb6\uff1a",
+            "size": "sm",
+            "color": "#92400E",
+            "weight": "bold",
             "flex": 2
           },
           {
             "type": "text",
             "text": "\u6e2c\u8a66\u5e97\u5bb6",
-            "size": "md",
-            "color": "#5A4D41",
+            "size": "xl",
+            "color": "#7C2D12",
+            "weight": "bold",
             "wrap": true,
             "flex": 5
           }

@@ -2,7 +2,7 @@
   "type": "bubble",
   "hero": {
     "type": "image",
-    "url": "https://lh3.googleusercontent.com/d/1FCMEIgLXSVxCXB_nzP5-OBPhdnsTfNBw=w900",
+    "url": "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/unpublish.png",
     "size": "full",
     "aspectRatio": "20:11",
     "aspectMode": "fit"
@@ -105,7 +105,7 @@
         "action": {
           "type": "uri",
           "label": "\u67e5\u770b\u8a02\u55ae\u660e\u7d30",
-          "uri": "https://example.com/ding"
+          "uri": "https://example.com/ding?focus=current-round"
         }
       }
     ]

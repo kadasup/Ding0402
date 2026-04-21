@@ -3,13 +3,14 @@ import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
 import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronUp, X, HelpCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 
 
 const Home = () => {
     const { data, actions, loading } = useDing();
+    const location = useLocation();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
     const normalizeName = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const loadOrdersForMember = () => {
@@ -270,6 +271,21 @@ const Home = () => {
 
     // Filter history for current user (Safe access)
     const myHistory = (data.orders || []).filter(o => o.member === selectedMember);
+
+    useEffect(() => {
+        const focusTarget = new URLSearchParams(location.search).get('focus');
+        if (focusTarget !== 'current-round') return;
+        if (!currentRoundSectionRef.current) return;
+
+        const timer = setTimeout(() => {
+            currentRoundSectionRef.current?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+        }, 120);
+
+        return () => clearTimeout(timer);
+    }, [location.search, selectedMember]);
 
     // Filter current round orders by current menuId (not by date)
     const currentMenuId = data.menu.lastUpdated;

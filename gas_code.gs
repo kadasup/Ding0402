@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Ding Bento backend (Google Apps Script)
  * Version: 3.3-Stable
  */
@@ -459,7 +459,7 @@ function getDataSections(sections) {
   }
 
   if (includeAll || includeCore || include.announcement) {
-    result.announcement = getWorksheetObject("Settings", "announcement") || "歡迎使用自由543訂便當系統！";
+    result.announcement = getWorksheetObject("Settings", "announcement") || "甇∟?雿輻?芰543閮噶?嗥頂蝯梧?";
   }
 
   if (includeAll || include.orders) {
@@ -523,7 +523,7 @@ function getHistoryList() {
       var idVal = String(r[0] || "");
       if (!idVal) return null;
 
-      var nameVal = r[1] || "未命名菜單";
+      var nameVal = r[1] || "?芸????;
       var itemsArr = [];
       try { itemsArr = JSON.parse(r[2] || "[]"); } catch (e) { itemsArr = []; }
 
@@ -601,10 +601,10 @@ function getOrCreateSheet(name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    if (name === "Orders") sheet.appendRow(["日期", "成員", "品項JSON", "總額", "ID", "MenuId"]);
-    if (name === "Members") sheet.appendRow(["姓名", "加入日期"]);
-    if (name === "MenuLibrary") sheet.appendRow(["ID", "名稱", "類別", "店家資訊JSON", "品項JSON", "圖片", "標籤", "時間戳", "收藏", "備註", "Remark"]);
-    if (name === "MenuHistory") sheet.appendRow(["ID", "名稱", "品項JSON", "圖片", "店家資訊JSON", "備註"]);
+    if (name === "Orders") sheet.appendRow(["?交?", "?", "??JSON", "蝮賡?", "ID", "MenuId"]);
+    if (name === "Members") sheet.appendRow(["憪?", "??交?"]);
+    if (name === "MenuLibrary") sheet.appendRow(["ID", "?迂", "憿", "摨振鞈?JSON", "??JSON", "??", "璅惜", "????, "?嗉?", "?酉", "Remark"]);
+    if (name === "MenuHistory") sheet.appendRow(["ID", "?迂", "??JSON", "??", "摨振鞈?JSON", "?酉"]);
   }
   return sheet;
 }
@@ -701,9 +701,9 @@ function buildLineTestMenuPayload(params, status) {
   var isPublish = String(status || "").toLowerCase() === "publish";
 
   var defaultItems = [
-    { name: "測試招牌飯", price: 110 },
-    { name: "測試雞腿便當", price: 120 },
-    { name: "測試蔬食餐盒", price: 100 }
+    { name: "皜祈岫??憌?, price: 110 },
+    { name: "皜祈岫?靘輻", price: 120 },
+    { name: "皜祈岫?祇?擗?", price: 100 }
   ];
 
   var parsedItems = Array.isArray(p.items) ? p.items : null;
@@ -714,8 +714,8 @@ function buildLineTestMenuPayload(params, status) {
     items: parsedItems && parsedItems.length > 0 ? parsedItems : fallbackItems,
     closingTime: p.closingTime || current.closingTime || Utilities.formatDate(oneHourLater, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"),
     image: p.image || current.image || "",
-    storeInfo: p.storeInfo || current.storeInfo || { name: p.storeName || "測試店家", phone: "", address: "" },
-    remark: p.remark || current.remark || (isPublish ? "這是上架測試通知，可直接開始點餐。" : "這是下架測試通知，本輪已截止。"),
+    storeInfo: p.storeInfo || current.storeInfo || { name: p.storeName || "皜祈岫摨振", phone: "", address: "" },
+    remark: p.remark || current.remark || (isPublish ? "?銝皜祈岫?嚗?湔??暺??? : "?銝皜祈岫?嚗頛芸歇?芣迫??),
     lastUpdated: String(new Date().getTime())
   };
 }
@@ -773,16 +773,15 @@ function buildMenuStatusFlexMessage(status, menu, appFrontendUrl) {
 }
 
 function buildLinePublishFlexMessage(menu, appFrontendUrl) {
-  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "未命名店家";
+  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var itemCount = Array.isArray(menu.items) ? menu.items.length : 0;
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
-  var topItems = summarizeMenuItemNames(menu.items, 3) || "暫無精選品項";
-  var fixedHeroSource = "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900";
-  var heroImageUrl = resolveLineImageUrl(fixedHeroSource) || "https://lh3.googleusercontent.com/d/1fiA9-xKqxqGpYvKErgjQhRsvXiTh1Fdo=w900";
+  var topItems = summarizeMenuItemNames(menu.items, 3) || "\u672a\u63d0\u4f9b\u7cbe\u9078";
+  var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/publish.png";
   var orderUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
 
   return {
-    altText: "【今日菜單已上架】" + storeName + "，共 " + itemCount + " 項",
+    altText: "\u3010\u83dc\u55ae\u5df2\u4e0a\u67b6\u3011" + storeName + "\uff0c\u5171 " + itemCount + " \u9805",
     contents: {
       type: "bubble",
       hero: {
@@ -794,20 +793,20 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
       },
       header: {
         type: "box",
-        layout: "vertical",
+        layout: "baseline",
         backgroundColor: "#78B159",
         paddingAll: "12px",
         contents: [
           {
             type: "text",
-            text: "菜單上架通知",
+            text: "\u83dc\u55ae\u4e0a\u67b6\u901a\u77e5",
             color: "#FFFFFF",
             size: "sm",
             weight: "bold"
           },
           {
             type: "text",
-            text: "已上架",
+            text: "\u5df2\u4e0a\u67b6",
             color: "#FFFFFF",
             size: "xs",
             align: "end"
@@ -822,7 +821,7 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
         contents: [
           {
             type: "text",
-            text: "今日菜單已上架，開始點餐囉！",
+            text: "\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
             weight: "bold",
             size: "xl",
             color: "#5A4D41",
@@ -831,11 +830,13 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
           {
             type: "box",
             layout: "baseline",
-            spacing: "sm",
             margin: "md",
+            paddingAll: "10px",
+            backgroundColor: "#FEF3C7",
+            cornerRadius: "10px",
             contents: [
-              { type: "text", text: "∎ 店家", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+              { type: "text", text: "\u220e \u5e97\u5bb6\uff1a", size: "sm", color: "#92400E", weight: "bold", flex: 2 },
+              { type: "text", text: storeName, size: "xl", color: "#7C2D12", weight: "bold", wrap: true, flex: 5 }
             ]
           },
           {
@@ -844,8 +845,8 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
             spacing: "sm",
             margin: "sm",
             contents: [
-              { type: "text", text: "∎ 品項", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: itemCount + " 項", size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+              { type: "text", text: "\u220e \u54c1\u9805", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: itemCount + " \u9805", size: "md", color: "#5A4D41", wrap: true, flex: 5 }
             ]
           },
           {
@@ -854,7 +855,7 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
             spacing: "sm",
             margin: "sm",
             contents: [
-              { type: "text", text: "∎ 截止", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
               { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
             ]
           },
@@ -864,7 +865,7 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
             spacing: "sm",
             margin: "sm",
             contents: [
-              { type: "text", text: "∎ 精選", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: "\u220e \u7cbe\u9078", size: "md", color: "#7C6044", flex: 2 },
               { type: "text", text: topItems, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
             ]
           }
@@ -883,7 +884,7 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
             color: "#78B159",
             action: {
               type: "uri",
-              label: "立即點餐",
+              label: "\u7acb\u5373\u9ede\u9910",
               uri: orderUrl
             }
           }
@@ -896,16 +897,15 @@ function buildLinePublishFlexMessage(menu, appFrontendUrl) {
     }
   };
 }
-
 function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
-  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "未命名店家";
+  var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
-  var fixedHeroSource = "https://drive.google.com/open?id=1FCMEIgLXSVxCXB_nzP5-OBPhdnsTfNBw&usp=drive_fs";
-  var heroImageUrl = resolveLineImageUrl(fixedHeroSource) || "https://lh3.googleusercontent.com/d/1FCMEIgLXSVxCXB_nzP5-OBPhdnsTfNBw=w900";
+  var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/unpublish.png";
   var viewUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
+  var detailUrl = viewUrl + (viewUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
 
   return {
-    altText: "【結單通知】" + storeName + "，已結單，下次請早！",
+    altText: "\u3010\u5df2\u7d50\u55ae\u901a\u77e5\u3011" + storeName + "\uff0c\u672c\u8f2a\u5df2\u7d50\u55ae",
     contents: {
       type: "bubble",
       hero: {
@@ -921,8 +921,20 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
         backgroundColor: "#B87434",
         paddingAll: "12px",
         contents: [
-          { type: "text", text: "結單通知", color: "#FFFFFF", size: "sm", weight: "bold" },
-          { type: "text", text: "已結單", color: "#FFFFFF", size: "xs", align: "end" }
+          {
+            type: "text",
+            text: "\u7d50\u55ae\u901a\u77e5",
+            color: "#FFFFFF",
+            size: "sm",
+            weight: "bold"
+          },
+          {
+            type: "text",
+            text: "\u5df2\u7d50\u55ae",
+            color: "#FFFFFF",
+            size: "xs",
+            align: "end"
+          }
         ]
       },
       body: {
@@ -933,7 +945,7 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
         contents: [
           {
             type: "text",
-            text: "已結單，下次請早！",
+            text: "\u5df2\u7d50\u55ae\uff0c\u4e0b\u6b21\u8acb\u65e9\uff01",
             weight: "bold",
             size: "xl",
             color: "#5A4D41",
@@ -945,7 +957,7 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
             spacing: "sm",
             margin: "md",
             contents: [
-              { type: "text", text: "∎ 店家", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: "\u220e \u5e97\u5bb6", size: "md", color: "#7C6044", flex: 2 },
               { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
             ]
           },
@@ -955,7 +967,7 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
             spacing: "sm",
             margin: "sm",
             contents: [
-              { type: "text", text: "∎ 截止", size: "md", color: "#7C6044", flex: 2 },
+              { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
               { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
             ]
           }
@@ -974,8 +986,8 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
             color: "#B87434",
             action: {
               type: "uri",
-              label: "查看訂單明細",
-              uri: viewUrl
+              label: "\u67e5\u770b\u8a02\u55ae\u660e\u7d30",
+              uri: detailUrl
             }
           }
         ]
@@ -987,46 +999,6 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
     }
   };
 }
-
-function summarizeMenuItemNames(items, maxCount) {
-  if (!Array.isArray(items) || items.length === 0) return "";
-  var limit = Number(maxCount || 4);
-  var names = [];
-  for (var i = 0; i < items.length && names.length < limit; i++) {
-    var name = String(items[i] && items[i].name ? items[i].name : "").trim();
-    if (!name) continue;
-    names.push(name);
-  }
-  if (names.length === 0) return "";
-  if (items.length > names.length) {
-    return names.join(", ") + ", ...";
-  }
-  return names.join(", ");
-}
-
-function formatLineClosingTime(value) {
-  if (!value) return "未設定";
-  var date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
-  return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy/MM/dd (E) HH:mm");
-}
-
-function formatLineClosingTimeZh(value) {
-  if (!value) return "未設定";
-  var date = new Date(value);
-  if (isNaN(date.getTime())) return String(value);
-  var weekdays = ["日", "一", "二", "三", "四", "五", "六"];
-  var datePart = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy/MM/dd");
-  var timePart = Utilities.formatDate(date, Session.getScriptTimeZone(), "HH:mm");
-  return datePart + " (" + weekdays[date.getDay()] + ") " + timePart;
-}
-
-function isValidHttpsUrl(value) {
-  var text = String(value || "").trim();
-  if (!text) return false;
-  return /^https:\/\/.+/i.test(text);
-}
-
 function resolveLineImageUrl(value) {
 
   var url = String(value || "").trim();
@@ -1171,4 +1143,6 @@ function authTrigger() {
   var drive = DriveApp.getRootFolder(); // Trigger Drive scope permission
   Logger.log("Auth trigger OK, response code: " + response.getResponseCode());
 }
+
+
 
