@@ -67,6 +67,8 @@ function doPost(e) {
           lastUpdated: nextMenu.lastUpdated
         };
         lineNotifyResult = sendLineMenuStatusNotification("unpublish", downMenu);
+        var closeSummaryResult = sendLineCloseSummaryNotification(downMenu);
+        lineNotifyResult.closeSummary = closeSummaryResult;
       }
 
       return handleResponse({ success: true, lineNotify: lineNotifyResult });
@@ -999,6 +1001,216 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
     }
   };
 }
+
+function sendLineCloseSummaryNotification(menu) {
+  try {
+    var config = getLineNotifyConfig();
+    if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
+    if (!config.targetGroupId) return { sent: false, skipped: true, reason: "missing_line_target_group_id" };
+
+    var flex = buildLineCloseSummaryFlexMessage(menu || {}, config.appFrontendUrl);
+    if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "no_orders_for_summary" };
+
+    var payload = {
+      to: config.targetGroupId,
+      messages: [{
+        type: "flex",
+        altText: flex.altText,
+        contents: flex.contents
+      }]
+    };
+
+    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        Authorization: "Bearer " + config.channelAccessToken
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return { sent: true, code: code };
+    }
+    return {
+      sent: false,
+      code: code,
+      error: response.getContentText()
+    };
+  } catch (err) {
+    return { sent: false, error: err.toString() };
+  }
+}
+
+function buildLineCloseSummaryFlexMessage(menu, appFrontendUrl) {
+  var orders = getOrdersData();
+  var targetMenuId = menu && menu.lastUpdated ? String(menu.lastUpdated) : "";
+  var todayKey = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+
+  var roundOrders = orders.filter(function (o) {
+    var orderDateKey = formatSheetDateKey(o.date);
+    var menuMatched = targetMenuId ? String(o.menuId || "") === targetMenuId : true;
+    return orderDateKey === todayKey && menuMatched;
+  });
+
+  if (!roundOrders.length) return null;
+
+  var floorMap = {};
+  for (var i = 0; i < roundOrders.length; i++) {
+    var order = roundOrders[i] || {};
+    var memberName = normalizeMemberName(order.member) || "未命名成員";
+    var floor = getMemberFloorFromName(memberName);
+    if (!floorMap[floor]) floorMap[floor] = {};
+    if (!floorMap[floor][memberName]) {
+      floorMap[floor][memberName] = { total: 0, items: [] };
+    }
+
+    var memberEntry = floorMap[floor][memberName];
+    var items = Array.isArray(order.items) ? order.items : [];
+    for (var j = 0; j < items.length; j++) {
+      var itemName = normalizeMemberName(items[j] && items[j].name);
+      if (itemName) memberEntry.items.push(itemName);
+    }
+
+    var rowTotal = Number(order.total);
+    if (!isFinite(rowTotal)) {
+      rowTotal = items.reduce(function (sum, item) {
+        var p = Number(item && item.price);
+        return sum + (isFinite(p) ? p : 0);
+      }, 0);
+    }
+    memberEntry.total += rowTotal;
+  }
+
+  var floors = Object.keys(floorMap).sort(function (a, b) {
+    var na = parseInt(String(a).replace(/[^\d]/g, ""), 10);
+    var nb = parseInt(String(b).replace(/[^\d]/g, ""), 10);
+    var va = isNaN(na) ? 999 : na;
+    var vb = isNaN(nb) ? 999 : nb;
+    if (va !== vb) return va - vb;
+    return String(a).localeCompare(String(b));
+  });
+
+  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
+  var detailUrl = baseUrl + (baseUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
+  var bubbles = [];
+
+  for (var fi = 0; fi < floors.length; fi++) {
+    var floorName = floors[fi];
+    var membersMap = floorMap[floorName] || {};
+    var memberNames = Object.keys(membersMap).sort();
+    var memberBoxes = [];
+    var maxRows = 8;
+    var shown = memberNames.slice(0, maxRows);
+
+    for (var mi = 0; mi < shown.length; mi++) {
+      var mName = shown[mi];
+      var info = membersMap[mName];
+      var itemText = info.items.length ? info.items.join("、") : "無品項";
+      memberBoxes.push({
+        type: "box",
+        layout: "vertical",
+        spacing: "xs",
+        margin: mi === 0 ? "md" : "sm",
+        paddingAll: "8px",
+        backgroundColor: "#EAF8FD",
+        cornerRadius: "8px",
+        contents: [
+          { type: "text", text: mName, size: "sm", weight: "bold", color: "#0F766E", wrap: true },
+          { type: "text", text: itemText, size: "xs", color: "#2B5964", wrap: true },
+          { type: "text", text: "$" + info.total, size: "sm", weight: "bold", color: "#0E7490", align: "end" }
+        ]
+      });
+    }
+
+    if (memberNames.length > maxRows) {
+      memberBoxes.push({
+        type: "text",
+        text: "其餘 " + (memberNames.length - maxRows) + " 位請至前台查看",
+        size: "xs",
+        color: "#9CA3AF",
+        margin: "sm"
+      });
+    }
+
+    bubbles.push({
+      type: "bubble",
+      header: {
+        type: "box",
+        layout: "baseline",
+        backgroundColor: "#5FCDE4",
+        paddingAll: "12px",
+        contents: [
+          { type: "text", text: "結單核對", color: "#FFFFFF", size: "sm", weight: "bold" },
+          { type: "text", text: floorName, color: "#FFFFFF", size: "xs", align: "end", weight: "bold" }
+        ]
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "14px",
+        contents: [
+          {
+            type: "text",
+            text: "本輪已結單，請核對！",
+            weight: "bold",
+            size: "md",
+            color: "#2F5D66",
+            wrap: true
+          }
+        ].concat(memberBoxes)
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "12px",
+        backgroundColor: "#F1FBFF",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: "#2EA7C8",
+            action: {
+              type: "uri",
+              label: "查看訂單明細",
+              uri: detailUrl
+            }
+          },
+          {
+            type: "button",
+            style: "secondary",
+            action: {
+              type: "message",
+              label: "餐點有誤",
+              text: "幫幫我、幫幫我"
+            }
+          }
+        ]
+      },
+      styles: {
+        body: { backgroundColor: "#F1FBFF" },
+        footer: { separator: true }
+      }
+    });
+  }
+
+  return {
+    altText: "【結單核對】依樓層彙整每人訂購明細",
+    contents: bubbles.length === 1 ? bubbles[0] : { type: "carousel", contents: bubbles }
+  };
+}
+
+function getMemberFloorFromName(memberName) {
+  var s = String(memberName || "").trim();
+  var m = s.match(/^(\d+)\s*樓/);
+  if (m && m[1]) return m[1] + "樓";
+  return "VIP";
+}
+
 function resolveLineImageUrl(value) {
 
   var url = String(value || "").trim();
@@ -1143,6 +1355,7 @@ function authTrigger() {
   var drive = DriveApp.getRootFolder(); // Trigger Drive scope permission
   Logger.log("Auth trigger OK, response code: " + response.getResponseCode());
 }
+
 
 
 
