@@ -150,15 +150,12 @@ const Admin = () => {
                     管理後台
                 </h1>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto justify-center">
-                <Link to="/" className="flex-1 sm:flex-none">
-                    <Button variant="secondary" className="w-full text-sm py-2 px-4 shadow-sm">
-                        <ArrowLeft size={16} /> 返回前台
+            <div className="w-full sm:w-auto flex justify-center">
+                <Link to="/" className="w-full sm:w-auto">
+                    <Button variant="secondary" className="w-full text-base sm:text-lg py-2.5 px-5 shadow-sm font-bold">
+                        <ArrowLeft size={18} /> 返回前台
                     </Button>
                 </Link>
-                <Button onClick={actions.logout} variant="danger" className="flex-1 sm:flex-none text-sm py-2 px-4 shadow-sm">
-                    <X size={16} /> 登出
-                </Button>
             </div>
         </div>
 
@@ -278,7 +275,8 @@ const MenuManager = ({ data, actions }) => {
     const [menuImage, setMenuImage] = useState(data.menu.image || '');
     const [showHistory, setShowHistory] = useState(false);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-    const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'unpublish' | 'closeOrder'
+    const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'closeOrder'
+    const [hoveredActionCard, setHoveredActionCard] = useState(null); // null | 'close' | 'publish'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -574,6 +572,7 @@ const MenuManager = ({ data, actions }) => {
     const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
     const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
     const pagedHistory = sortedHistory.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE);
+    const hasMenuDraft = draftItems.length > 0 || !!menuImage || !!storeInfo.name;
 
     return (
         <div className="flex flex-col gap-6 p-4">
@@ -713,70 +712,191 @@ const MenuManager = ({ data, actions }) => {
                 />
             </div>
 
-            {/* Publish Toggle Section */}
-            <div className="rounded-2xl border shadow-sm overflow-hidden">
-                <div className="grid grid-cols-2" style={{ minHeight: '100px' }}>
-                    {/* 下架 Panel */}
+            {/* Publish Action Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-2 md:px-3 py-2" style={{ minHeight: '196px' }}>
                     <button
-                        onClick={() => isPosted && !isActionLoading && setConfirmAction('unpublish')}
-                        className="flex flex-col items-center justify-center gap-2 py-5 px-4 transition-all duration-300 border-r"
+                        type="button"
+                        onClick={() => !isActionLoading && isPosted && setConfirmAction('closeOrder')}
+                        onMouseEnter={() => { if (isPosted && !isActionLoading) setHoveredActionCard('close'); }}
+                        onMouseLeave={() => setHoveredActionCard(null)}
+                        disabled={!isPosted || isActionLoading}
+                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
                         style={{
-                            background: !isPosted ? '#FEE2E2' : '#FAFAFA',
-                            cursor: isPosted ? 'pointer' : 'default',
-                            opacity: isPosted ? 0.7 : 1,
+                            background: isPosted
+                                ? 'linear-gradient(180deg, rgba(255,248,250,0.88) 0%, rgba(255,232,238,0.74) 100%)'
+                                : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
+                            borderColor: isPosted ? 'rgba(244,114,182,0.32)' : 'rgba(255,255,255,0.55)',
+                            borderWidth: '1px',
+                            borderRadius: '2.5rem',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)',
+                            appearance: 'none',
+                            WebkitAppearance: 'none',
+                            boxShadow: isPosted
+                                ? (hoveredActionCard === 'close'
+                                    ? '0 26px 46px rgba(190, 24, 93, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
+                                    : '0 18px 40px rgba(190, 24, 93, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
+                                : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
+                            cursor: !isPosted || isActionLoading ? 'not-allowed' : 'pointer',
+                            transform: hoveredActionCard === 'close' ? 'translateY(-8px)' : 'translateY(0)',
+                            opacity: !isPosted ? 0.78 : 1
                         }}
                     >
-                        <span style={{ fontSize: '28px' }}>{!isPosted ? '🔴' : '⭕'}</span>
-                        <span className="font-black text-lg" style={{ color: !isPosted ? '#991B1B' : '#9CA3AF' }}>
-                            下架
-                        </span>
-                        {!isPosted && (
-                            <span className="text-xs font-bold px-3 py-1 rounded-full animate-status-pulse" style={{ background: '#FECACA', color: '#991B1B' }}>
-                                目前狀態
-                            </span>
-                        )}
-                        {isPosted && (
-                            <span className="text-xs text-gray-400">點擊可下架</span>
-                        )}
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full"
+                            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 70%)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute top-16 right-12 w-16 h-16 rounded-full"
+                            style={{ background: isPosted ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.24)', filter: 'blur(2px)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -bottom-6 left-5 w-24 h-24 rounded-full"
+                            style={{ background: isPosted ? 'rgba(244,114,182,0.16)' : 'rgba(191,219,254,0.16)', filter: 'blur(8px)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-6 top-6 w-6 h-6 rounded-full"
+                            style={{ background: 'rgba(255,255,255,0.5)' }}
+                        />
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                style={{
+                                    background: isPosted
+                                        ? 'radial-gradient(circle at 35% 35%, #FB7185 0%, #E11D48 60%, #9F1239 100%)'
+                                        : 'radial-gradient(circle at 35% 35%, #F3F4F6 0%, #D1D5DB 60%, #9CA3AF 100%)'
+                                }}
+                            />
+                            <div className="flex flex-col items-center text-center">
+                                <div className="font-black text-3xl mb-2" style={{ color: isPosted ? '#991B1B' : '#94A3B8' }}>
+                                    下架 / 結單
+                                </div>
+                                <div className="text-sm font-bold leading-relaxed" style={{ color: isPosted ? '#7F1D1D' : '#9CA3AF', maxWidth: '24rem' }}>
+                                    {isPosted
+                                        ? '本輪正在開放點餐，可選擇暫時下架或直接結單。'
+                                        : '目前尚未上架，這一區暫時不能操作。'}
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-center gap-2 flex-wrap">
+                                <span
+                                    className="text-sm font-black px-3 py-1.5 rounded-full"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.45)',
+                                        color: isPosted ? '#991B1B' : '#6B7280',
+                                        border: isPosted ? '1px solid rgba(244,114,182,0.34)' : '1px solid rgba(255,255,255,0.6)',
+                                        backdropFilter: 'blur(10px)',
+                                        WebkitBackdropFilter: 'blur(10px)'
+                                    }}
+                                >
+                                    {isPosted ? '目前可操作' : '等待上架中'}
+                                </span>
+                                {isPosted && (
+                                    <span className="text-xs font-bold text-gray-600">
+                                        結單時間：{closingTime || '尚未設定'}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
                     </button>
 
-                    {/* 上架 Panel */}
                     <button
-                        onClick={() => !isPosted && !isActionLoading && setConfirmAction('publish')}
-                        className="flex flex-col items-center justify-center gap-2 py-5 px-4 transition-all duration-300"
+                        type="button"
+                        onClick={() => !isActionLoading && !isPosted && hasMenuDraft && setConfirmAction('publish')}
+                        onMouseEnter={() => { if (!isPosted && hasMenuDraft && !isActionLoading) setHoveredActionCard('publish'); }}
+                        onMouseLeave={() => setHoveredActionCard(null)}
+                        disabled={isPosted || isActionLoading || !hasMenuDraft}
+                        className="relative overflow-hidden flex flex-col items-center justify-center px-4 py-4 text-left border shadow-sm transition-all duration-200"
                         style={{
-                            background: isPosted ? '#D1FAE5' : '#FAFAFA',
-                            cursor: !isPosted ? 'pointer' : 'default',
-                            opacity: !isPosted ? 0.7 : 1,
+                            background: !isPosted
+                                ? (hasMenuDraft
+                                    ? 'linear-gradient(180deg, rgba(246,255,248,0.88) 0%, rgba(220,252,231,0.74) 100%)'
+                                    : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)')
+                                : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
+                            borderColor: !isPosted && hasMenuDraft ? 'rgba(74, 222, 128, 0.34)' : 'rgba(255,255,255,0.55)',
+                            borderWidth: '1px',
+                            borderRadius: '2.5rem',
+                            backdropFilter: 'blur(16px)',
+                            WebkitBackdropFilter: 'blur(16px)',
+                            appearance: 'none',
+                            WebkitAppearance: 'none',
+                            boxShadow: !isPosted && hasMenuDraft
+                                ? (hoveredActionCard === 'publish'
+                                    ? '0 26px 46px rgba(22, 163, 74, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
+                                    : '0 18px 40px rgba(22, 163, 74, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
+                                : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
+                            cursor: isPosted || isActionLoading || !hasMenuDraft ? 'not-allowed' : 'pointer',
+                            transform: hoveredActionCard === 'publish' ? 'translateY(-8px)' : 'translateY(0)',
+                            opacity: isPosted || !hasMenuDraft ? 0.82 : 1
                         }}
                     >
-                        <span style={{ fontSize: '28px', lineHeight: 1 }}>🟢</span>
-                        <span className="font-black text-lg" style={{ color: isPosted ? '#065F46' : '#9CA3AF' }}>
-                            上架
-                        </span>
-                        {isPosted && (
-                            <span className="text-xs font-bold px-3 py-1 rounded-full animate-status-pulse" style={{ background: '#A7F3D0', color: '#065F46' }}>
-                                目前狀態
-                            </span>
-                        )}
-                        {!isPosted && (
-                            <span className="text-xs text-gray-400">點擊可發布</span>
-                        )}
-                    </button>
-                </div>
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -top-8 -left-8 w-28 h-28 rounded-full"
+                            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 70%)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute top-16 left-12 w-16 h-16 rounded-full"
+                            style={{ background: !isPosted && hasMenuDraft ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.24)', filter: 'blur(2px)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -bottom-6 right-5 w-24 h-24 rounded-full"
+                            style={{ background: !isPosted && hasMenuDraft ? 'rgba(74,222,128,0.16)' : 'rgba(191,219,254,0.16)', filter: 'blur(8px)' }}
+                        />
+                        <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute right-6 top-6 w-6 h-6 rounded-full"
+                            style={{ background: 'rgba(255,255,255,0.5)' }}
+                        />
+                        <div className="relative z-[1] flex flex-col items-center justify-center gap-3 text-center w-full max-w-[20rem] mx-auto">
+                            <div
+                                className="w-12 h-12 rounded-full flex items-center justify-center shadow-inner shrink-0"
+                                style={{
+                                    background: !isPosted
+                                        ? (hasMenuDraft
+                                            ? 'radial-gradient(circle at 35% 35%, #86EFAC 0%, #4ADE80 55%, #16A34A 100%)'
+                                            : 'radial-gradient(circle at 35% 35%, #F3F4F6 0%, #D1D5DB 60%, #9CA3AF 100%)')
+                                        : 'radial-gradient(circle at 35% 35%, #BBF7D0 0%, #86EFAC 55%, #22C55E 100%)'
+                                }}
+                            />
+                            <div className="flex flex-col items-center text-center">
+                                <div className="font-black text-3xl mb-2" style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
+                                    上架
+                                </div>
+                                <div className="text-sm font-bold leading-relaxed" style={{ color: !isPosted ? '#065F46' : '#9CA3AF', maxWidth: '24rem' }}>
+                                    {!isPosted
+                                        ? (hasMenuDraft
+                                            ? '目前是草稿狀態，確認無誤後即可上架。'
+                                            : '目前沒有可上架的內容，請先準備菜單。')
+                                        : '菜單已經上架中，若要更新內容請先下架或結單。'}
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-center gap-2 flex-wrap">
+                                <span
+                                    className="text-sm font-black px-3 py-1.5 rounded-full"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.45)',
+                                        color: !isPosted ? (hasMenuDraft ? '#065F46' : '#6B7280') : '#065F46',
+                                        border: !isPosted ? (hasMenuDraft ? '1px solid rgba(74,222,128,0.34)' : '1px solid rgba(255,255,255,0.6)') : '1px solid rgba(74,222,128,0.28)',
+                                        backdropFilter: 'blur(10px)',
+                                        WebkitBackdropFilter: 'blur(10px)'
+                                    }}
+                                >
+                                    {isPosted ? '目前狀態' : (hasMenuDraft ? '可立即發布' : '尚未準備完成')}
+                                </span>
+                                {isPosted && (
+                                    <span className="text-xs font-bold text-gray-600">前台目前已開放點餐</span>
+                                )}
+                            </div>
+                        </div>
 
-                {/* Close Order - only visible when posted */}
-                {isPosted && (
-                    <div className="flex justify-center py-3 border-t" style={{ background: '#F9FAFB' }}>
-                        <button
-                            onClick={() => !isActionLoading && setConfirmAction('closeOrder')}
-                            className="font-black px-6 py-2.5 rounded-full transition-all"
-                            style={{ backgroundColor: '#4B5563', color: '#fff', fontSize: '1.05rem', letterSpacing: '0.05em', padding: '12px 34px' }}
-                        >
-                            {isActionLoading ? '處理中...' : '立即結單'}
-                        </button>
-                    </div>
-                )}
+                    </button>
             </div>
             {isActionLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm font-bold text-ac-blue bg-blue-50 border border-blue-200 rounded-xl py-2">
@@ -822,19 +942,6 @@ const MenuManager = ({ data, actions }) => {
                 cancelText="取消"
                 confirmColor="#4B5563"
             />
-            <ConfirmModal
-                isOpen={confirmAction === 'unpublish'}
-                onClose={() => setConfirmAction(null)}
-                onConfirm={async () => { await handlePublish(false); }}
-                icon="📴"
-                iconBg="#FEE2E2"
-                title="確認下架菜單？"
-                message="下架後前台將看不到今日菜單。"
-                confirmText="確認下架"
-                cancelText="取消"
-                confirmColor="#DC2626"
-            />
-
             <PopupRenderer />
 
             {/* History Section */}
@@ -929,6 +1036,9 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     const [loadingDailyName, setLoadingDailyName] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const editFormRef = useRef(null);
+    const editHighlightTimerRef = useRef(null);
+    const [highlightEditForm, setHighlightEditForm] = useState(false);
     const { gasUrl } = useDing();
 
     // Add/Edit form state
@@ -1001,11 +1111,19 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
         setLibraryPage(1);
     }, [searchTerm, filterCategory, showFavOnly, data.menuLibrary?.length]);
 
+    useEffect(() => {
+        return () => {
+            if (editHighlightTimerRef.current) {
+                clearTimeout(editHighlightTimerRef.current);
+            }
+        };
+    }, []);
+
     const resetForm = () => {
         setFormName(''); setFormCategory('chinese');
         setFormStoreInfo({ name: '', address: '', phone: '' });
         setFormItems([]); setFormImage(''); setFormRemark('');
-        setEditingId(null); setShowAddForm(false);
+        setEditingId(null); setShowAddForm(false); setHighlightEditForm(false);
     };
 
     const handleConfirmAddItem = () => {
@@ -1026,14 +1144,37 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     };
 
     const startEdit = (menu) => {
-        setEditingId(menu.id);
-        setFormName(menu.name || '');
-        setFormCategory(menu.category || 'other');
-        setFormStoreInfo(menu.storeInfo || { name: '', address: '', phone: '' });
-        setFormItems(menu.items || []);
-        setFormImage(menu.image || '');
-        setFormRemark(menu.remark || '');
+        const safeStoreInfo = (menu && menu.storeInfo && typeof menu.storeInfo === 'object')
+            ? menu.storeInfo
+            : { name: '', address: '', phone: '' };
+        const safeItems = Array.isArray(menu && menu.items) ? menu.items : [];
+
+        setEditingId(menu && menu.id ? menu.id : null);
+        setFormName((menu && menu.name) || '');
+        setFormCategory((menu && menu.category) || 'other');
+        setFormStoreInfo({
+            name: safeStoreInfo.name || '',
+            address: safeStoreInfo.address || '',
+            phone: safeStoreInfo.phone || ''
+        });
+        setFormItems(safeItems);
+        setFormImage((menu && menu.image) || '');
+        setFormRemark((menu && menu.remark) || '');
         setShowAddForm(true);
+        setHighlightEditForm(true);
+        if (editHighlightTimerRef.current) clearTimeout(editHighlightTimerRef.current);
+        editHighlightTimerRef.current = setTimeout(() => {
+            setHighlightEditForm(false);
+        }, 1100);
+
+        // Ensure the edit form is visible after clicking "編輯" in long lists.
+        setTimeout(() => {
+            if (editFormRef.current && typeof editFormRef.current.scrollIntoView === 'function') {
+                editFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }, 0);
     };
 
     const handleSave = async () => {
@@ -1131,7 +1272,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
             try {
                 // Fast path: optimistic local update + background write.
                 await actions.clearOrders(true);
-                await actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false, true);
+                await actions.updateMenu(menu.items, false, '', menu.image || '', menu.storeInfo || {}, menu.remark || '', false, true, true);
                 await showAlert({
                     icon: '✅',
                     title: '已載入到今日菜單',
@@ -1323,7 +1464,16 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
 
             {/* Add/Edit Form */}
             {showAddForm && (
-                <div className="ac-panel border-2 border-ac-green shadow-lg animate-slide-up bg-white mb-6 p-6">
+                <div
+                    ref={editFormRef}
+                    className="ac-panel border-2 border-ac-green shadow-lg animate-slide-up bg-white mb-6 p-6"
+                    style={{
+                        transition: 'box-shadow 0.25s ease, transform 0.25s ease',
+                        boxShadow: highlightEditForm
+                            ? '0 0 0 4px rgba(95,205,228,0.45), 0 12px 28px rgba(95,205,228,0.28)'
+                            : undefined
+                    }}
+                >
                     <h3 className="font-black text-ac-brown mb-6 text-xl flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-ac-green flex items-center justify-center text-white text-sm">
                            {editingId ? '✏️' : '➕'}
