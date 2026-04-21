@@ -64,7 +64,8 @@ function doPost(e) {
           image: previousMenu && previousMenu.image ? previousMenu.image : (nextMenu.image || ""),
           storeInfo: previousMenu && previousMenu.storeInfo ? previousMenu.storeInfo : (nextMenu.storeInfo || {}),
           remark: previousMenu && previousMenu.remark ? previousMenu.remark : (nextMenu.remark || ""),
-          lastUpdated: nextMenu.lastUpdated
+          // Keep previous round id for close-summary matching; fallback to next menu version only if missing.
+          lastUpdated: (previousMenu && previousMenu.lastUpdated) ? previousMenu.lastUpdated : nextMenu.lastUpdated
         };
         lineNotifyResult = sendLineMenuStatusNotification("unpublish", downMenu);
         var closeSummaryResult = sendLineCloseSummaryNotification(downMenu);
@@ -772,6 +773,53 @@ function buildMenuStatusFlexMessage(status, menu, appFrontendUrl) {
     return buildLinePublishFlexMessage(safeMenu, appFrontendUrl);
   }
   return buildLineUnpublishFlexMessage(safeMenu, appFrontendUrl);
+}
+
+function isValidHttpsUrl(value) {
+  var url = String(value || "").trim();
+  if (!url) return false;
+  return /^https:\/\/[^\s]+$/i.test(url);
+}
+
+function summarizeMenuItemNames(items, maxCount) {
+  if (!Array.isArray(items) || items.length === 0) return "";
+  var names = [];
+  for (var i = 0; i < items.length; i++) {
+    var item = items[i] || {};
+    var name = normalizeMemberName(item.name);
+    if (!name) continue;
+    names.push(name);
+    if (names.length >= (maxCount || 3)) break;
+  }
+  if (!names.length) return "";
+  if (items.length > names.length) {
+    names.push("等");
+  }
+  return names.join("、");
+}
+
+function formatLineClosingTimeZh(value) {
+  var raw = String(value || "").trim();
+  if (!raw) return "未設定";
+
+  var parsed = new Date(raw);
+  if (isNaN(parsed.getTime())) {
+    // Retry parsing "yyyy-MM-dd HH:mm" as local time.
+    var normalized = raw.replace(" ", "T");
+    parsed = new Date(normalized);
+  }
+  if (isNaN(parsed.getTime())) return raw;
+
+  var tz = Session.getScriptTimeZone();
+  var datePart = Utilities.formatDate(parsed, tz, "MM/dd");
+  var timePart = Utilities.formatDate(parsed, tz, "HH:mm");
+  var weekdayMap = ["日", "一", "二", "三", "四", "五", "六"];
+  var weekday = weekdayMap[parsed.getDay()];
+
+  var todayKey = Utilities.formatDate(new Date(), tz, "yyyy-MM-dd");
+  var targetKey = Utilities.formatDate(parsed, tz, "yyyy-MM-dd");
+  var dayLabel = targetKey === todayKey ? "今天" : (datePart + " (" + weekday + ")");
+  return dayLabel + " " + timePart;
 }
 
 function buildLinePublishFlexMessage(menu, appFrontendUrl) {
