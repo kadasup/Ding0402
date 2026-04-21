@@ -523,7 +523,7 @@ function getHistoryList() {
       var idVal = String(r[0] || "");
       if (!idVal) return null;
 
-      var nameVal = r[1] || "?芸????;
+      var nameVal = r[1] || "未命名菜單";
       var itemsArr = [];
       try { itemsArr = JSON.parse(r[2] || "[]"); } catch (e) { itemsArr = []; }
 
@@ -601,10 +601,10 @@ function getOrCreateSheet(name) {
   var sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    if (name === "Orders") sheet.appendRow(["?交?", "?", "??JSON", "蝮賡?", "ID", "MenuId"]);
-    if (name === "Members") sheet.appendRow(["憪?", "??交?"]);
-    if (name === "MenuLibrary") sheet.appendRow(["ID", "?迂", "憿", "摨振鞈?JSON", "??JSON", "??", "璅惜", "????, "?嗉?", "?酉", "Remark"]);
-    if (name === "MenuHistory") sheet.appendRow(["ID", "?迂", "??JSON", "??", "摨振鞈?JSON", "?酉"]);
+    if (name === "Orders") sheet.appendRow(["日期", "成員", "項目JSON", "總額", "ID", "MenuId"]);
+    if (name === "Members") sheet.appendRow(["姓名", "新增日期"]);
+    if (name === "MenuLibrary") sheet.appendRow(["ID", "名稱", "分類", "店家資訊JSON", "項目JSON", "圖片", "備註", "更新時間", "最愛", "保留", "Remark"]);
+    if (name === "MenuHistory") sheet.appendRow(["ID", "名稱", "項目JSON", "圖片", "店家資訊JSON", "備註"]);
   }
   return sheet;
 }
@@ -701,9 +701,9 @@ function buildLineTestMenuPayload(params, status) {
   var isPublish = String(status || "").toLowerCase() === "publish";
 
   var defaultItems = [
-    { name: "皜祈岫??憌?, price: 110 },
-    { name: "皜祈岫?靘輻", price: 120 },
-    { name: "皜祈岫?祇?擗?", price: 100 }
+    { name: "測試招牌飯", price: 110 },
+    { name: "測試雞腿便當", price: 120 },
+    { name: "測試蔬食餐盒", price: 100 }
   ];
 
   var parsedItems = Array.isArray(p.items) ? p.items : null;
@@ -714,8 +714,8 @@ function buildLineTestMenuPayload(params, status) {
     items: parsedItems && parsedItems.length > 0 ? parsedItems : fallbackItems,
     closingTime: p.closingTime || current.closingTime || Utilities.formatDate(oneHourLater, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm"),
     image: p.image || current.image || "",
-    storeInfo: p.storeInfo || current.storeInfo || { name: p.storeName || "皜祈岫摨振", phone: "", address: "" },
-    remark: p.remark || current.remark || (isPublish ? "?銝皜祈岫?嚗?湔??暺??? : "?銝皜祈岫?嚗頛芸歇?芣迫??),
+    storeInfo: p.storeInfo || current.storeInfo || { name: p.storeName || "測試店家", phone: "", address: "" },
+    remark: p.remark || current.remark || (isPublish ? "測試菜單已上架，歡迎開始點餐。" : "測試菜單已下架，暫停接單。"),
     lastUpdated: String(new Date().getTime())
   };
 }
