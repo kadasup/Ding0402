@@ -883,11 +883,11 @@ const Home = () => {
                                     </div>
 
                                     <div className="px-3 pb-2" style={{ backgroundColor: '#FDFBF7' }}>
-                                        <div className="rounded-xl border border-[#F4D7A2] bg-[#FFF9EE] px-3 py-2">
+                                        <div className="rounded-xl border px-3 py-2" style={{ borderColor: '#469CB0', backgroundColor: '#5FCDE4' }}>
                                             <div className="flex items-center justify-between">
                                                 <span
                                                     className="font-black px-3 py-1 rounded-lg"
-                                                    style={{ backgroundColor: '#FFF3C4', color: '#9A6A2E', border: '1px solid #F4D7A2', fontSize: '0.95rem', letterSpacing: '0.03em' }}
+                                                    style={{ backgroundColor: '#E8F9FD', color: '#14566A', border: '1px solid #A7E8F4', fontSize: '0.95rem', letterSpacing: '0.03em' }}
                                                 >
                                                     本輪點餐狀態
                                                 </span>
@@ -909,12 +909,12 @@ const Home = () => {
                                             </div>
                                             {myTodayOrders.length > 0 ? (
                                                 <>
-                                                    <div className="text-base font-black text-[#7C5A28] mt-1">
-                                                        已點 {myTodayOrders.length} 筆，應繳金額 <span style={{ color: '#D97706' }}>${myTodayTotal}</span>
+                                                    <div className="text-base font-black mt-1" style={{ color: '#0F4C5C' }}>
+                                                        已點 {myTodayOrders.length} 筆，應繳金額 <span style={{ color: '#FFFFFF' }}>${myTodayTotal}</span>
                                                     </div>
                                                     <div className="mt-1 flex flex-wrap gap-1">
                                                         {todayOrderSummary.map((stat) => (
-                                                            <span key={stat.name} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border border-[#F0E2C5] text-[#8B5E2B]">
+                                                            <span key={stat.name} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border text-[#14566A]" style={{ borderColor: '#A7E8F4' }}>
                                                                 {stat.name} x{stat.qty}
                                                             </span>
                                                         ))}

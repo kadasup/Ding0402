@@ -799,7 +799,7 @@ const MenuManager = ({ data, actions }) => {
                         onMouseEnter={() => { if (canPublishMenu) setHoveredActionCard('publish'); }}
                         onMouseLeave={() => setHoveredActionCard(null)}
                         disabled={!canPublishMenu}
-                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 ${canPublishMenu ? 'mobile-action-card-primary action-card-breathe' : ''}`}
+                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 mobile-publish-priority ${canPublishMenu ? 'mobile-action-card-primary publish-cta-breathe' : ''}`}
                         style={{
                             background: !isPosted
                                 ? (hasMenuDraft
@@ -854,7 +854,7 @@ const MenuManager = ({ data, actions }) => {
                                         : 'radial-gradient(circle at 35% 35%, #BBF7D0 0%, #86EFAC 55%, #22C55E 100%)'
                                 }}
                             />
-                            <div className={`font-black text-2xl leading-tight ${canPublishMenu ? 'action-card-breathe-text' : ''}`} style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
+                            <div className={`font-black text-2xl leading-tight ${canPublishMenu ? 'publish-cta-breathe-text' : ''}`} style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
                                 上架
                             </div>
                         </div>
