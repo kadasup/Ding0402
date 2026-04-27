@@ -819,13 +819,9 @@ function getLineNotifyConfig() {
     channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || channelAccessToken;
     channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || channelSecret;
   }
-  // Group-first routing (locked by default): default to the hardcoded group unless explicit override flag is enabled.
+  // Option 2: always prefer Script Properties group routing; fallback to default group ID.
   var targetUserId = props.getProperty("LINE_TARGET_USER_ID") || props.getProperty("LINE_USER_ID") || "";
-  var allowTargetGroupOverride = String(props.getProperty("LINE_ALLOW_TARGET_GROUP_OVERRIDE") || "").trim().toUpperCase() === "TRUE";
-  var targetGroupId = defaultLineTargetGroupId;
-  if (allowTargetGroupOverride) {
-    targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || targetGroupId;
-  }
+  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || defaultLineTargetGroupId;
   var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
   var normalizedTargetUserId = String(targetUserId || "").trim();
   var normalizedTargetGroupId = String(targetGroupId || "").trim();
