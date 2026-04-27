@@ -854,11 +854,11 @@ const Home = () => {
                     {selectedMember && data.menu.posted && createPortal(
                         <div style={{ position: 'fixed', bottom: '30px', right: '30px', left: 'auto', zIndex: 99999, display: 'flex', justifyContent: 'flex-end' }}>
                             <div style={{ width: '300px', maxWidth: '90vw' }} className="transition-all duration-300 transform translate-y-0 animate-pop">
-                                <div style={{ backgroundColor: '#FDFBF7', borderRadius: '24px' }} className="shadow-2xl border-4 border-[#78B159] ring-4 ring-[#FDFBF7] overflow-hidden">
+                                <div style={{ backgroundColor: '#FDFBF7', borderRadius: '24px' }} className="shadow-2xl border-4 border-[#469CB0] ring-4 ring-[#FDFBF7] overflow-hidden">
 
                                     {/* Header / Toggle */}
                                     <div
-                                        style={{ backgroundColor: '#78B159' }}
+                                        style={{ backgroundColor: '#5FCDE4' }}
                                         className="text-white py-3 px-5 flex items-center justify-start gap-6 cursor-pointer active:brightness-90 transition-colors"
                                         onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
                                     >
@@ -868,11 +868,16 @@ const Home = () => {
                                             {cart.length > 0 ? (
                                                 <span className="bg-ac-orange text-white text-xs font-bold px-2 py-1 rounded-full">{cart.length}</span>
                                             ) : (
-                                                <span className="text-xs text-ac-green bg-white/10 px-2 py-1 rounded-full">空車</span>
+                                                <span
+                                                    className="text-xs font-bold px-2 py-1 rounded-full"
+                                                    style={{ backgroundColor: '#E8F9FD', color: '#14566A', border: '1px solid #A7E8F4' }}
+                                                >
+                                                    空車
+                                                </span>
                                             )}
                                         </div>
                                         <div className="font-bold text-lg tracking-wider">
-                                            總計 <span className="text-[#F9E076] text-xl drop-shadow-sm">${cartTotal}</span>
+                                            總計 <span className="text-xl drop-shadow-sm" style={{ color: '#FFF0F5' }}>${cartTotal}</span>
                                         </div>
                                     </div>
 
@@ -883,25 +888,25 @@ const Home = () => {
                                     </div>
 
                                     <div className="px-3 pb-2" style={{ backgroundColor: '#FDFBF7' }}>
-                                        <div className="rounded-xl border px-3 py-2" style={{ borderColor: '#469CB0', backgroundColor: '#5FCDE4' }}>
+                                        <div className="rounded-xl border px-3 py-2" style={{ borderColor: '#78B159', backgroundColor: '#78B159' }}>
                                             <div className="flex items-center justify-between">
                                                 <span
                                                     className="font-black px-3 py-1 rounded-lg"
-                                                    style={{ backgroundColor: '#E8F9FD', color: '#14566A', border: '1px solid #A7E8F4', fontSize: '0.95rem', letterSpacing: '0.03em' }}
+                                                    style={{ backgroundColor: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0', fontSize: '0.95rem', letterSpacing: '0.03em' }}
                                                 >
                                                     本輪點餐狀態
                                                 </span>
                                                 {myTodayOrders.length > 0 ? (
                                                     <span
                                                         className="text-xs font-black px-2 py-0.5 rounded-full"
-                                                        style={{ backgroundColor: '#D1FAE5', color: '#047857', border: '1px solid #A7F3D0' }}
+                                                        style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}
                                                     >
                                                         已點過
                                                     </span>
                                                 ) : (
                                                     <span
                                                         className="text-xs font-black px-3 py-1 rounded-full shadow-sm animate-status-pulse"
-                                                        style={{ backgroundColor: '#FFE4B3', color: '#B45309', border: '2px solid #F59E0B' }}
+                                                        style={{ backgroundColor: '#E2FBEA', color: '#166534', border: '2px solid #4ADE80' }}
                                                     >
                                                         尚未點餐
                                                     </span>

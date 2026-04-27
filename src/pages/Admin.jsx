@@ -2,18 +2,20 @@
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
 import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
 
 const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState('menu'); // menu, library, members, stats, settings
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
     const libraryPrefetchedRef = useRef(false);
     const libraryFetchInFlightRef = useRef(null);
+    const currentRoundFocusKeyRef = useRef('');
     const isMenuHydrating = activeTab === 'menu'
         && !!ui?.pending
         && !data?.menu?.lastUpdated
@@ -94,6 +96,29 @@ const Admin = () => {
         window.addEventListener('scroll', handleScroll);
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    useEffect(() => {
+        const focusTarget = new URLSearchParams(location.search).get('focus');
+        if (focusTarget !== 'current-round') return;
+
+        if (activeTab !== 'stats') {
+            setActiveTab('stats');
+            return;
+        }
+
+        const focusKey = `${location.pathname}${location.search}`;
+        if (currentRoundFocusKeyRef.current === focusKey) return;
+        currentRoundFocusKeyRef.current = focusKey;
+
+        const timer = window.setTimeout(() => {
+            const target = document.getElementById('admin-current-round');
+            if (target && typeof target.scrollIntoView === 'function') {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 160);
+
+        return () => window.clearTimeout(timer);
+    }, [location.pathname, location.search, activeTab]);
 
     const shouldShowTopArrow = ['menu', 'library', 'members', 'stats'].includes(activeTab);
 
@@ -2202,7 +2227,7 @@ const StatsManager = ({ data }) => {
     };
 
     return (
-        <div className="p-4 flex flex-col gap-6">
+        <div id="admin-current-round" className="p-4 flex flex-col gap-6">
             {/* Round Filter */}
             <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
                 <span className="font-bold text-gray-600 shrink-0">選擇統計</span>

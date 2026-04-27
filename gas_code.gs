@@ -781,6 +781,15 @@ function isValidHttpsUrl(value) {
   return /^https:\/\/[^\s]+$/i.test(url);
 }
 
+function buildAdminCurrentRoundUrl(appFrontendUrl) {
+  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? String(appFrontendUrl).trim() : "https://example.com/ding";
+  var hashIndex = baseUrl.indexOf("#");
+  if (hashIndex >= 0) {
+    baseUrl = baseUrl.substring(0, hashIndex);
+  }
+  return baseUrl + "#/?focus=current-round";
+}
+
 function summarizeMenuItemNames(items, maxCount) {
   if (!Array.isArray(items) || items.length === 0) return "";
   var names = [];
@@ -951,8 +960,7 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
   var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/unpublish.png";
-  var viewUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
-  var detailUrl = viewUrl + (viewUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
+  var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
 
   return {
     altText: "\u3010\u5df2\u7d50\u55ae\u901a\u77e5\u3011" + storeName + "\uff0c\u672c\u8f2a\u5df2\u7d50\u55ae",
@@ -1141,8 +1149,7 @@ function buildLineCloseSummaryFlexMessage(menu, appFrontendUrl) {
     return String(a).localeCompare(String(b));
   });
 
-  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
-  var detailUrl = baseUrl + (baseUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
+  var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
   var bubbles = [];
 
   for (var fi = 0; fi < floors.length; fi++) {

@@ -450,7 +450,8 @@ function handleLineWebhook(payload) {
 
     // Capture latest IDs to Script Properties for easier setup/debugging.
     if (groupId) {
-      PropertiesService.getScriptProperties().setProperty("LINE_TARGET_GROUP_ID", groupId);
+      // Keep "last seen" only; do not overwrite target group routing automatically.
+      PropertiesService.getScriptProperties().setProperty("LINE_LAST_GROUP_ID", groupId);
     }
     if (userId) {
       PropertiesService.getScriptProperties().setProperty("LINE_LAST_USER_ID", userId);
@@ -818,9 +819,13 @@ function getLineNotifyConfig() {
     channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || channelAccessToken;
     channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || channelSecret;
   }
-  // Group-first routing: do not default to personal push.
+  // Group-first routing (locked by default): default to the hardcoded group unless explicit override flag is enabled.
   var targetUserId = props.getProperty("LINE_TARGET_USER_ID") || props.getProperty("LINE_USER_ID") || "";
-  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || defaultLineTargetGroupId;
+  var allowTargetGroupOverride = String(props.getProperty("LINE_ALLOW_TARGET_GROUP_OVERRIDE") || "").trim().toUpperCase() === "TRUE";
+  var targetGroupId = defaultLineTargetGroupId;
+  if (allowTargetGroupOverride) {
+    targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || targetGroupId;
+  }
   var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
   var normalizedTargetUserId = String(targetUserId || "").trim();
   var normalizedTargetGroupId = String(targetGroupId || "").trim();
@@ -920,6 +925,15 @@ function isValidHttpsUrl(value) {
   var url = String(value || "").trim();
   if (!url) return false;
   return /^https:\/\/[^\s]+$/i.test(url);
+}
+
+function buildAdminCurrentRoundUrl(appFrontendUrl) {
+  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? String(appFrontendUrl).trim() : "https://example.com/ding";
+  var hashIndex = baseUrl.indexOf("#");
+  if (hashIndex >= 0) {
+    baseUrl = baseUrl.substring(0, hashIndex);
+  }
+  return baseUrl + "#/?focus=current-round";
 }
 
 function summarizeMenuItemNames(items, maxCount) {
@@ -1092,8 +1106,7 @@ function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
   var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/unpublish.png";
-  var viewUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
-  var detailUrl = viewUrl + (viewUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
+  var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
 
   return {
     altText: "\u3010\u5df2\u7d50\u55ae\u901a\u77e5\u3011" + storeName + "\uff0c\u672c\u8f2a\u5df2\u7d50\u55ae",
@@ -1282,8 +1295,7 @@ function buildLineCloseSummaryFlexMessage(menu, appFrontendUrl) {
     return String(a).localeCompare(String(b));
   });
 
-  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
-  var detailUrl = baseUrl + (baseUrl.indexOf("?") >= 0 ? "&" : "?") + "focus=current-round";
+  var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
   var bubbles = [];
 
   for (var fi = 0; fi < floors.length; fi++) {
