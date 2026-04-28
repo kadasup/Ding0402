@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
@@ -850,130 +850,218 @@ const Home = () => {
                         </div>
                     )}
 
-                    {/* Cart Section (Fixed via Portal - Optimized) */}
+                    {/* Cart Section (Fixed via Portal - v2 Redesign) */}
                     {selectedMember && data.menu.posted && createPortal(
-                        <div style={{ position: 'fixed', bottom: '30px', right: '30px', left: 'auto', zIndex: 99999, display: 'flex', justifyContent: 'flex-end' }}>
-                            <div style={{ width: '300px', maxWidth: '90vw' }} className="transition-all duration-300 transform translate-y-0 animate-pop">
-                                <div style={{ backgroundColor: '#FDFBF7', borderRadius: '24px' }} className="shadow-2xl border-4 border-[#469CB0] ring-4 ring-[#FDFBF7] overflow-hidden">
+                        <div style={{ position: 'fixed', bottom: '28px', right: '22px', left: 'auto', zIndex: 99999 }}>
+                            <div style={{ width: '310px', maxWidth: '92vw' }} className="animate-pop">
+                                <div style={{
+                                    borderRadius: '22px',
+                                    overflow: 'hidden',
+                                    border: '2.5px solid #2D3A6A',
+                                    boxShadow: '0 16px 48px rgba(20,30,80,0.28), 0 4px 12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+                                    background: '#FAFAF8',
+                                }}>
 
-                                    {/* Header / Toggle */}
+                                    {/* ── 頭部 ── */}
                                     <div
-                                        style={{ backgroundColor: '#5FCDE4' }}
-                                        className="text-white py-3 px-5 flex items-center justify-start gap-6 cursor-pointer active:brightness-90 transition-colors"
+                                        style={{
+                                            background: 'linear-gradient(135deg, #1E2D6B 0%, #2E4DA0 55%, #3B63C4 100%)',
+                                            padding: '12px 16px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                        }}
                                         onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl">🍱</span>
-                                            <span className="font-bold text-lg tracking-widest">已加餐點</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <div style={{
+                                                width: '34px', height: '34px', borderRadius: '10px',
+                                                background: 'rgba(255,255,255,0.15)',
+                                                border: '1.5px solid rgba(255,255,255,0.3)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '1.1rem',
+                                            }}>🍱</div>
+                                            <span style={{ color: '#fff', fontWeight: 900, fontSize: '1rem', letterSpacing: '0.1em' }}>已加餐點</span>
                                             {cart.length > 0 ? (
-                                                <span className="bg-ac-orange text-white text-xs font-bold px-2 py-1 rounded-full">{cart.length}</span>
+                                                <span style={{
+                                                    background: '#FF6B35', color: '#fff',
+                                                    fontSize: '0.72rem', fontWeight: 900,
+                                                    minWidth: '22px', height: '22px', borderRadius: '11px',
+                                                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                                    padding: '0 6px',
+                                                    boxShadow: '0 2px 8px rgba(255,107,53,0.5)',
+                                                }}>{cart.length}</span>
                                             ) : (
-                                                <span
-                                                    className="text-xs font-bold px-2 py-1 rounded-full"
-                                                    style={{ backgroundColor: '#E8F9FD', color: '#14566A', border: '1px solid #A7E8F4' }}
-                                                >
-                                                    空車
-                                                </span>
+                                                <span style={{
+                                                    fontSize: '0.68rem', fontWeight: 800,
+                                                    padding: '2px 10px', borderRadius: '8px',
+                                                    background: 'rgba(255,255,255,0.15)',
+                                                    border: '1px solid rgba(255,255,255,0.3)',
+                                                    color: 'rgba(255,255,255,0.8)',
+                                                    letterSpacing: '0.06em',
+                                                }}>空車</span>
                                             )}
                                         </div>
-                                        <div className="font-bold text-lg tracking-wider">
-                                            總計 <span className="text-xl drop-shadow-sm" style={{ color: '#FFF0F5' }}>${cartTotal}</span>
+                                        <div style={{ fontWeight: 900, fontSize: '1.1rem', color: '#fff', letterSpacing: '0.04em' }}>
+                                            <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>$</span>{cartTotal}
                                         </div>
                                     </div>
 
-                                    <div className="px-3 pt-2 pb-1 text-center" style={{ backgroundColor: '#FDFBF7' }}>
-                                        <span className="inline-flex items-center rounded-full border border-[#F4A261] bg-[#FFF3C4] px-4 py-1.5 text-base font-black text-[#B87434]">
-                                            {selectedMember}
-                                        </span>
+                                    {/* ── 成員名稱列 ── */}
+                                    <div style={{
+                                        padding: '8px 14px',
+                                        background: 'linear-gradient(180deg, #EEF2FF 0%, #F5F7FF 100%)',
+                                        borderBottom: '1.5px solid #C7D2FE',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
+                                    }}>
+                                        <span style={{
+                                            padding: '4px 14px', borderRadius: '12px',
+                                            background: '#FFF3E0', border: '1.5px solid #F4C86A',
+                                            fontWeight: 900, fontSize: '0.95rem', color: '#7C2D12',
+                                        }}>{selectedMember}</span>
+                                        {myTodayOrders.length > 0 ? (
+                                            <span style={{
+                                                fontSize: '0.72rem', fontWeight: 900,
+                                                padding: '4px 12px', borderRadius: '20px',
+                                                background: '#DCFCE7', color: '#166534',
+                                                border: '1.5px solid #86EFAC', whiteSpace: 'nowrap',
+                                            }}>✓ 已點 {myTodayOrders.length} 筆</span>
+                                        ) : (
+                                            <span className="animate-status-pulse" style={{
+                                                display: 'inline-block',
+                                                fontSize: '0.72rem', fontWeight: 900,
+                                                padding: '4px 12px', borderRadius: '20px',
+                                                background: '#FEF9C3', color: '#92400E',
+                                                border: '1.5px solid #FDE68A', whiteSpace: 'nowrap',
+                                            }}>尚未點餐</span>
+                                        )}
                                     </div>
 
-                                    <div className="px-3 pb-2" style={{ backgroundColor: '#FDFBF7' }}>
-                                        <div className="rounded-xl border px-3 py-2" style={{ borderColor: '#78B159', backgroundColor: '#78B159' }}>
-                                            <div className="flex items-center justify-between">
-                                                <span
-                                                    className="font-black px-3 py-1 rounded-lg"
-                                                    style={{ backgroundColor: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0', fontSize: '0.95rem', letterSpacing: '0.03em' }}
-                                                >
-                                                    本輪點餐狀態
-                                                </span>
+                                    {/* ── 本輪點餐狀態區 ── */}
+                                    <div style={{ padding: '8px 12px', background: '#FAFAF8' }}>
+                                        <div style={{
+                                            borderRadius: '12px',
+                                            background: 'linear-gradient(135deg, #1E2D6B 0%, #2E4DA0 100%)',
+                                            padding: '8px 12px',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <span style={{
+                                                    fontWeight: 900, fontSize: '0.82rem',
+                                                    padding: '3px 10px', borderRadius: '8px',
+                                                    background: 'rgba(255,255,255,0.18)',
+                                                    color: '#fff', letterSpacing: '0.04em',
+                                                }}>本輪點餐狀態</span>
                                                 {myTodayOrders.length > 0 ? (
-                                                    <span
-                                                        className="text-xs font-black px-2 py-0.5 rounded-full"
-                                                        style={{ backgroundColor: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC' }}
-                                                    >
-                                                        已點過
-                                                    </span>
+                                                    <span style={{
+                                                        fontSize: '0.7rem', fontWeight: 900,
+                                                        padding: '3px 10px', borderRadius: '20px',
+                                                        background: '#DCFCE7', color: '#166534',
+                                                        border: '1px solid #86EFAC',
+                                                    }}>已點過</span>
                                                 ) : (
-                                                    <span
-                                                        className="text-xs font-black px-3 py-1 rounded-full shadow-sm animate-status-pulse"
-                                                        style={{ backgroundColor: '#E2FBEA', color: '#166534', border: '2px solid #4ADE80' }}
-                                                    >
-                                                        尚未點餐
-                                                    </span>
+                                                    <span className="animate-status-pulse" style={{
+                                                        display: 'inline-block',
+                                                        fontSize: '0.7rem', fontWeight: 900,
+                                                        padding: '3px 10px', borderRadius: '20px',
+                                                        background: '#FEF9C3', color: '#92400E',
+                                                        border: '1px solid #FDE68A',
+                                                    }}>尚未點餐</span>
                                                 )}
                                             </div>
-                                            {myTodayOrders.length > 0 ? (
+                                            {myTodayOrders.length > 0 && (
                                                 <>
-                                                    <div className="text-base font-black mt-1" style={{ color: '#0F4C5C' }}>
-                                                        已點 {myTodayOrders.length} 筆，應繳金額 <span style={{ color: '#FFFFFF' }}>${myTodayTotal}</span>
+                                                    <div style={{ fontSize: '0.82rem', fontWeight: 900, marginTop: '4px', color: '#C7D2FE' }}>
+                                                        已點 {myTodayOrders.length} 筆，應繳 <span style={{ color: '#FCD34D' }}>${myTodayTotal}</span>
                                                     </div>
-                                                    <div className="mt-1 flex flex-wrap gap-1">
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
                                                         {todayOrderSummary.map((stat) => (
-                                                            <span key={stat.name} className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white border text-[#14566A]" style={{ borderColor: '#A7E8F4' }}>
-                                                                {stat.name} x{stat.qty}
-                                                            </span>
+                                                            <span key={stat.name} style={{
+                                                                fontSize: '0.68rem', fontWeight: 700,
+                                                                padding: '2px 8px', borderRadius: '6px',
+                                                                background: 'rgba(255,255,255,0.18)',
+                                                                border: '1px solid rgba(255,255,255,0.25)',
+                                                                color: '#fff',
+                                                            }}>{stat.name} ×{stat.qty}</span>
                                                         ))}
                                                     </div>
                                                 </>
-                                            ) : null}
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Content (Only show if items exist or user clicks header to expand - keeping simple expanded view for now per request) */}
+                                    {/* ── 購物車商品列表 ── */}
                                     {cart.length > 0 && (
-                                        <div style={{ backgroundColor: '#FFF0F5' }} className="p-2 max-h-[40vh] overflow-y-auto animate-slide-up">
-                                            <div className="flex flex-col gap-2">
-                                                <div className="text-[11px] font-black text-[#9A6A2E] bg-[#FFF9EE] border border-[#F4D7A2] rounded-lg px-2 py-1.5">
-                                                    本次待送出：{cart.length} 項{hasOrderedInCurrentRound ? '（加點）' : ''}
-                                                </div>
-                                                {cart.map((item, idx) => {
-                                                    return (
-                                                        <div key={idx} className="flex justify-between items-center bg-white/80 border border-dashed border-red-200 p-2 rounded-xl shadow-sm">
-                                                            <div className="flex flex-col pl-2">
-                                                                <span className="font-bold text-gray-700">{item.name}</span>
-                                                                {hasOrderedInCurrentRound && (
-                                                                    <span
-                                                                        className="text-[11px] font-black px-2 py-0.5 rounded-full w-fit mt-1"
-                                                                        style={{ backgroundColor: '#FFF3C4', color: '#B45309', border: '1px solid #F4D7A2' }}
-                                                                    >
-                                                                        加點
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-gray-400 text-sm">${item.price}</span>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); removeFromCart(idx); }}
-                                                                    className="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center hover:bg-red-50 rounded-full transition-colors"
-                                                                >
-                                                                    x
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-
-                                                <div className="pt-2 px-1">
-                                                    <Button onClick={submitOrder} className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all">
-                                                        送出訂單 🚀
-                                                    </Button>
-                                                </div>
+                                        <div className="animate-slide-up" style={{
+                                            padding: '8px 12px',
+                                            maxHeight: '38vh', overflowY: 'auto',
+                                            background: '#F8F6FF',
+                                            borderTop: '1.5px solid #E0E7FF',
+                                            display: 'flex', flexDirection: 'column', gap: '6px',
+                                        }}>
+                                            <div style={{
+                                                fontSize: '0.68rem', fontWeight: 800,
+                                                color: '#4338CA', background: '#EEF2FF',
+                                                border: '1px solid #C7D2FE',
+                                                borderRadius: '8px', padding: '4px 10px',
+                                            }}>
+                                                本次待送出：{cart.length} 項{hasOrderedInCurrentRound ? '（加點）' : ''}
                                             </div>
+                                            {cart.map((item, idx) => (
+                                                <div key={idx} style={{
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                                    padding: '8px 10px', borderRadius: '12px',
+                                                    background: '#fff', border: '1.5px solid #E0E7FF',
+                                                    boxShadow: '0 1px 4px rgba(67,56,202,0.06)',
+                                                }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1E2D6B' }}>{item.name}</span>
+                                                        {hasOrderedInCurrentRound && (
+                                                            <span style={{
+                                                                fontSize: '0.62rem', fontWeight: 800,
+                                                                padding: '1px 7px', borderRadius: '4px',
+                                                                background: '#FFF3C4', color: '#B45309',
+                                                                border: '1px solid #F4D7A2', width: 'fit-content',
+                                                            }}>加點</span>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#F4A261' }}>${item.price}</span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); removeFromCart(idx); }}
+                                                            style={{
+                                                                width: '24px', height: '24px', borderRadius: '50%',
+                                                                border: '1.5px solid #FCA5A5', background: '#FFF5F5',
+                                                                color: '#EF4444', fontSize: '0.65rem', fontWeight: 900,
+                                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                cursor: 'pointer', padding: 0,
+                                                            }}
+                                                        >✕</button>
+                                                    </div>
+                                                </div>
+                                            ))}
+
+                                            {/* 送出按鈕 */}
+                                            <Button onClick={submitOrder} className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all" style={{
+                                                background: 'linear-gradient(135deg, #D48745 0%, #E8973F 55%, #F4A54A 100%)',
+                                                boxShadow: '0 4px 0 #B06B2A, 0 6px 18px rgba(180,107,42,0.32)',
+                                                border: 'none',
+                                                marginTop: '4px',
+                                            }}>
+                                                送出訂單 🚀
+                                            </Button>
                                         </div>
                                     )}
+
+                                    {/* 空車提示 */}
                                     {cart.length === 0 && (
-                                        <div className="py-2 text-center text-gray-400 text-sm bg-yellow-50/30">
-                                            {myTodayOrders.length > 0 ? '( 今天已點過餐，想加點可直接點菜單 )' : '( 今天還沒點餐，快去挑幾樣吧 )'}
+                                        <div style={{
+                                            padding: '10px 14px', textAlign: 'center',
+                                            fontSize: '0.78rem', fontWeight: 600,
+                                            color: '#94A3B8', background: '#FAFAF8',
+                                            borderTop: '1.5px solid #E0E7FF',
+                                        }}>
+                                            {myTodayOrders.length > 0 ? '想加點？點選菜單即可加入' : '點選菜單上的餐點開始點餐'}
                                         </div>
                                     )}
                                 </div>
