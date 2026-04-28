@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
 import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer } from 'lucide-react';
@@ -2131,28 +2131,52 @@ const StatsManager = ({ data }) => {
             const floor = getOrderFloor(order.member);
             const memberName = String(order?.member || '').trim() || '未命名成員';
             if (!acc[floor]) {
-                acc[floor] = { itemMap: {}, totalQty: 0, totalAmount: 0, orderCount: 0, memberMap: {} };
+                acc[floor] = { totalQty: 0, totalAmount: 0, orderCount: 0, memberDetails: {} };
             }
             acc[floor].orderCount += 1;
-            acc[floor].totalAmount += getOrderTotal(order);
-            acc[floor].memberMap[memberName.toLowerCase()] = memberName;
+            const orderTotal = getOrderTotal(order);
+            acc[floor].totalAmount += orderTotal;
+            // 以成員為主軸，累計該成員在此樓層的品項
+            const memberKey = memberName.toLowerCase();
+            if (!acc[floor].memberDetails[memberKey]) {
+                acc[floor].memberDetails[memberKey] = { displayName: memberName, items: [], total: 0 };
+            }
+            const md = acc[floor].memberDetails[memberKey];
+            md.total += orderTotal;
             (order.items || []).forEach((item) => {
                 const name = String(item?.name || '').trim() || '未命名品項';
                 const qty = getItemQty(item);
-                acc[floor].itemMap[name] = (acc[floor].itemMap[name] || 0) + qty;
+                const price = Number(item?.price || 0);
+                md.items.push({ name, qty, price: Number.isFinite(price) ? price : 0 });
                 acc[floor].totalQty += qty;
             });
             return acc;
         }, {})
     )
-        .map(([floor, stat]) => ({
-            floor,
-            orderCount: stat.orderCount,
-            totalQty: stat.totalQty,
-            totalAmount: stat.totalAmount,
-            members: Object.values(stat.memberMap).sort(),
-            items: Object.entries(stat.itemMap).sort((a, b) => b[1] - a[1]),
-        }))
+        .map(([floor, stat]) => {
+            // 將每位成員的品項彙整（同品項合併數量）
+            const memberList = Object.values(stat.memberDetails)
+                .map((md) => {
+                    const merged = {};
+                    md.items.forEach((it) => {
+                        if (!merged[it.name]) merged[it.name] = { qty: 0, price: it.price };
+                        merged[it.name].qty += it.qty;
+                    });
+                    return {
+                        name: md.displayName,
+                        items: Object.entries(merged).map(([n, v]) => ({ name: n, qty: v.qty, price: v.price })),
+                        total: md.total,
+                    };
+                })
+                .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+            return {
+                floor,
+                orderCount: stat.orderCount,
+                totalQty: stat.totalQty,
+                totalAmount: stat.totalAmount,
+                memberList,
+            };
+        })
         .sort((a, b) => floorSortValue(a.floor) - floorSortValue(b.floor));
 
     const memberEntries = Object.entries(byMember)
@@ -2174,7 +2198,7 @@ const StatsManager = ({ data }) => {
             ? '成員統計'
             : statsTab === 'item'
                 ? '品項統計（數量）'
-                : '樓層統計（品項 / 數量 / 金額）';
+                : '樓層統計（成員 / 品項 / 金額）';
         const selectedRoundLabel = selectedRound ? getRoundLabel(selectedRound) : '未選擇輪次';
         const printedAt = formatDateTime(Date.now());
 
@@ -2324,30 +2348,41 @@ const StatsManager = ({ data }) => {
                 )}
                 {statsTab === 'floor' && (
                     <div className="flex flex-col gap-3">
-                        <h3 className="font-bold border-b pb-2">樓層統計（品項 / 數量 / 金額）</h3>
+                        <h3 className="font-bold border-b pb-2">樓層統計（成員 / 品項 / 金額）</h3>
                         {floorStats.map((floorStat) => (
                             <div key={floorStat.floor} className="bg-white border rounded-xl p-3 shadow-sm">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-black text-ac-brown">{floorStat.floor}</span>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="font-black text-ac-brown text-lg">{floorStat.floor}</span>
                                     <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
-                                        <span>訂單 {floorStat.orderCount} 筆 ・ 總數量 x {floorStat.totalQty}</span>
+                                        <span>訂單 {floorStat.orderCount} 筆 ・ 數量 x{floorStat.totalQty}</span>
                                         <span className="text-sm md:text-base font-black text-ac-orange">
-                                            總金額 ${floorStat.totalAmount}
+                                            ${floorStat.totalAmount}
                                         </span>
                                     </div>
                                 </div>
-                                <div className="text-xs text-gray-500 mb-2">
-                                    成員：{floorStat.members.length > 0 ? floorStat.members.join('、') : '無'}
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    {floorStat.items.map(([itemName, qty]) => (
-                                        <div key={`${floorStat.floor}-${itemName}`} className="bg-gray-50 rounded-lg px-3 py-2 flex justify-between items-center text-sm">
-                                            <span className="font-bold text-gray-700">{itemName}</span>
-                                            <span className="font-black text-ac-green">x {qty}</span>
+                                <div className="flex flex-col gap-2">
+                                    {floorStat.memberList.map((member) => (
+                                        <div key={`${floorStat.floor}-${member.name}`} className="bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-2">
+                                            <span className="font-bold text-ac-brown shrink-0">{member.name}</span>
+                                            <div className="flex flex-wrap gap-1 flex-1 min-w-0">
+                                                {member.items.map((item, idx) => (
+                                                    <span
+                                                        key={`${member.name}-${item.name}-${idx}`}
+                                                        className="inline-flex items-center gap-1 bg-green-50 text-green-800 rounded-md px-2.5 py-1 text-sm font-medium"
+                                                    >
+                                                        <span>{item.name}</span>
+                                                        {item.qty > 1 && <span className="font-bold text-ac-green">x{item.qty}</span>}
+                                                    </span>
+                                                ))}
+                                                {member.items.length === 0 && (
+                                                    <span className="text-xs italic text-gray-400">無品項</span>
+                                                )}
+                                            </div>
+                                            <span className="font-black text-ac-orange text-sm shrink-0">${member.total}</span>
                                         </div>
                                     ))}
-                                    {floorStat.items.length === 0 && (
-                                        <div className="text-center italic text-gray-400 py-3">此樓層當日無品項資料</div>
+                                    {floorStat.memberList.length === 0 && (
+                                        <div className="text-center italic text-gray-400 py-3">此樓層當日無訂單資料</div>
                                     )}
                                 </div>
                             </div>
