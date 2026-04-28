@@ -851,7 +851,7 @@ const Home = () => {
                     )}
 
                     {/* Cart Section (Fixed via Portal - v2 Redesign) */}
-                    {selectedMember && data.menu.posted && createPortal(
+                    {selectedMember && data.menu.posted && cart.length > 0 && createPortal(
                         <div style={{ position: 'fixed', bottom: '28px', right: '22px', left: 'auto', zIndex: 99999 }}>
                             <div style={{ width: '310px', maxWidth: '92vw' }} className="animate-pop">
                                 <div style={{
