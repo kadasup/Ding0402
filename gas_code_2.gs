@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ding Bento backend (Google Apps Script)
  * Version: 3.3-Stable
  */
@@ -808,7 +808,7 @@ function getLineNotifyConfig() {
   var defaultLineChannelId = "2009874004";
   var defaultLineChannelSecret = "9a49c93e2928963dbbf41d9026cf82fb";
   var defaultLineAccessToken = "kXB5wiPsMqfZYOO+Mu6m901rThcv4843XoDth05Wo/CXTUSLLrTqrTfHLtgpP2566SQymqiffyHLfB1/ddU6xgLFY6IqJY4NfmsoEZkQYAo5EuZP1fNGNubwLRClzRjx7XGECTLPbJaYq5OQt8UsgwdB04t89/1O/w1cDnyilFU=";
-  var defaultLineTargetGroupId = "C896f974c9630129900671bf6646e9490";
+
   // Use the hardcoded channel by default to avoid stale Script Properties overriding it.
   var channelId = defaultLineChannelId;
   var channelAccessToken = defaultLineAccessToken;
@@ -821,7 +821,7 @@ function getLineNotifyConfig() {
   }
   // Option 2: always prefer Script Properties group routing; fallback to default group ID.
   var targetUserId = props.getProperty("LINE_TARGET_USER_ID") || props.getProperty("LINE_USER_ID") || "";
-  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || defaultLineTargetGroupId;
+  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || "";
   var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
   var normalizedTargetUserId = String(targetUserId || "").trim();
   var normalizedTargetGroupId = String(targetGroupId || "").trim();

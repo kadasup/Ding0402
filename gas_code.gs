@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ding Bento backend (Google Apps Script)
  * Version: 3.3-Stable
  */
@@ -685,7 +685,7 @@ function getLineNotifyConfig() {
   var props = PropertiesService.getScriptProperties();
   var channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || "";
   var channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || "";
-  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || props.getProperty("LINE_GROUP_ID") || "";
+  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || "";
   var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
 
   return {
