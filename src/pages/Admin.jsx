@@ -2326,7 +2326,8 @@ const StatsManager = ({ data }) => {
                                     <span className="text-gray-500">{stat.items.map((i) => {
                                         const name = String(i?.name || '').trim();
                                         const note = normalizeNote(i?.note ?? i?.remark ?? i?.memo);
-                                        return note ? `${name}（${note}）` : name;
+                                        if (!note) return name;
+                                        return `${name}【備註:${note}】`;
                                     }).join(', ')}</span>
                                 </div>
                                 <div className="font-bold text-ac-orange">${stat.total}</div>
@@ -2377,7 +2378,23 @@ const StatsManager = ({ data }) => {
                                                         key={`${member.name}-${item.name}-${idx}`}
                                                         className="inline-flex items-center gap-1 bg-green-50 text-green-800 rounded-md px-2.5 py-1 text-sm font-medium"
                                                     >
-                                                        <span>{item.name}{normalizeNote(item.note ?? item.remark ?? item.memo) ? `（${normalizeNote(item.note ?? item.remark ?? item.memo)}）` : ''}</span>
+                                                        <span>
+                                                            {item.name}
+                                                            {normalizeNote(item.note ?? item.remark ?? item.memo) && (
+                                                                <span style={{
+                                                                    marginLeft: '6px',
+                                                                    padding: '1px 6px',
+                                                                    borderRadius: '999px',
+                                                                    background: '#FEF3C7',
+                                                                    color: '#B45309',
+                                                                    border: '1px solid #FCD34D',
+                                                                    fontWeight: 800,
+                                                                    fontSize: '0.72rem',
+                                                                }}>
+                                                                    備註：{normalizeNote(item.note ?? item.remark ?? item.memo)}
+                                                                </span>
+                                                            )}
+                                                        </span>
                                                         {item.qty > 1 && <span className="font-bold text-ac-green">x{item.qty}</span>}
                                                     </span>
                                                 ))}
