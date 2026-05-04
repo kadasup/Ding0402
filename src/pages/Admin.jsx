@@ -1975,6 +1975,7 @@ const StatsManager = ({ data }) => {
         const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
         return Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
     };
+    const normalizeNote = (value) => String(value || '').trim();
     const getOrderTotal = (order) => {
         const rawTotal = Number(order?.total);
         if (Number.isFinite(rawTotal) && rawTotal >= 0) return rawTotal;
@@ -2147,7 +2148,8 @@ const StatsManager = ({ data }) => {
                 const name = String(item?.name || '').trim() || '未命名品項';
                 const qty = getItemQty(item);
                 const price = Number(item?.price || 0);
-                md.items.push({ name, qty, price: Number.isFinite(price) ? price : 0 });
+                const note = normalizeNote(item?.note ?? item?.remark ?? item?.memo);
+                md.items.push({ name, note, qty, price: Number.isFinite(price) ? price : 0 });
                 acc[floor].totalQty += qty;
             });
             return acc;
@@ -2159,12 +2161,13 @@ const StatsManager = ({ data }) => {
                 .map((md) => {
                     const merged = {};
                     md.items.forEach((it) => {
-                        if (!merged[it.name]) merged[it.name] = { qty: 0, price: it.price };
-                        merged[it.name].qty += it.qty;
+                        const mergeKey = `${it.name}__${normalizeNote(it.note)}`;
+                        if (!merged[mergeKey]) merged[mergeKey] = { name: it.name, note: normalizeNote(it.note), qty: 0, price: it.price };
+                        merged[mergeKey].qty += it.qty;
                     });
                     return {
                         name: md.displayName,
-                        items: Object.entries(merged).map(([n, v]) => ({ name: n, qty: v.qty, price: v.price })),
+                        items: Object.values(merged).map((v) => ({ name: v.name, note: v.note, qty: v.qty, price: v.price })),
                         total: md.total,
                     };
                 })
@@ -2320,7 +2323,11 @@ const StatsManager = ({ data }) => {
                             <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
                                 <div>
                                     <span className="font-bold text-lg mr-2">{member}</span>
-                                    <span className="text-gray-500">{stat.items.map(i => i.name).join(', ')}</span>
+                                    <span className="text-gray-500">{stat.items.map((i) => {
+                                        const name = String(i?.name || '').trim();
+                                        const note = normalizeNote(i?.note ?? i?.remark ?? i?.memo);
+                                        return note ? `${name}（${note}）` : name;
+                                    }).join(', ')}</span>
                                 </div>
                                 <div className="font-bold text-ac-orange">${stat.total}</div>
                             </div>
@@ -2370,7 +2377,7 @@ const StatsManager = ({ data }) => {
                                                         key={`${member.name}-${item.name}-${idx}`}
                                                         className="inline-flex items-center gap-1 bg-green-50 text-green-800 rounded-md px-2.5 py-1 text-sm font-medium"
                                                     >
-                                                        <span>{item.name}</span>
+                                                        <span>{item.name}{normalizeNote(item.note ?? item.remark ?? item.memo) ? `（${normalizeNote(item.note ?? item.remark ?? item.memo)}）` : ''}</span>
                                                         {item.qty > 1 && <span className="font-bold text-ac-green">x{item.qty}</span>}
                                                     </span>
                                                 ))}

@@ -68,8 +68,6 @@ function doPost(e) {
           lastUpdated: (previousMenu && previousMenu.lastUpdated) ? previousMenu.lastUpdated : nextMenu.lastUpdated
         };
         lineNotifyResult = sendLineMenuStatusNotification("unpublish", downMenu);
-        var closeSummaryResult = sendLineCloseSummaryNotification(downMenu);
-        lineNotifyResult.closeSummary = closeSummaryResult;
       }
 
       return handleResponse({ success: true, lineNotify: lineNotifyResult });

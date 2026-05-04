@@ -78,16 +78,21 @@ const Home = () => {
     const memberSelectorRef = useRef(null);
     const switchFeedbackTimerRef = useRef(null);
     const [showSwitchFeedback, setShowSwitchFeedback] = useState(false);
+    const [pendingCartItem, setPendingCartItem] = useState(null);
+    const [cartItemNote, setCartItemNote] = useState('');
+    const sanitizeNote = (value) => String(value || '').trim().slice(0, 15);
     const cartTotal = cart.reduce((sum, item) => sum + Number(item?.price || 0), 0);
     const cartSummary = Object.entries(
         cart.reduce((acc, item) => {
             const name = String(item?.name || '').trim() || '未知餐點';
+            const note = sanitizeNote(item?.note);
+            const summaryKey = `${name}__${note}`;
             const price = Number(item?.price || 0);
-            if (!acc[name]) {
-                acc[name] = { qty: 0, subtotal: 0 };
+            if (!acc[summaryKey]) {
+                acc[summaryKey] = { name, note, qty: 0, subtotal: 0 };
             }
-            acc[name].qty += 1;
-            acc[name].subtotal += Number.isFinite(price) ? price : 0;
+            acc[summaryKey].qty += 1;
+            acc[summaryKey].subtotal += Number.isFinite(price) ? price : 0;
             return acc;
         }, {})
     );
@@ -194,8 +199,22 @@ const Home = () => {
         safeMemberPage * memberPageSize + memberPageSize
     );
 
-    const addToCart = (item) => {
-        setCart([...cart, item]);
+    const addToCart = (item, note = '') => {
+        if (!item) return;
+        setCart([...cart, { ...item, note: sanitizeNote(note) }]);
+    };
+
+    const openAddToCartModal = (item) => {
+        if (!selectedMember || !item) return;
+        setPendingCartItem(item);
+        setCartItemNote('');
+    };
+
+    const confirmAddToCart = () => {
+        if (!pendingCartItem) return;
+        addToCart(pendingCartItem, cartItemNote);
+        setPendingCartItem(null);
+        setCartItemNote('');
     };
 
     const removeFromCart = (index) => {
@@ -299,10 +318,11 @@ const Home = () => {
         myTodayOrders.reduce((acc, order) => {
             (order.items || []).forEach((item) => {
                 const name = String(item?.name || '').trim() || '未知餐點';
-                const key = normalizeName(name);
+                const note = sanitizeNote(item?.note);
+                const key = `${normalizeName(name)}__${note}`;
                 const price = Number(item?.price || 0);
                 if (!acc[key]) {
-                    acc[key] = { name, qty: 0, subtotal: 0 };
+                    acc[key] = { name, note, qty: 0, subtotal: 0 };
                 }
                 acc[key].qty += 1;
                 acc[key].subtotal += Number.isFinite(price) ? price : 0;
@@ -652,7 +672,7 @@ const Home = () => {
                                     {(data.menu.items || []).map((item, idx) => (
                                         <React.Fragment key={idx}>
                                             <div
-                                                onClick={() => selectedMember && addToCart(item)}
+                                                onClick={() => openAddToCartModal(item)}
                                                 style={{
                                                     paddingRight: selectedMember ? '60px' : '10px',
                                                     paddingLeft: selectedMember ? '10px' : '0'
@@ -730,7 +750,7 @@ const Home = () => {
                                                     return (
                                                         <button 
                                                             key={name} 
-                                                            onClick={() => selectedMember && menuItem && addToCart(menuItem)}
+                                                            onClick={() => selectedMember && menuItem && openAddToCartModal(menuItem)}
                                                             className={`
                                                                 group relative flex flex-col items-center justify-center
                                                                 min-w-[100px] px-4 py-2.5 rounded-xl border-2 transition-all duration-300
@@ -817,7 +837,11 @@ const Home = () => {
                                             <div key={order.id} className="flex justify-between items-center bg-white border border-ac-green/30 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                                                 <div className="flex flex-col gap-1">
                                                     <span className="font-black text-lg text-ac-brown leading-tight tracking-wide">
-                                                        {order.items.map(i => i.name).join(', ')}
+                                                        {order.items.map((i) => {
+                                                            const itemName = String(i?.name || '').trim();
+                                                            const itemNote = sanitizeNote(i?.note);
+                                                            return itemNote ? `${itemName}（${itemNote}）` : itemName;
+                                                        }).join(', ')}
                                                     </span>
                                                     <span className="font-bold text-ac-orange text-base">
                                                         ${order.total}
@@ -975,14 +999,14 @@ const Home = () => {
                                                         已點 {myTodayOrders.length} 筆，應繳 <span style={{ color: '#FCD34D' }}>${myTodayTotal}</span>
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                                                        {todayOrderSummary.map((stat) => (
-                                                            <span key={stat.name} style={{
+                                                        {todayOrderSummary.map((stat, idx) => (
+                                                            <span key={`${stat.name}_${stat.note || ''}_${idx}`} style={{
                                                                 fontSize: '0.68rem', fontWeight: 700,
                                                                 padding: '2px 8px', borderRadius: '6px',
                                                                 background: 'rgba(255,255,255,0.18)',
                                                                 border: '1px solid rgba(255,255,255,0.25)',
                                                                 color: '#fff',
-                                                            }}>{stat.name} ×{stat.qty}</span>
+                                                            }}>{stat.name}{stat.note ? `（${stat.note}）` : ''} ×{stat.qty}</span>
                                                         ))}
                                                     </div>
                                                 </>
@@ -1016,6 +1040,9 @@ const Home = () => {
                                                 }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
                                                         <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1E2D6B' }}>{item.name}</span>
+                                                        {item.note && (
+                                                            <span style={{ fontSize: '0.72rem', color: '#64748B' }}>備註：{item.note}</span>
+                                                        )}
                                                         {hasOrderedInCurrentRound && (
                                                             <span style={{
                                                                 fontSize: '0.62rem', fontWeight: 800,
@@ -1083,9 +1110,9 @@ const Home = () => {
                                 </div>
                             )}
                             <div className="w-full max-h-52 overflow-y-auto bg-white border border-gray-200 rounded-xl px-3 py-2 text-left">
-                                {cartSummary.map(([name, stat]) => (
-                                    <div key={name} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
-                                        <span className="font-bold text-ac-brown">{name}</span>
+                                {cartSummary.map(([summaryKey, stat]) => (
+                                    <div key={summaryKey} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-b-0">
+                                        <span className="font-bold text-ac-brown">{stat.name}{stat.note ? `（${stat.note}）` : ''}</span>
                                         <span className="font-bold text-gray-600">x {stat.qty}，小計 ${stat.subtotal}</span>
                                     </div>
                                 ))}
@@ -1116,6 +1143,37 @@ const Home = () => {
                                             送出中...
                                         </>
                                     ) : '確認下單'}
+                                </Button>
+                            </div>
+                        </div>
+                    </Modal>
+
+                    <Modal isOpen={!!pendingCartItem} onClose={() => { setPendingCartItem(null); setCartItemNote(''); }}>
+                        <div className="flex flex-col gap-4 text-left animate-pop w-full max-w-lg">
+                            <h3 className="text-xl font-bold text-ac-brown">加入購物車</h3>
+                            <div className="w-full border rounded-xl px-4 py-3" style={{ backgroundColor: '#FFF8E7', borderColor: '#F4C86A' }}>
+                                <div className="text-base font-black text-ac-brown">{pendingCartItem?.name || '-'}</div>
+                                <div className="text-sm font-bold text-ac-orange mt-1">${pendingCartItem?.price ?? '-'}</div>
+                            </div>
+                            <div className="w-full">
+                                <label htmlFor="cart-note" className="block text-sm font-bold text-ac-brown mb-1">備註（最多15字）</label>
+                                <textarea
+                                    id="cart-note"
+                                    value={cartItemNote}
+                                    onChange={(e) => setCartItemNote(String(e.target.value || '').slice(0, 15))}
+                                    maxLength={15}
+                                    rows={2}
+                                    placeholder="例如：飯少、不要辣"
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ac-orange"
+                                />
+                                <div className="text-xs text-gray-500 mt-1 text-right">{cartItemNote.length}/15</div>
+                            </div>
+                            <div className="flex gap-3 justify-end">
+                                <Button variant="secondary" onClick={() => { setPendingCartItem(null); setCartItemNote(''); }}>
+                                    取消
+                                </Button>
+                                <Button onClick={confirmAddToCart}>
+                                    確認加入
                                 </Button>
                             </div>
                         </div>
@@ -1164,7 +1222,7 @@ const Home = () => {
                                     <div className="flex flex-col gap-3 w-full max-w-xs mt-4">
                                         <Button 
                                             onClick={() => {
-                                                addToCart(randomItem);
+                                                openAddToCartModal(randomItem);
                                                 setShowRandomModal(false);
                                             }}
                                             className="w-full py-3 text-lg justify-center shadow-lg transform hover:scale-105 active:scale-95"
