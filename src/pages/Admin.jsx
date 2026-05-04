@@ -13,6 +13,7 @@ const Admin = () => {
     const [activeTab, setActiveTab] = useState('menu'); // menu, library, members, stats, settings
     const [showScrollTop, setShowScrollTop] = useState(false);
     const [isLibraryBootLoading, setIsLibraryBootLoading] = useState(false);
+    const [isStatsLoading, setIsStatsLoading] = useState(false);
     const libraryPrefetchedRef = useRef(false);
     const libraryFetchInFlightRef = useRef(null);
     const currentRoundFocusKeyRef = useRef('');
@@ -63,6 +64,9 @@ const Admin = () => {
         if (isFirstLibraryLoad) {
             setIsLibraryBootLoading(true);
         }
+        if (activeTab === 'stats') {
+            setIsStatsLoading(true);
+        }
 
         void (async () => {
             try {
@@ -78,6 +82,9 @@ const Admin = () => {
             } finally {
                 if (!cancelled && isFirstLibraryLoad) {
                     setIsLibraryBootLoading(false);
+                }
+                if (!cancelled && activeTab === 'stats') {
+                    setIsStatsLoading(false);
                 }
             }
         })();
@@ -216,7 +223,22 @@ const Admin = () => {
                         title={
                             activeTab === 'menu'
                                 ? (data.menu.posted
-                                    ? <><span>今日菜單</span><span style={{ color: '#FF6B6B' }}>（已上架）</span></>
+                                    ? <>
+                                        <span>今日菜單</span>
+                                        <span style={{
+                                            marginLeft: '8px',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            padding: '2px 10px',
+                                            borderRadius: '999px',
+                                            background: '#FEF3C7',
+                                            color: '#B45309',
+                                            border: '1px solid #FCD34D',
+                                            fontWeight: 900,
+                                            letterSpacing: '0.04em',
+                                            boxShadow: '0 1px 0 rgba(180,83,9,0.2)',
+                                        }}>已上架</span>
+                                    </>
                                     : '今日菜單（未發布）')
                                 : activeTab === 'library'
                                     ? '菜單庫'
@@ -236,7 +258,7 @@ const Admin = () => {
                             </div>
                             {activeTab === 'library' && <div key="library" className="animate-pop"><MenuLibraryManager data={data} actions={actions} setActiveTab={setActiveTab} uploadImageToCloud={uploadImageToCloud} isInitialLoading={isLibraryBootLoading} /></div>}
                             {activeTab === 'members' && <div key="members" className="animate-pop"><MemberManager data={data} actions={actions} /></div>}
-                            {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} /></div>}
+                            {activeTab === 'stats' && <div key="stats" className="animate-pop"><StatsManager data={data} isLoading={isStatsLoading} /></div>}
                             {activeTab === 'settings' && <div key="settings" className="animate-pop"><SettingsManager /></div>}
                         </div>
                     </DialogBox>
@@ -1962,7 +1984,7 @@ const MemberManager = ({ data, actions }) => {
 
 
 
-const StatsManager = ({ data }) => {
+const StatsManager = ({ data, isLoading = false }) => {
     // Round Filter State (menuId-first; fallback to legacy date bucket)
     const [selectedRoundKey, setSelectedRoundKey] = useState('');
     const [statsTab, setStatsTab] = useState('item');
@@ -2311,6 +2333,12 @@ const StatsManager = ({ data }) => {
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
                         <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
+                        {isLoading && (
+                            <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
+                                <Loader size={16} className="animate-spin" />
+                                載入中...
+                            </div>
+                        )}
                         {itemStats.map(([itemName, qty]) => (
                             <div key={itemName} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
                                 <span className="font-bold text-gray-700">{itemName}</span>
