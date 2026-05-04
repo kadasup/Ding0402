@@ -1965,7 +1965,7 @@ const MemberManager = ({ data, actions }) => {
 const StatsManager = ({ data }) => {
     // Round Filter State (menuId-first; fallback to legacy date bucket)
     const [selectedRoundKey, setSelectedRoundKey] = useState('');
-    const [statsTab, setStatsTab] = useState('member');
+    const [statsTab, setStatsTab] = useState('item');
     const statsPrintRef = useRef(null);
     const getOrderFloor = (memberName) => {
         const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
@@ -2197,11 +2197,9 @@ const StatsManager = ({ data }) => {
         const styleNodes = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
             .map((node) => node.outerHTML)
             .join('\n');
-        const tabLabel = statsTab === 'member'
-            ? '成員統計'
-            : statsTab === 'item'
-                ? '品項統計（數量）'
-                : '樓層統計（成員 / 品項 / 金額）';
+        const tabLabel = statsTab === 'item'
+            ? '品項統計（數量）'
+            : '樓層統計（成員 / 品項 / 金額）';
         const selectedRoundLabel = selectedRound ? getRoundLabel(selectedRound) : '未選擇輪次';
         const printedAt = formatDateTime(Date.now());
 
@@ -2297,12 +2295,6 @@ const StatsManager = ({ data }) => {
 
                 <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
                     <button
-                        onClick={() => setStatsTab('member')}
-                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'member' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
-                    >
-                        成員統計
-                    </button>
-                    <button
                         onClick={() => setStatsTab('item')}
                         className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
                     >
@@ -2316,26 +2308,6 @@ const StatsManager = ({ data }) => {
                     </button>
                 </div>
 
-                {statsTab === 'member' && (
-                    <div className="flex flex-col gap-2">
-                        <h3 className="font-bold border-b pb-2">成員統計</h3>
-                        {memberEntries.map(([member, stat]) => (
-                            <div key={member} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
-                                <div>
-                                    <span className="font-bold text-lg mr-2">{member}</span>
-                                    <span className="text-gray-500">{stat.items.map((i) => {
-                                        const name = String(i?.name || '').trim();
-                                        const note = normalizeNote(i?.note ?? i?.remark ?? i?.memo);
-                                        if (!note) return name;
-                                        return `${name}【備註:${note}】`;
-                                    }).join(', ')}</span>
-                                </div>
-                                <div className="font-bold text-ac-orange">${stat.total}</div>
-                            </div>
-                        ))}
-                        {memberEntries.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有成員統計資料</div>}
-                    </div>
-                )}
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
                         <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
