@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
 import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
 import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer } from 'lucide-react';
@@ -6,6 +6,59 @@ import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 import bellsIcon from '../assets/img/bells.svg';
+
+const _normalizeNote = (value) => String(value || '').trim();
+const _getOrderFloor = (memberName) => {
+    const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
+    return matched ? `${matched[1]}樓` : 'VIP';
+};
+const _getItemQty = (item) => {
+    const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
+    return Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
+};
+const _getOrderTotal = (order) => {
+    const rawTotal = Number(order?.total);
+    if (Number.isFinite(rawTotal) && rawTotal >= 0) return rawTotal;
+    return (order?.items || []).reduce((sum, item) => {
+        const price = Number(item?.price || 0);
+        return sum + (Number.isFinite(price) ? price : 0);
+    }, 0);
+};
+const _floorSortValue = (floorName) => {
+    if (floorName === 'VIP') return Number.MAX_SAFE_INTEGER;
+    const matched = String(floorName || '').match(/^(\d+)\s*樓/);
+    return matched ? Number(matched[1]) : Number.MAX_SAFE_INTEGER - 1;
+};
+const _formatDateTime = (ts) => {
+    if (!ts) return '-';
+    const dateObj = new Date(ts);
+    if (Number.isNaN(dateObj.getTime())) return '-';
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const hh = String(dateObj.getHours()).padStart(2, '0');
+    const mm = String(dateObj.getMinutes()).padStart(2, '0');
+    return `${y}/${m}/${d} ${hh}:${mm}`;
+};
+const _parseTimestampSeed = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return NaN;
+    const firstPart = raw.split('_')[0];
+    const ts = Number(firstPart);
+    return Number.isFinite(ts) && ts > 0 ? ts : NaN;
+};
+const _getRoundKeyFromOrder = (order) => {
+    const menuId = String(order?.menuId || '').trim();
+    if (menuId) return `menu:${menuId}`;
+    const dateKey = order?.date ? getLocalDateKey(order.date) : 'unknown';
+    return `legacy:${dateKey || 'unknown'}`;
+};
+const _escapeHtml = (raw = '') => String(raw)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 
 const Admin = () => {
     const { user, data, actions, gasUrl, ui } = useDing(); 
@@ -42,13 +95,14 @@ const Admin = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.role]);
 
+    const menuLibraryLength = (data?.menuLibrary || []).length;
     useEffect(() => {
         if (user?.role !== 'admin') return;
         if (libraryPrefetchedRef.current) return;
         libraryPrefetchedRef.current = true;
-        if ((data?.menuLibrary || []).length > 0) return;
+        if (menuLibraryLength > 0) return;
         void fetchLibraryData();
-    }, [user?.role, data?.menuLibrary?.length, fetchLibraryData]);
+    }, [user?.role, menuLibraryLength, fetchLibraryData]);
 
     useEffect(() => {
         let cancelled = false;
@@ -397,11 +451,12 @@ const MenuManager = ({ data, actions }) => {
         void fetchHistoryInBackground();
     }, [fetchHistoryInBackground]);
 
+    const menuHistoryLength = (data.menuHistory || []).length;
     useEffect(() => {
         if (!showHistory) return;
-        if ((data.menuHistory || []).length > 0) return;
+        if (menuHistoryLength > 0) return;
         void fetchHistoryInBackground();
-    }, [showHistory, data.menuHistory?.length, fetchHistoryInBackground]);
+    }, [showHistory, menuHistoryLength, fetchHistoryInBackground]);
 
 
 
@@ -628,10 +683,17 @@ const MenuManager = ({ data, actions }) => {
         }
     }, [availableHours, datePart, timePart, isClosingTimeLocked]);
 
-    const sortedHistory = [...(data.menuHistory || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-    const totalHistoryPages = Math.max(1, Math.ceil(sortedHistory.length / HISTORY_PAGE_SIZE));
-    const safeHistoryPage = Math.min(historyPage, totalHistoryPages);
-    const pagedHistory = sortedHistory.slice((safeHistoryPage - 1) * HISTORY_PAGE_SIZE, safeHistoryPage * HISTORY_PAGE_SIZE);
+    const { sortedHistory, totalHistoryPages, safeHistoryPage, pagedHistory } = useMemo(() => {
+        const sorted = [...(data.menuHistory || [])].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+        const totalPages = Math.max(1, Math.ceil(sorted.length / HISTORY_PAGE_SIZE));
+        const safePage = Math.min(historyPage, totalPages);
+        return {
+            sortedHistory: sorted,
+            totalHistoryPages: totalPages,
+            safeHistoryPage: safePage,
+            pagedHistory: sorted.slice((safePage - 1) * HISTORY_PAGE_SIZE, safePage * HISTORY_PAGE_SIZE),
+        };
+    }, [data.menuHistory, historyPage]);
     const hasMenuDraft = draftItems.length > 0 || !!menuImage || !!storeInfo.name;
     const canCloseOrder = isPosted && !isActionLoading;
     const canPublishMenu = !isPosted && hasMenuDraft && !isActionLoading;
@@ -1098,24 +1160,31 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
     const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
     const { showAlert, showConfirm, PopupRenderer: LibPopup } = usePopup();
 
-    const library = [...(data.menuLibrary || [])].reverse(); // show newest entries first
-
-    const filteredLibrary = library.filter(m => {
-        if (showFavOnly && !m.isFavorite) return false;
-        if (filterCategory !== 'all' && m.category !== filterCategory) return false;
-        if (searchTerm) {
-            const q = searchTerm.toLowerCase();
-            const nameMatch = (m.name || '').toLowerCase().includes(q);
-            const storeMatch = (m.storeInfo?.name || '').toLowerCase().includes(q);
-            const itemMatch = (m.items || []).some(i => (i.name || '').toLowerCase().includes(q));
-            if (!nameMatch && !storeMatch && !itemMatch) return false;
-        }
-        return true;
-    });
     const LIBRARY_PAGE_SIZE = 12;
-    const totalLibraryPages = Math.max(1, Math.ceil(filteredLibrary.length / LIBRARY_PAGE_SIZE));
-    const safeLibraryPage = Math.min(libraryPage, totalLibraryPages);
-    const pagedLibrary = filteredLibrary.slice((safeLibraryPage - 1) * LIBRARY_PAGE_SIZE, safeLibraryPage * LIBRARY_PAGE_SIZE);
+
+    const { filteredLibrary, totalLibraryPages, safeLibraryPage, pagedLibrary } = useMemo(() => {
+        const library = [...(data.menuLibrary || [])].reverse();
+        const filtered = library.filter(m => {
+            if (showFavOnly && !m.isFavorite) return false;
+            if (filterCategory !== 'all' && m.category !== filterCategory) return false;
+            if (searchTerm) {
+                const q = searchTerm.toLowerCase();
+                const nameMatch = (m.name || '').toLowerCase().includes(q);
+                const storeMatch = (m.storeInfo?.name || '').toLowerCase().includes(q);
+                const itemMatch = (m.items || []).some(i => (i.name || '').toLowerCase().includes(q));
+                if (!nameMatch && !storeMatch && !itemMatch) return false;
+            }
+            return true;
+        });
+        const totalPages = Math.max(1, Math.ceil(filtered.length / LIBRARY_PAGE_SIZE));
+        const safePage = Math.min(libraryPage, totalPages);
+        return {
+            filteredLibrary: filtered,
+            totalLibraryPages: totalPages,
+            safeLibraryPage: safePage,
+            pagedLibrary: filtered.slice((safePage - 1) * LIBRARY_PAGE_SIZE, safePage * LIBRARY_PAGE_SIZE),
+        };
+    }, [data.menuLibrary, showFavOnly, filterCategory, searchTerm, libraryPage]);
 
     useEffect(() => {
         setLibraryPage(1);
@@ -1760,7 +1829,7 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
             <div className="flex flex-col gap-3">
                 {filteredLibrary.length === 0 && (
                     <div className="text-center text-gray-400 py-8 italic">
-                        {library.length === 0 ? '目前沒有菜單庫資料，先新增第一筆吧。' : '沒有符合條件的菜單。'}
+                        {(data?.menuLibrary || []).length === 0 ? '目前沒有菜單庫資料，先新增第一筆吧。' : '沒有符合條件的菜單。'}
                     </div>
                 )}
                 {pagedLibrary.map(menu => (
@@ -1989,71 +2058,16 @@ const StatsManager = ({ data, isLoading = false }) => {
     const [selectedRoundKey, setSelectedRoundKey] = useState('');
     const [statsTab, setStatsTab] = useState('item');
     const statsPrintRef = useRef(null);
-    const getOrderFloor = (memberName) => {
-        const matched = String(memberName || '').trim().match(/^(\d+)\s*樓/);
-        return matched ? `${matched[1]}樓` : 'VIP';
-    };
-    const getItemQty = (item) => {
-        const rawQty = Number(item?.qty ?? item?.quantity ?? item?.count ?? 1);
-        return Number.isFinite(rawQty) && rawQty > 0 ? rawQty : 1;
-    };
-    const normalizeNote = (value) => String(value || '').trim();
-    const getOrderTotal = (order) => {
-        const rawTotal = Number(order?.total);
-        if (Number.isFinite(rawTotal) && rawTotal >= 0) return rawTotal;
-        return (order?.items || []).reduce((sum, item) => {
-            const price = Number(item?.price || 0);
-            return sum + (Number.isFinite(price) ? price : 0);
-        }, 0);
-    };
-    const floorSortValue = (floorName) => {
-        if (floorName === 'VIP') return Number.MAX_SAFE_INTEGER;
-        const matched = String(floorName || '').match(/^(\d+)\s*樓/);
-        return matched ? Number(matched[1]) : Number.MAX_SAFE_INTEGER - 1;
-    };
-    const formatDateTime = (ts) => {
-        if (!ts) return '-';
-        const dateObj = new Date(ts);
-        if (Number.isNaN(dateObj.getTime())) return '-';
-        const y = dateObj.getFullYear();
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const d = String(dateObj.getDate()).padStart(2, '0');
-        const hh = String(dateObj.getHours()).padStart(2, '0');
-        const mm = String(dateObj.getMinutes()).padStart(2, '0');
-        return `${y}/${m}/${d} ${hh}:${mm}`;
-    };
-    const parseTimestampSeed = (value) => {
-        const raw = String(value || '').trim();
-        if (!raw) return NaN;
-        const firstPart = raw.split('_')[0];
-        const ts = Number(firstPart);
-        return Number.isFinite(ts) && ts > 0 ? ts : NaN;
-    };
-    const getRoundKeyFromOrder = (order) => {
-        const menuId = String(order?.menuId || '').trim();
-        if (menuId) return `menu:${menuId}`;
-        const dateKey = order?.date ? getLocalDateKey(order.date) : 'unknown';
-        return `legacy:${dateKey || 'unknown'}`;
-    };
-    const roundOptions = Object.values(
+    const roundOptions = useMemo(() => Object.values(
         (data.orders || []).reduce((acc, order) => {
             if (!order) return acc;
-            const key = getRoundKeyFromOrder(order);
+            const key = _getRoundKeyFromOrder(order);
             const menuId = String(order?.menuId || '').trim();
             const dateKey = order?.date ? getLocalDateKey(order.date) : 'unknown';
             const tsRaw = new Date(order?.date || '').getTime();
-            const ts = Number.isFinite(tsRaw) ? tsRaw : Date.now();
-
+            const ts = Number.isFinite(tsRaw) ? tsRaw : 0;
             if (!acc[key]) {
-                acc[key] = {
-                    key,
-                    menuId: menuId || '',
-                    legacyDateKey: menuId ? '' : dateKey,
-                    startTs: ts,
-                    endTs: ts,
-                    count: 0,
-                    orders: []
-                };
+                acc[key] = { key, menuId: menuId || '', legacyDateKey: menuId ? '' : dateKey, startTs: ts, endTs: ts, count: 0, orders: [] };
             }
             acc[key].count += 1;
             acc[key].orders.push(order);
@@ -2061,151 +2075,119 @@ const StatsManager = ({ data, isLoading = false }) => {
             acc[key].endTs = Math.max(acc[key].endTs, ts);
             return acc;
         }, {})
-    ).sort((a, b) => b.endTs - a.endTs);
+    ).sort((a, b) => b.endTs - a.endTs), [data.orders]);
 
-    const historyStoreCandidates = (data?.menuHistory || [])
-        .map((hist) => ({
-            ts: parseTimestampSeed(hist?.id),
-            storeName: String(hist?.storeInfo?.name || hist?.name || '').trim(),
-        }))
-        .filter((candidate) => candidate.storeName);
+    const historyStoreCandidates = useMemo(() =>
+        (data?.menuHistory || [])
+            .map((hist) => ({
+                ts: _parseTimestampSeed(hist?.id),
+                storeName: String(hist?.storeInfo?.name || hist?.name || '').trim(),
+            }))
+            .filter((candidate) => candidate.storeName),
+    [data.menuHistory]);
 
     const resolveRoundStoreName = (round) => {
         const currentMenuId = String(data?.menu?.lastUpdated || '').trim();
         const currentStoreName = String(data?.menu?.storeInfo?.name || '').trim();
-        if (round?.menuId && round.menuId === currentMenuId && currentStoreName) {
-            return currentStoreName;
-        }
+        if (round?.menuId && round.menuId === currentMenuId && currentStoreName) return currentStoreName;
         if (!round?.menuId) return '-';
-
-        const roundTs = parseTimestampSeed(round.menuId);
+        const roundTs = _parseTimestampSeed(round.menuId);
         if (!Number.isFinite(roundTs) || historyStoreCandidates.length === 0) return '-';
-
         let forwardBest = null;
         let anyBest = null;
         for (const candidate of historyStoreCandidates) {
             if (!Number.isFinite(candidate.ts)) continue;
             const forwardDelta = candidate.ts - roundTs;
             const absDelta = Math.abs(forwardDelta);
-            if (forwardDelta >= 0 && (!forwardBest || forwardDelta < forwardBest.delta)) {
-                forwardBest = { name: candidate.storeName, delta: forwardDelta };
-            }
-            if (!anyBest || absDelta < anyBest.delta) {
-                anyBest = { name: candidate.storeName, delta: absDelta };
-            }
+            if (forwardDelta >= 0 && (!forwardBest || forwardDelta < forwardBest.delta)) forwardBest = { name: candidate.storeName, delta: forwardDelta };
+            if (!anyBest || absDelta < anyBest.delta) anyBest = { name: candidate.storeName, delta: absDelta };
         }
         return forwardBest?.name || anyBest?.name || '-';
     };
 
     const getRoundLabel = (round) => {
-        const startStr = formatDateTime(round.startTs);
+        const startStr = _formatDateTime(round.startTs);
         const storeName = resolveRoundStoreName(round);
         return `上架：${startStr}｜店名：${storeName}｜${round.count}筆`;
     };
-    const escapeHtml = (raw = '') => String(raw)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
 
-    useEffect(() => {
-        if (!roundOptions.length) {
-            if (selectedRoundKey) setSelectedRoundKey('');
-            return;
-        }
+    const effectiveRoundKey = useMemo(() => {
+        if (!roundOptions.length) return '';
+        const keyExists = roundOptions.some((r) => r.key === selectedRoundKey);
+        if (selectedRoundKey && keyExists) return selectedRoundKey;
         const currentMenuId = String(data?.menu?.lastUpdated || '').trim();
         const preferredKey = currentMenuId ? `menu:${currentMenuId}` : roundOptions[0].key;
-        const keyExists = roundOptions.some((round) => round.key === selectedRoundKey);
-        if (!selectedRoundKey || !keyExists) {
-            const preferredExists = roundOptions.some((round) => round.key === preferredKey);
-            setSelectedRoundKey(preferredExists ? preferredKey : roundOptions[0].key);
-        }
-    }, [roundOptions, selectedRoundKey, data?.menu?.lastUpdated]);
+        const preferredExists = roundOptions.some((r) => r.key === preferredKey);
+        return preferredExists ? preferredKey : roundOptions[0].key;
+    }, [roundOptions, selectedRoundKey, data.menu?.lastUpdated]);
 
-    const selectedRound = roundOptions.find((round) => round.key === selectedRoundKey) || null;
-    const orders = selectedRound ? selectedRound.orders : [];
-    const total = orders.reduce((sum, o) => sum + getOrderTotal(o), 0);
+    const { selectedRound, orders, total, itemStats, itemTotalQty, floorStats } = useMemo(() => {
+        const round = roundOptions.find((r) => r.key === effectiveRoundKey) || null;
+        const ords = round ? round.orders : [];
+        const tot = ords.reduce((sum, o) => sum + _getOrderTotal(o), 0);
 
-    // Group by member
-    const byMember = orders.reduce((acc, o) => {
-        if (!acc[o.member]) acc[o.member] = { count: 0, total: 0, items: [] };
-        acc[o.member].count += 1;
-        acc[o.member].total += getOrderTotal(o);
-        acc[o.member].items.push(...o.items);
-        return acc;
-    }, {});
+        const stats = Object.entries(
+            ords.reduce((acc, order) => {
+                (order.items || []).forEach((item) => {
+                    const name = String(item?.name || '').trim() || '未命名品項';
+                    acc[name] = (acc[name] || 0) + _getItemQty(item);
+                });
+                return acc;
+            }, {})
+        ).sort((a, b) => b[1] - a[1]);
 
-    // Item count stats (quantity only, no price)
-    const itemStats = Object.entries(
-        orders.reduce((acc, order) => {
-            (order.items || []).forEach((item) => {
-                const name = String(item?.name || '').trim() || '未命名品項';
-                const qty = getItemQty(item);
-                acc[name] = (acc[name] || 0) + qty;
-            });
-            return acc;
-        }, {})
-    ).sort((a, b) => b[1] - a[1]);
-    const itemTotalQty = itemStats.reduce((sum, [, qty]) => sum + qty, 0);
+        const floors = Object.entries(
+            ords.reduce((acc, order) => {
+                const floor = _getOrderFloor(order.member);
+                const memberName = String(order?.member || '').trim() || '未命名成員';
+                if (!acc[floor]) acc[floor] = { totalQty: 0, totalAmount: 0, orderCount: 0, memberDetails: {} };
+                acc[floor].orderCount += 1;
+                const orderTotal = _getOrderTotal(order);
+                acc[floor].totalAmount += orderTotal;
+                const memberKey = memberName.toLowerCase();
+                if (!acc[floor].memberDetails[memberKey]) acc[floor].memberDetails[memberKey] = { displayName: memberName, items: [], total: 0 };
+                const md = acc[floor].memberDetails[memberKey];
+                md.total += orderTotal;
+                (order.items || []).forEach((item) => {
+                    const name = String(item?.name || '').trim() || '未命名品項';
+                    const qty = _getItemQty(item);
+                    const price = Number(item?.price || 0);
+                    const note = _normalizeNote(item?.note ?? item?.remark ?? item?.memo);
+                    md.items.push({ name, note, qty, price: Number.isFinite(price) ? price : 0 });
+                    acc[floor].totalQty += qty;
+                });
+                return acc;
+            }, {})
+        )
+            .map(([floor, stat]) => {
+                const memberList = Object.values(stat.memberDetails)
+                    .map((md) => {
+                        const merged = {};
+                        md.items.forEach((it) => {
+                            const mergeKey = `${it.name}__${_normalizeNote(it.note)}`;
+                            if (!merged[mergeKey]) merged[mergeKey] = { name: it.name, note: _normalizeNote(it.note), qty: 0, price: it.price };
+                            merged[mergeKey].qty += it.qty;
+                        });
+                        return {
+                            name: md.displayName,
+                            items: Object.values(merged).map((v) => ({ name: v.name, note: v.note, qty: v.qty, price: v.price })),
+                            total: md.total,
+                        };
+                    })
+                    .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+                return { floor, orderCount: stat.orderCount, totalQty: stat.totalQty, totalAmount: stat.totalAmount, memberList };
+            })
+            .sort((a, b) => _floorSortValue(a.floor) - _floorSortValue(b.floor));
 
-    const floorStats = Object.entries(
-        orders.reduce((acc, order) => {
-            const floor = getOrderFloor(order.member);
-            const memberName = String(order?.member || '').trim() || '未命名成員';
-            if (!acc[floor]) {
-                acc[floor] = { totalQty: 0, totalAmount: 0, orderCount: 0, memberDetails: {} };
-            }
-            acc[floor].orderCount += 1;
-            const orderTotal = getOrderTotal(order);
-            acc[floor].totalAmount += orderTotal;
-            // 以成員為主軸，累計該成員在此樓層的品項
-            const memberKey = memberName.toLowerCase();
-            if (!acc[floor].memberDetails[memberKey]) {
-                acc[floor].memberDetails[memberKey] = { displayName: memberName, items: [], total: 0 };
-            }
-            const md = acc[floor].memberDetails[memberKey];
-            md.total += orderTotal;
-            (order.items || []).forEach((item) => {
-                const name = String(item?.name || '').trim() || '未命名品項';
-                const qty = getItemQty(item);
-                const price = Number(item?.price || 0);
-                const note = normalizeNote(item?.note ?? item?.remark ?? item?.memo);
-                md.items.push({ name, note, qty, price: Number.isFinite(price) ? price : 0 });
-                acc[floor].totalQty += qty;
-            });
-            return acc;
-        }, {})
-    )
-        .map(([floor, stat]) => {
-            // 將每位成員的品項彙整（同品項合併數量）
-            const memberList = Object.values(stat.memberDetails)
-                .map((md) => {
-                    const merged = {};
-                    md.items.forEach((it) => {
-                        const mergeKey = `${it.name}__${normalizeNote(it.note)}`;
-                        if (!merged[mergeKey]) merged[mergeKey] = { name: it.name, note: normalizeNote(it.note), qty: 0, price: it.price };
-                        merged[mergeKey].qty += it.qty;
-                    });
-                    return {
-                        name: md.displayName,
-                        items: Object.values(merged).map((v) => ({ name: v.name, note: v.note, qty: v.qty, price: v.price })),
-                        total: md.total,
-                    };
-                })
-                .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
-            return {
-                floor,
-                orderCount: stat.orderCount,
-                totalQty: stat.totalQty,
-                totalAmount: stat.totalAmount,
-                memberList,
-            };
-        })
-        .sort((a, b) => floorSortValue(a.floor) - floorSortValue(b.floor));
-
-    const memberEntries = Object.entries(byMember)
-        .sort((a, b) => (b[1].count - a[1].count) || (b[1].total - a[1].total));
+        return {
+            selectedRound: round,
+            orders: ords,
+            total: tot,
+            itemStats: stats,
+            itemTotalQty: stats.reduce((sum, [, qty]) => sum + qty, 0),
+            floorStats: floors,
+        };
+    }, [roundOptions, effectiveRoundKey]);
     const handlePrintStats = () => {
         const printableNode = statsPrintRef.current;
         if (!printableNode) return;
@@ -2223,7 +2205,7 @@ const StatsManager = ({ data, isLoading = false }) => {
             ? '品項統計（數量）'
             : '樓層統計（成員 / 品項 / 金額）';
         const selectedRoundLabel = selectedRound ? getRoundLabel(selectedRound) : '未選擇輪次';
-        const printedAt = formatDateTime(Date.now());
+        const printedAt = _formatDateTime(Date.now());
 
         printWindow.document.open();
         printWindow.document.write(`<!doctype html>
@@ -2242,9 +2224,9 @@ const StatsManager = ({ data, isLoading = false }) => {
   <div class="stats-print-root">
     <h1 class="text-2xl font-black text-ac-brown mb-2">統計資料</h1>
     <div class="text-sm text-gray-600 mb-4">
-      <div>輪次：${escapeHtml(selectedRoundLabel)}</div>
-      <div>頁籤：${escapeHtml(tabLabel)}</div>
-      <div>列印時間：${escapeHtml(printedAt)}</div>
+      <div>輪次：${_escapeHtml(selectedRoundLabel)}</div>
+      <div>頁籤：${_escapeHtml(tabLabel)}</div>
+      <div>列印時間：${_escapeHtml(printedAt)}</div>
     </div>
     ${printableNode.innerHTML}
   </div>
@@ -2280,7 +2262,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                 <span className="font-bold text-gray-600 shrink-0">選擇統計</span>
                 <select
                     className="ac-input py-1 flex-1 bg-white cursor-pointer"
-                    value={selectedRoundKey}
+                    value={effectiveRoundKey}
                     onChange={(e) => setSelectedRoundKey(e.target.value)}
                 >
                     {roundOptions.map((round) => (
@@ -2380,7 +2362,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                                                     >
                                                         <span>
                                                             {item.name}
-                                                            {normalizeNote(item.note ?? item.remark ?? item.memo) && (
+                                                            {_normalizeNote(item.note ?? item.remark ?? item.memo) && (
                                                                 <span style={{
                                                                     marginLeft: '6px',
                                                                     padding: '1px 6px',
@@ -2391,7 +2373,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                                                                     fontWeight: 800,
                                                                     fontSize: '0.72rem',
                                                                 }}>
-                                                                    備註：{normalizeNote(item.note ?? item.remark ?? item.memo)}
+                                                                    備註：{_normalizeNote(item.note ?? item.remark ?? item.memo)}
                                                                 </span>
                                                             )}
                                                         </span>

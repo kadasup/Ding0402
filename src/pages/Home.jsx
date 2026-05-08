@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal } from '../components/Components';
@@ -8,11 +8,13 @@ import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
 
 
+const normalizeName = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+const sanitizeNote = (value) => String(value || '').trim().slice(0, 15);
+
 const Home = () => {
     const { data, actions, loading } = useDing();
     const location = useLocation();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
-    const normalizeName = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const loadOrdersForMember = () => {
         void actions.fetchData(['orders'], {
             silent: true,
@@ -68,8 +70,16 @@ const Home = () => {
     useEffect(() => {
         const handleViewport = () => setIsMobileViewport(window.innerWidth < 768);
         handleViewport();
-        window.addEventListener('resize', handleViewport);
-        return () => window.removeEventListener('resize', handleViewport);
+        let rafId;
+        const onResize = () => {
+            cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(handleViewport);
+        };
+        window.addEventListener('resize', onResize);
+        return () => {
+            cancelAnimationFrame(rafId);
+            window.removeEventListener('resize', onResize);
+        };
     }, []);
     const [randomItem, setRandomItem] = useState(null);
     const [isRolling, setIsRolling] = useState(false);
@@ -80,43 +90,52 @@ const Home = () => {
     const [showSwitchFeedback, setShowSwitchFeedback] = useState(false);
     const [pendingCartItem, setPendingCartItem] = useState(null);
     const [cartItemNote, setCartItemNote] = useState('');
-    const sanitizeNote = (value) => String(value || '').trim().slice(0, 15);
-    const cartTotal = cart.reduce((sum, item) => sum + Number(item?.price || 0), 0);
-    const cartSummary = Object.entries(
-        cart.reduce((acc, item) => {
-            const name = String(item?.name || '').trim() || '未知餐點';
-            const note = sanitizeNote(item?.note);
-            const summaryKey = `${name}__${note}`;
-            const price = Number(item?.price || 0);
-            if (!acc[summaryKey]) {
-                acc[summaryKey] = { name, note, qty: 0, subtotal: 0 };
-            }
-            acc[summaryKey].qty += 1;
-            acc[summaryKey].subtotal += Number.isFinite(price) ? price : 0;
-            return acc;
-        }, {})
+    const menuItems = useMemo(() => data.menu.items || [], [data.menu.items]);
+    const cartTotal = useMemo(
+        () => cart.reduce((sum, item) => sum + Number(item?.price || 0), 0),
+        [cart]
+    );
+    const cartSummary = useMemo(
+        () => Object.entries(
+            cart.reduce((acc, item) => {
+                const name = String(item?.name || '').trim() || '未知餐點';
+                const note = sanitizeNote(item?.note);
+                const summaryKey = `${name}__${note}`;
+                const price = Number(item?.price || 0);
+                if (!acc[summaryKey]) {
+                    acc[summaryKey] = { name, note, qty: 0, subtotal: 0 };
+                }
+                acc[summaryKey].qty += 1;
+                acc[summaryKey].subtotal += Number.isFinite(price) ? price : 0;
+                return acc;
+            }, {})
+        ),
+        [cart]
     );
 
     const startRandomPick = () => {
         const items = data.menu.items || [];
         if (items.length === 0) return;
-        
         setShowRandomModal(true);
         setIsRolling(true);
         setRandomItem(null);
-        
-        // Rolling animation for 2 seconds
+    };
+
+    useEffect(() => {
+        if (!isRolling) return;
+        if (menuItems.length === 0) return;
         let count = 0;
         const interval = setInterval(() => {
-            const randomIndex = Math.floor(Math.random() * items.length);
-            setRandomItem(items[randomIndex]);
+            const randomIndex = Math.floor(Math.random() * menuItems.length);
+            setRandomItem(menuItems[randomIndex]);
             count++;
             if (count > 20) {
                 clearInterval(interval);
                 setIsRolling(false);
             }
         }, 80);
-    };
+        return () => clearInterval(interval);
+    }, [isRolling, menuItems]);
 
     useEffect(() => {
         return () => {
@@ -288,8 +307,10 @@ const Home = () => {
 
 
 
-    // Filter history for current user (Safe access)
-    const myHistory = (data.orders || []).filter(o => o.member === selectedMember);
+    const myHistory = useMemo(
+        () => (data.orders || []).filter(o => o.member === selectedMember),
+        [data.orders, selectedMember]
+    );
 
     useEffect(() => {
         const focusTarget = new URLSearchParams(location.search).get('focus');
@@ -306,53 +327,58 @@ const Home = () => {
         return () => clearTimeout(timer);
     }, [location.search, selectedMember]);
 
-    // Filter current round orders by current menuId (not by date)
-    const currentMenuId = data.menu.lastUpdated;
-    const roundMenuId = String(currentMenuId || '').trim();
-    const myTodayOrders = myHistory.filter(o =>
-        !!roundMenuId &&
-        String(o.menuId || '').trim() === roundMenuId
-    );
-    const myTodayTotal = myTodayOrders.reduce((sum, o) => sum + o.total, 0);
-    const todayOrderSummary = Object.values(
-        myTodayOrders.reduce((acc, order) => {
-            (order.items || []).forEach((item) => {
-                const name = String(item?.name || '').trim() || '未知餐點';
-                const note = sanitizeNote(item?.note);
-                const key = `${normalizeName(name)}__${note}`;
-                const price = Number(item?.price || 0);
-                if (!acc[key]) {
-                    acc[key] = { name, note, qty: 0, subtotal: 0 };
-                }
-                acc[key].qty += 1;
-                acc[key].subtotal += Number.isFinite(price) ? price : 0;
-            });
-            return acc;
-        }, {})
-    );
-    const hasOrderedInCurrentRound = myTodayOrders.length > 0;
+    const roundMenuId = String(data.menu.lastUpdated || '').trim();
+    const { myTodayOrders, myTodayTotal, todayOrderSummary, hasOrderedInCurrentRound } = useMemo(() => {
+        const orders = myHistory.filter(o =>
+            !!roundMenuId && String(o.menuId || '').trim() === roundMenuId
+        );
+        const total = orders.reduce((sum, o) => sum + o.total, 0);
+        const summary = Object.values(
+            orders.reduce((acc, order) => {
+                (order.items || []).forEach((item) => {
+                    const name = String(item?.name || '').trim() || '未知餐點';
+                    const note = sanitizeNote(item?.note);
+                    const key = `${normalizeName(name)}__${note}`;
+                    const price = Number(item?.price || 0);
+                    if (!acc[key]) acc[key] = { name, note, qty: 0, subtotal: 0 };
+                    acc[key].qty += 1;
+                    acc[key].subtotal += Number.isFinite(price) ? price : 0;
+                });
+                return acc;
+            }, {})
+        );
+        return {
+            myTodayOrders: orders,
+            myTodayTotal: total,
+            todayOrderSummary: summary,
+            hasOrderedInCurrentRound: orders.length > 0,
+        };
+    }, [myHistory, roundMenuId]);
 
-    // Calculate Most Popular by current menu round (menuId), not by date.
-    const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
-    const currentRoundOrders = (data.orders || []).filter(o =>
-        !!roundMenuId &&
-        String(o.menuId || '').trim() === roundMenuId
-    );
-    const itemCounts = {};
-    currentRoundOrders.forEach(order => {
-        (order.items || []).forEach(item => {
-            const name = item.name.trim();
-            // Only count if it's in the CURRENT menu
-            if (currentMenuItemNames.has(name)) {
-                itemCounts[name] = (itemCounts[name] || 0) + 1;
-            }
+    const { mostPopularItems, hasNoOrderInCurrentRound } = useMemo(() => {
+        const currentMenuItemNames = new Set((data.menu.items || []).map(i => i.name.trim()));
+        const rounds = (data.orders || []).filter(o =>
+            !!roundMenuId &&
+            String(o.menuId || '').trim() === roundMenuId
+        );
+        const itemCounts = {};
+        rounds.forEach(order => {
+            (order.items || []).forEach(item => {
+                const name = item.name.trim();
+                if (currentMenuItemNames.has(name)) {
+                    itemCounts[name] = (itemCounts[name] || 0) + 1;
+                }
+            });
         });
-    });
-    const maxCount = Math.max(0, ...Object.values(itemCounts));
-    const mostPopularItems = Object.entries(itemCounts)
-        .filter((entry) => entry[1] === maxCount && entry[1] > 0)
-        .map(([name]) => name);
-    const hasNoOrderInCurrentRound = currentRoundOrders.length === 0;
+        const maxCount = Math.max(0, ...Object.values(itemCounts));
+        const popular = Object.entries(itemCounts)
+            .filter((entry) => entry[1] === maxCount && entry[1] > 0)
+            .map(([name]) => name);
+        return {
+            mostPopularItems: popular,
+            hasNoOrderInCurrentRound: rounds.length === 0,
+        };
+    }, [data.orders, data.menu.items, roundMenuId]);
 
 
 
@@ -446,20 +472,6 @@ const Home = () => {
                 </div>
             </div>
 
-            {false && (
-                <div className="max-w-3xl mx-auto w-full">
-                    <DialogBox title="公布欄" className="mb-2 bg-ac-panel relative overflow-visible">
-                        <div className="p-2 text-center">
-                            <span className="inline-block bg-white text-ac-orange px-4 py-1 rounded-full border-2 border-ac-orange font-black text-lg tracking-widest shadow-sm rotate-1">
-                                📢 公布訊息
-                            </span>
-                        </div>
-                        <div className="p-6 text-center text-xl font-bold text-ac-brown min-h-[60px] flex items-center justify-center whitespace-pre-line">
-                            {data.announcement}
-                        </div>
-                    </DialogBox>
-                </div>
-            )}
 
 
 
@@ -670,7 +682,7 @@ const Home = () => {
 
                                 <div className="flex flex-col w-full max-w-2xl mx-auto px-2 sm:px-6">
                                     {(data.menu.items || []).map((item, idx) => (
-                                        <React.Fragment key={idx}>
+                                        <React.Fragment key={item.name ?? idx}>
                                             <div
                                                 onClick={() => openAddToCartModal(item)}
                                                 style={{

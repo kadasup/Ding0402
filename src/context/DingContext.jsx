@@ -889,7 +889,7 @@ export const DingProvider = ({ children }) => {
         label: 'AI 辨識中...',
       });
     },
-  }), [callGAS, data.announcement, data.menu.lastUpdated, fetchData]);
+  }), [callGAS, data.announcement, data.menu, fetchData]);
 
   const getTodayOrders = useCallback(() => {
     const today = getLocalDateKey();
