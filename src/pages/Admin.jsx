@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useDing, MENU_CATEGORIES } from '../context/DingContext';
-import { DialogBox, Button, ConfirmModal, usePopup } from '../components/Components';
-import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer } from 'lucide-react';
+import { DialogBox, Button, ConfirmModal, usePopup, EmptyState } from '../components/Components';
+import { Upload, Trash2, Edit, Plus, Users, DollarSign, FileText, ArrowLeft, Loader, Check, X, Settings, Star, Search, Tag, BookOpen, Heart, Images, Clock, ChevronDown, ChevronUp, Printer, Inbox, UtensilsCrossed, BarChart3, Building2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -761,8 +761,12 @@ const MenuManager = ({ data, actions }) => {
                         </div>
                     ))}
                     {draftItems.length === 0 && (
-                        <div className="md:col-span-2 text-center py-8 text-gray-400 italic bg-white/50 rounded-xl border-2 border-dashed">
-                            目前沒有品項，請先透過掃描或手動新增。
+                        <div className="md:col-span-2 bg-white/50 rounded-xl border-2 border-dashed">
+                            <EmptyState
+                                icon={UtensilsCrossed}
+                                title="目前沒有品項"
+                                hint="請先透過掃描或手動新增。"
+                            />
                         </div>
                     )}
                 </div>
@@ -1041,7 +1045,7 @@ const MenuManager = ({ data, actions }) => {
                                     菜單歷史讀取中...
                                 </div>
                             ) : sortedHistory.length === 0 ? (
-                                <div className="text-center text-gray-400 text-sm py-8">目前沒有歷史菜單</div>
+                                <EmptyState icon={Clock} title="目前沒有歷史菜單" hint="發佈過的菜單會自動歸檔到這裡。" />
                             ) : (
                                 pagedHistory.map(hist => (
                                         <div key={hist.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
@@ -1688,8 +1692,13 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
                                 </button>
                             </div>
                             {formItems.length === 0 ? (
-                                <div className="text-center py-6 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100 text-gray-400 text-xs font-bold">
-                                    尚未新增品項，請使用上方按鈕新增或上傳圖片辨識。
+                                <div className="bg-gray-50 rounded-xl border-2 border-dashed border-gray-100">
+                                    <EmptyState
+                                        icon={UtensilsCrossed}
+                                        title="尚未新增品項"
+                                        hint="請使用上方按鈕新增或上傳圖片辨識。"
+                                        compact
+                                    />
                                 </div>
                             ) : (
                                 <div className="max-h-[350px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
@@ -1828,9 +1837,11 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
             {/* Library List */}
             <div className="flex flex-col gap-3">
                 {filteredLibrary.length === 0 && (
-                    <div className="text-center text-gray-400 py-8 italic">
-                        {(data?.menuLibrary || []).length === 0 ? '目前沒有菜單庫資料，先新增第一筆吧。' : '沒有符合條件的菜單。'}
-                    </div>
+                    <EmptyState
+                        icon={BookOpen}
+                        title={(data?.menuLibrary || []).length === 0 ? '目前沒有菜單庫' : '沒有符合條件的菜單'}
+                        hint={(data?.menuLibrary || []).length === 0 ? '先新增第一筆，之後可以快速套用到當日菜單。' : '試試清空搜尋條件或改用其他關鍵字。'}
+                    />
                 )}
                 {pagedLibrary.map(menu => (
                     <div key={menu.id} className="bg-white rounded-xl border shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -2296,7 +2307,11 @@ const StatsManager = ({ data, isLoading = false }) => {
             </div>
             <div ref={statsPrintRef} className="flex flex-col gap-6">
                 {roundOptions.length === 0 && (
-                    <div className="text-center italic text-gray-400 py-2">目前沒有可統計的訂單輪次</div>
+                    <EmptyState
+                        icon={BarChart3}
+                        title="目前沒有可統計的訂單輪次"
+                        hint="發佈菜單並有人下單後，統計資料會顯示在這裡。"
+                    />
                 )}
 
                 <div className="flex gap-4">
@@ -2369,7 +2384,9 @@ const StatsManager = ({ data, isLoading = false }) => {
                                 <span className="font-black text-green-700">x {itemTotalQty}</span>
                             </div>
                         )}
-                        {itemStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有品項統計資料</div>}
+                        {itemStats.length === 0 && (
+                            <EmptyState icon={Inbox} title="此輪次沒有品項統計" hint="這個輪次還沒有人下單。" compact />
+                        )}
                     </div>
                 )}
                 {statsTab === 'floor' && (
@@ -2424,12 +2441,15 @@ const StatsManager = ({ data, isLoading = false }) => {
                                         </div>
                                     ))}
                                     {floorStat.memberList.length === 0 && (
-                                        <div className="text-center italic text-gray-400 py-3">此樓層當日無訂單資料</div>
+                                        <EmptyState icon={Building2} title="此樓層當日無訂單" compact />
+
                                     )}
                                 </div>
                             </div>
                         ))}
-                        {floorStats.length === 0 && <div className="text-center italic text-gray-400 py-4">此輪次沒有樓層統計資料</div>}
+                        {floorStats.length === 0 && (
+                            <EmptyState icon={Building2} title="此輪次沒有樓層統計" hint="這個輪次還沒有人下單。" compact />
+                        )}
                     </div>
                 )}
             </div>

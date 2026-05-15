@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
-import { DialogBox, Button, Modal } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronUp, X, HelpCircle } from 'lucide-react';
+import { DialogBox, Button, Modal, EmptyState } from '../components/Components';
+import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronUp, X, HelpCircle, UtensilsCrossed, Inbox, Users } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -10,6 +10,39 @@ import leafIcon from '../assets/img/leaf.svg';
 
 const normalizeName = (value) => String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 const sanitizeNote = (value) => String(value || '').trim().slice(0, 15);
+
+const computeClosingInfo = (closingTime, now) => {
+    if (!closingTime) return null;
+    const ts = new Date(closingTime).getTime();
+    if (isNaN(ts)) return null;
+    const diffMs = ts - now;
+    const diffMin = Math.floor(diffMs / 60000);
+    const closingDate = new Date(ts);
+    const isClosed = diffMs <= 0;
+    const level = isClosed ? 'closed' : diffMin < 10 ? 'urgent' : diffMin < 30 ? 'warn' : 'normal';
+    const hours = Math.floor(diffMin / 60);
+    const mins = diffMin % 60;
+    const remainingText = isClosed
+        ? '已截止'
+        : hours > 0
+            ? `剩 ${hours} 小時 ${mins} 分`
+            : diffMin >= 1
+                ? `剩 ${diffMin} 分鐘`
+                : '剩不到 1 分鐘';
+    const today = new Date();
+    const isToday = closingDate.toDateString() === today.toDateString();
+    const datePart = `${String(closingDate.getMonth() + 1).padStart(2, '0')}/${String(closingDate.getDate()).padStart(2, '0')}`;
+    const timePart = `${String(closingDate.getHours()).padStart(2, '0')}:${String(closingDate.getMinutes()).padStart(2, '0')}`;
+    const whenText = `${isToday ? '今天' : datePart} ${timePart}`;
+    return { isClosed, level, remainingText, whenText };
+};
+
+const CLOSING_STYLE = {
+    normal: { bg: '#F3F4F6', border: '#D1D5DB', color: '#4B5563', pulse: false },
+    warn: { bg: '#FFF7ED', border: '#FB923C', color: '#9A3412', pulse: false },
+    urgent: { bg: '#FEE2E2', border: '#EF4444', color: '#991B1B', pulse: true },
+    closed: { bg: '#E5E7EB', border: '#9CA3AF', color: '#374151', pulse: false },
+};
 
 const Home = () => {
     const { data, actions, loading } = useDing();
@@ -58,6 +91,16 @@ const Home = () => {
     };
     const [selectedFloor, setSelectedFloor] = useState(() => getMemberFloor(localStorage.getItem('ding_member') || ''));
     const [showScrollTop, setShowScrollTop] = useState(false);
+
+    const [now, setNow] = useState(() => Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 30 * 1000);
+        return () => clearInterval(id);
+    }, []);
+    const closingInfo = useMemo(
+        () => computeClosingInfo(data.menu?.closingTime, now),
+        [data.menu?.closingTime, now]
+    );
 
     useEffect(() => {
         const handleScroll = () => {
@@ -273,6 +316,10 @@ const Home = () => {
 
     const submitOrder = () => {
         if (cart.length === 0) return;
+        if (closingInfo?.isClosed) {
+            window.alert('已過結單時間，無法再下單。');
+            return;
+        }
         if (!selectedMember || !selectedMemberValid) {
             window.alert('請先選擇有效成員再下單。');
             handleMemberLogin('');
@@ -593,9 +640,12 @@ const Home = () => {
                                         )}
                                     </>
                                 ) : (
-                                    <div className="px-4 py-3 text-gray-400 text-center cursor-default">
-                                        此樓層目前沒有可選成員
-                                    </div>
+                                    <EmptyState
+                                        icon={Users}
+                                        title="此樓層目前沒有可選成員"
+                                        hint="請後台到「成員」分頁新增。"
+                                        compact
+                                    />
                                 )}
                             </div>
                         </div>
@@ -788,44 +838,37 @@ const Home = () => {
                                     </div>
                                 )}
 
-                                {/* Footer: Closing Time */}
-                                {data.menu.closingTime && (
-                                    <div className="mt-6 text-center">
-                                        <span
-                                            className="inline-block px-5 py-1.5 rounded-xl font-black text-base shadow-md tracking-wide"
-                                            style={{
-                                                backgroundColor: '#FFE7E7',
-                                                border: '2px solid #EF4444',
-                                                color: '#B91C1C'
-                                            }}
-                                        >
-                                            {(() => {
-                                                const cTime = data.menu.closingTime || '';
-                                                try {
-                                                    const dateObj = new Date(cTime);
-                                                    if (isNaN(dateObj.getTime())) throw new Error('Invalid Date');
-
-                                                    // Format Date: MM/DD
-                                                    const m = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-                                                    const d = dateObj.getDate().toString().padStart(2, '0');
-                                                    const dateStr = `${m}/${d}`;
-
-                                                    // Format Time: HH:mm (24h)
-                                                    const h = dateObj.getHours().toString().padStart(2, '0');
-                                                    const min = dateObj.getMinutes().toString().padStart(2, '0');
-                                                    const timeStr = `${h}:${min}`;
-
-                                                    const today = new Date();
-                                                    const isToday = dateObj.toDateString() === today.toDateString();
-
-                                                    return `⏰ 結單時間：${isToday ? '今天' : dateStr} ${timeStr}`;
-                                                } catch {
-                                                    return `⏰ 結單時間：${cTime}`;
-                                                }
-                                            })()}
-                                        </span>
-                                    </div>
-                                )}
+                                {/* Footer: Closing Time + Countdown */}
+                                {closingInfo && (() => {
+                                    const s = CLOSING_STYLE[closingInfo.level];
+                                    return (
+                                        <div className="mt-6 text-center">
+                                            <span
+                                                className={`inline-flex items-center gap-2 px-5 py-1.5 rounded-xl font-black text-base shadow-md tracking-wide ${s.pulse ? 'animate-status-pulse' : ''}`}
+                                                style={{
+                                                    backgroundColor: s.bg,
+                                                    border: `2px solid ${s.border}`,
+                                                    color: s.color,
+                                                }}
+                                            >
+                                                <span>
+                                                    {closingInfo.isClosed ? '✕' : '⏰'} 結單 {closingInfo.whenText}
+                                                </span>
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.78rem',
+                                                        padding: '2px 8px',
+                                                        borderRadius: '999px',
+                                                        background: 'rgba(255,255,255,0.6)',
+                                                        border: `1px solid ${s.border}`,
+                                                    }}
+                                                >
+                                                    {closingInfo.remainingText}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     )}
@@ -840,8 +883,13 @@ const Home = () => {
 
                                     <div className="flex flex-col gap-3 w-full">
                                         {myTodayOrders.length === 0 && (
-                                            <div className="text-center italic text-gray-400 py-6 bg-white rounded-xl border border-dashed">
-                                                <div className="font-bold text-gray-500 not-italic">尚未點餐</div>
+                                            <div className="bg-white rounded-xl border border-dashed">
+                                                <EmptyState
+                                                    icon={UtensilsCrossed}
+                                                    title="尚未點餐"
+                                                    hint="從下方菜單選一份開始吧！"
+                                                    compact
+                                                />
                                             </div>
                                         )}
 
@@ -886,14 +934,25 @@ const Home = () => {
                         </div>
                     )}
 
-                    {/* Cart Section (Fixed via Portal - v2 Redesign) */}
+                    {/* Cart Section (Fixed via Portal - v2 Redesign) - responsive */}
                     {selectedMember && data.menu.posted && cart.length > 0 && createPortal(
-                        <div style={{ position: 'fixed', bottom: '28px', right: '22px', left: 'auto', zIndex: 99999 }}>
-                            <div style={{ width: '310px', maxWidth: '92vw' }} className="animate-pop">
+                        <div style={{
+                            position: 'fixed',
+                            bottom: isMobileViewport ? 0 : '28px',
+                            right: isMobileViewport ? 0 : '22px',
+                            left: isMobileViewport ? 0 : 'auto',
+                            zIndex: 99999,
+                            paddingBottom: isMobileViewport ? 'env(safe-area-inset-bottom)' : 0,
+                        }}>
+                            <div style={{
+                                width: isMobileViewport ? '100%' : '310px',
+                                maxWidth: isMobileViewport ? '100%' : '92vw',
+                            }} className="animate-pop">
                                 <div style={{
-                                    borderRadius: '22px',
+                                    borderRadius: isMobileViewport ? '22px 22px 0 0' : '22px',
                                     overflow: 'hidden',
                                     border: '2.5px solid #2D3A6A',
+                                    borderBottom: isMobileViewport ? 'none' : '2.5px solid #2D3A6A',
                                     boxShadow: '0 16px 48px rgba(20,30,80,0.28), 0 4px 12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
                                     background: '#FAFAF8',
                                 }}>
@@ -1081,13 +1140,26 @@ const Home = () => {
                                             ))}
 
                                             {/* 送出按鈕 */}
-                                            <Button onClick={submitOrder} className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all" style={{
-                                                background: 'linear-gradient(135deg, #D48745 0%, #E8973F 55%, #F4A54A 100%)',
-                                                boxShadow: '0 4px 0 #B06B2A, 0 6px 18px rgba(180,107,42,0.32)',
-                                                border: 'none',
-                                                marginTop: '4px',
-                                            }}>
-                                                送出訂單 🚀
+                                            <Button
+                                                onClick={submitOrder}
+                                                disabled={closingInfo?.isClosed}
+                                                title={closingInfo?.isClosed ? '已過結單時間' : undefined}
+                                                className="w-full justify-center py-2 text-lg shadow-md hover:shadow-lg transform active:scale-95 transition-all"
+                                                style={closingInfo?.isClosed ? {
+                                                    background: '#D1D5DB',
+                                                    boxShadow: 'none',
+                                                    border: 'none',
+                                                    marginTop: '4px',
+                                                    cursor: 'not-allowed',
+                                                    opacity: 0.75,
+                                                } : {
+                                                    background: 'linear-gradient(135deg, #D48745 0%, #E8973F 55%, #F4A54A 100%)',
+                                                    boxShadow: '0 4px 0 #B06B2A, 0 6px 18px rgba(180,107,42,0.32)',
+                                                    border: 'none',
+                                                    marginTop: '4px',
+                                                }}
+                                            >
+                                                {closingInfo?.isClosed ? '已截止' : '送出訂單 🚀'}
                                             </Button>
                                         </div>
                                     )}

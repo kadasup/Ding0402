@@ -101,6 +101,53 @@ export const ConfirmModal = ({ isOpen, onClose, onConfirm, icon, title, message,
     );
 };
 
+export const EmptyState = ({ icon: Icon, title, hint, action, compact = false, className = '' }) => {
+    const padY = compact ? '20px' : '36px';
+    const iconSize = compact ? 40 : 56;
+    return (
+        <div
+            className={className}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: compact ? '8px' : '12px',
+                padding: `${padY} 16px`,
+                textAlign: 'center',
+                color: '#9CA3AF',
+            }}
+        >
+            {Icon && (
+                <div
+                    style={{
+                        width: `${iconSize + 16}px`,
+                        height: `${iconSize + 16}px`,
+                        borderRadius: '50%',
+                        background: '#F3F4F6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <Icon size={iconSize} strokeWidth={1.5} color="#9CA3AF" />
+                </div>
+            )}
+            {title && (
+                <div style={{ fontSize: compact ? '0.9rem' : '1rem', fontWeight: 800, color: '#4B5563' }}>
+                    {title}
+                </div>
+            )}
+            {hint && (
+                <div style={{ fontSize: compact ? '0.78rem' : '0.85rem', color: '#9CA3AF', maxWidth: '320px', lineHeight: 1.5 }}>
+                    {hint}
+                </div>
+            )}
+            {action && <div style={{ marginTop: '4px' }}>{action}</div>}
+        </div>
+    );
+};
+
 // Imperative popup hook — replaces alert() and window.confirm()
 export const usePopup = () => {
     const [popup, setPopup] = React.useState(null);

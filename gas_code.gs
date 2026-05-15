@@ -54,6 +54,7 @@ function doPost(e) {
       };
 
       updateWorksheetObject("Settings", "current_menu", nextMenu);
+      _cacheInvalidate(["menu"]);
 
       var wasPosted = parseSheetBoolean(previousMenu.posted);
       var isPosted = parseSheetBoolean(nextMenu.posted);
@@ -125,6 +126,7 @@ function doPost(e) {
 
     case "updateAnnouncement":
       updateWorksheetObject("Settings", "announcement", params.text || "");
+      _cacheInvalidate(["announcement"]);
       return handleResponse({ success: true, text: params.text || "" });
 
     case "addOrder":
@@ -148,6 +150,7 @@ function doPost(e) {
         params.orderId || Utilities.getUuid(),
         params.menuId || ""
       ]);
+      _cacheInvalidate(["orders"]);
       return handleResponse({ success: true });
 
     case "removeOrder":
@@ -166,6 +169,7 @@ function doPost(e) {
           break;
         }
       }
+      if (found) _cacheInvalidate(["orders"]);
       return handleResponse({ success: found });
 
     case "addMember":
@@ -187,6 +191,7 @@ function doPost(e) {
           }
         }
         memSheet.appendRow([nextMemberName, new Date()]);
+        _cacheInvalidate(["members"]);
         return handleResponse({ success: true, created: true, name: nextMemberName });
       } finally {
         addLock.releaseLock();
@@ -207,6 +212,7 @@ function doPost(e) {
             memSheet2.deleteRow(i2 + 1);
           }
         }
+        _cacheInvalidate(["members"]);
         return handleResponse({ success: true });
       } finally {
         removeLock.releaseLock();
@@ -230,23 +236,25 @@ function doPost(e) {
         var memberRows = memberSheet.getDataRange().getValues();
         var renamed = false;
         var targetExists = false;
+        var oldRowIndices = [];
         for (var ck = 1; ck < memberRows.length; ck++) {
           var candidate = normalizeMemberName(memberRows[ck][0]);
           if (!candidate) continue;
-          if (candidate.toLowerCase() === newMemberKey) {
+          var candidateLc = candidate.toLowerCase();
+          if (candidateLc === newMemberKey) {
             targetExists = true;
             break;
+          }
+          if (candidateLc === oldMemberKey) {
+            oldRowIndices.push(ck);
           }
         }
         if (targetExists) {
           return handleResponse({ success: false, error: "Target member already exists" });
         }
-        for (var j = 1; j < memberRows.length; j++) {
-          var oldCandidate = normalizeMemberName(memberRows[j][0]);
-          if (oldCandidate && oldCandidate.toLowerCase() === oldMemberKey) {
-            memberSheet.getRange(j + 1, 1).setValue(newMemberName);
-            renamed = true;
-          }
+        for (var rj = 0; rj < oldRowIndices.length; rj++) {
+          memberSheet.getRange(oldRowIndices[rj] + 1, 1).setValue(newMemberName);
+          renamed = true;
         }
 
         var ordersSheetForRename = getOrCreateSheet("Orders");
@@ -257,6 +265,7 @@ function doPost(e) {
             ordersSheetForRename.getRange(ri + 1, 2).setValue(newMemberName);
           }
         }
+        if (renamed) _cacheInvalidate(["members", "orders"]);
         return handleResponse({ success: renamed });
       } finally {
         updateLock.releaseLock();
@@ -272,6 +281,7 @@ function doPost(e) {
         JSON.stringify(params.storeInfo || {}),
         params.remark || ""
       ]);
+      _cacheInvalidate(["history"]);
       return handleResponse({ success: true });
 
     case "deleteMenuHistory":
@@ -283,6 +293,7 @@ function doPost(e) {
           break;
         }
       }
+      _cacheInvalidate(["history"]);
       return handleResponse({ success: true });
 
     case "addMenuLibrary":
@@ -302,6 +313,7 @@ function doPost(e) {
         "",
         libRemarkValue
       ]);
+      _cacheInvalidate(["library"]);
       return handleResponse({ success: true });
 
     case "updateMenuLibrary":
@@ -331,6 +343,7 @@ function doPost(e) {
           libSheet2.getRange(foundIndex, 11).setValue(remarkValue); // Keep remark in column K
         }
         libSheet2.getRange(foundIndex, 8).setValue(new Date().getTime());
+        _cacheInvalidate(["library"]);
         return handleResponse({ success: true });
       }
       return handleResponse({ error: "Menu library item not found by ID" });
@@ -344,6 +357,7 @@ function doPost(e) {
           break;
         }
       }
+      _cacheInvalidate(["library"]);
       return handleResponse({ success: true });
 
     case "toggleFavorite":
@@ -360,6 +374,7 @@ function doPost(e) {
           break;
         }
       }
+      _cacheInvalidate(["library"]);
       return handleResponse({ success: true });
 
     case "ocrMenu":
@@ -396,6 +411,7 @@ function doPost(e) {
 
       clearSheet.clearContents();
       clearSheet.getRange(1, 1, keptRows.length, header.length).setValues(keptRows);
+      _cacheInvalidate(["orders"]);
       return handleResponse({ success: true, clearedCount: clearedCount });
 
     case "uploadImage":
@@ -564,37 +580,41 @@ function getDataSections(sections) {
   };
 
   if (includeAll || includeCore || include.menu) {
-    var currentMenu = getWorksheetObject("Settings", "current_menu") || {
-      posted: false,
-      items: [],
-      closingTime: "",
-      image: "",
-      storeInfo: {},
-      remark: "",
-      lastUpdated: "0"
-    };
-    if (!currentMenu.lastUpdated) currentMenu.lastUpdated = "0";
-    result.menu = currentMenu;
+    result.menu = _cachedSection("menu", 60, function () {
+      var currentMenu = getWorksheetObject("Settings", "current_menu") || {
+        posted: false,
+        items: [],
+        closingTime: "",
+        image: "",
+        storeInfo: {},
+        remark: "",
+        lastUpdated: "0"
+      };
+      if (!currentMenu.lastUpdated) currentMenu.lastUpdated = "0";
+      return currentMenu;
+    });
   }
 
   if (includeAll || includeCore || include.members) {
-    result.members = getMembersList();
+    result.members = _cachedSection("members", 120, function () { return getMembersList(); });
   }
 
   if (includeAll || includeCore || include.announcement) {
-    result.announcement = getWorksheetObject("Settings", "announcement") || "甇∟?雿輻?芰543閮噶?嗥頂蝯梧?";
+    result.announcement = _cachedSection("announcement", 60, function () {
+      return getWorksheetObject("Settings", "announcement") || "甇∟?雿輻?芰543閮噶?嗥頂蝯梧?";
+    });
   }
 
   if (includeAll || include.orders) {
-    result.orders = getOrdersData();
+    result.orders = _cachedSection("orders", 30, function () { return getOrdersData(); });
   }
 
   if (includeAll || include.library || include.menulibrary) {
-    result.menuLibrary = getLibraryList();
+    result.menuLibrary = _cachedSection("library", 300, function () { return getLibraryList(); });
   }
 
   if (includeAll || include.history || include.menuhistory) {
-    result.menuHistory = getHistoryList();
+    result.menuHistory = _cachedSection("history", 300, function () { return getHistoryList(); });
   }
 
   if (includeAll || include.uploadstatus || include.lastuploadstatus) {
@@ -717,6 +737,43 @@ function getOrdersData() {
 
 function handleResponse(data) {
   return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============ Cache Layer ============
+var DING_CACHE_PREFIX = "ding:";
+
+function _cacheGet(key) {
+  try {
+    var raw = CacheService.getScriptCache().get(DING_CACHE_PREFIX + key);
+    if (raw === null || raw === undefined) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function _cacheSet(key, value, ttlSec) {
+  try {
+    var s = JSON.stringify(value);
+    // CacheService limit ~100KB; skip oversize payloads (still works, just no cache)
+    if (s.length > 95000) return;
+    CacheService.getScriptCache().put(DING_CACHE_PREFIX + key, s, ttlSec || 60);
+  } catch (e) {}
+}
+
+function _cacheInvalidate(keys) {
+  try {
+    var arr = (keys || []).map(function (k) { return DING_CACHE_PREFIX + k; });
+    if (arr.length) CacheService.getScriptCache().removeAll(arr);
+  } catch (e) {}
+}
+
+function _cachedSection(key, ttlSec, computeFn) {
+  var cached = _cacheGet(key);
+  if (cached !== null) return cached;
+  var fresh = computeFn();
+  _cacheSet(key, fresh, ttlSec);
+  return fresh;
 }
 
 function getOrCreateSheet(name) {

@@ -70,6 +70,9 @@ export const DingProvider = ({ children }) => {
     return saved;
   });
 
+  // Stale-while-revalidate: returns { payload, isStale } if any usable cache exists, else null.
+  // Callers should hydrate UI from `payload` immediately (regardless of staleness), and
+  // schedule a background refetch when `isStale` is true.
   const readTimedCache = useCallback((cacheKey, maxAgeMs) => {
     try {
       const raw = localStorage.getItem(cacheKey);
@@ -77,12 +80,12 @@ export const DingProvider = ({ children }) => {
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
 
-      const savedAt = Number(parsed.savedAt || 0);
-      if (!savedAt || Date.now() - savedAt > maxAgeMs) return null;
-
       const payload = parsed.payload;
       if (!payload || typeof payload !== 'object') return null;
-      return payload;
+
+      const savedAt = Number(parsed.savedAt || 0);
+      const isStale = !savedAt || Date.now() - savedAt > maxAgeMs;
+      return { payload, isStale };
     } catch {
       return null;
     }
@@ -274,26 +277,31 @@ export const DingProvider = ({ children }) => {
 
   const hydrateCoreFromCache = useCallback(() => {
     const cached = readCoreCache();
-    if (!cached) return false;
+    if (!cached) return { hadCache: false, isStale: false };
 
-    setData(prev => mergeRemoteData(prev, cached));
-    return true;
+    setData(prev => mergeRemoteData(prev, cached.payload));
+    return { hadCache: true, isStale: cached.isStale };
   }, [mergeRemoteData, readCoreCache]);
 
   const hydrateBackofficeFromCache = useCallback(() => {
     const cachedLibrary = readTimedCache(LIBRARY_CACHE_KEY, BACKOFFICE_CACHE_MAX_AGE_MS);
     const cachedHistory = readTimedCache(HISTORY_CACHE_KEY, BACKOFFICE_CACHE_MAX_AGE_MS);
+    const libraryPayload = cachedLibrary?.payload;
+    const historyPayload = cachedHistory?.payload;
     const snapshot = {
-      ...(Array.isArray(cachedLibrary?.menuLibrary) ? { menuLibrary: cachedLibrary.menuLibrary } : {}),
-      ...(Array.isArray(cachedHistory?.menuHistory) ? { menuHistory: cachedHistory.menuHistory } : {}),
+      ...(Array.isArray(libraryPayload?.menuLibrary) ? { menuLibrary: libraryPayload.menuLibrary } : {}),
+      ...(Array.isArray(historyPayload?.menuHistory) ? { menuHistory: historyPayload.menuHistory } : {}),
     };
 
     if (!hasOwn(snapshot, 'menuLibrary') && !hasOwn(snapshot, 'menuHistory')) {
-      return false;
+      return { hadCache: false, isStale: false };
     }
 
     setData(prev => mergeRemoteData(prev, snapshot));
-    return true;
+    return {
+      hadCache: true,
+      isStale: (cachedLibrary?.isStale ?? false) || (cachedHistory?.isStale ?? false),
+    };
   }, [mergeRemoteData, readTimedCache]);
 
   const fetchData = useCallback(async (sections = ALL_SECTIONS, options = {}) => {
@@ -373,7 +381,7 @@ export const DingProvider = ({ children }) => {
     }
   }, [beginPending, endPending, fetchWithTimeout, gasUrl, mergeRemoteData, pushToast, writeCoreCache, writeOrdersCache, writeTimedCache]);
 
-  const scheduleRefresh = useCallback((delay = 150, sections = ALL_SECTIONS) => {
+  const scheduleRefresh = useCallback((delay = 500, sections = ALL_SECTIONS) => {
     if (refreshTimer.current) {
       clearTimeout(refreshTimer.current);
     }
@@ -395,20 +403,29 @@ export const DingProvider = ({ children }) => {
         ? String(window.location.hash || '').replace(/^#/, '') || '/'
         : '/';
       const isHomeRoute = hashPath === '/';
-      const hasCoreCache = hydrateCoreFromCache();
+      const coreCacheState = hydrateCoreFromCache();
       if (!isHomeRoute) {
         hydrateBackofficeFromCache();
       }
 
+      // Stale-while-revalidate: if we hydrated from any cache (even stale), show UI
+      // immediately and refetch silently in the background. Only show the blocking
+      // loader when there was no cache at all to hydrate from.
+      const showLoader = !coreCacheState.hadCache;
+      // Home route only needs menu for first paint; members/announcement come in a
+      // second pass so first paint isn't blocked on members payload.
+      const firstPassSections = isHomeRoute ? ['menu'] : INITIAL_SECTIONS;
       const coreData = await fetchData(
-        INITIAL_SECTIONS,
-        isHomeRoute
-          ? (hasCoreCache ? { silent: true, retries: 0, timeoutMs: 8000 } : {})
-          : { silent: true, retries: 0, timeoutMs: 8000 }
+        firstPassSections,
+        showLoader ? { retries: 0, timeoutMs: 8000 } : { silent: true, retries: 0, timeoutMs: 8000 }
       );
       const coreMenuId = String(coreData?.menu?.lastUpdated || '');
       if (!cancelled && coreMenuId) {
         hydrateOrdersFromCache(coreMenuId);
+      }
+      // Second pass on home: fill in members + announcement silently after first paint.
+      if (!cancelled && isHomeRoute) {
+        void fetchData(['members', 'announcement'], { silent: true, retries: 0, timeoutMs: 8000 });
       }
     };
 
@@ -482,7 +499,7 @@ export const DingProvider = ({ children }) => {
 
     const applyPostRefresh = () => {
       if (refresh !== false) {
-        scheduleRefresh(refreshDelay ?? 150, refreshSections);
+        scheduleRefresh(refreshDelay ?? 500, refreshSections);
       }
     };
 
@@ -673,9 +690,6 @@ export const DingProvider = ({ children }) => {
             silent: true,
             dedupeKey: `menu:update:fast:bg:${posted ? 'posted' : 'draft'}`,
           });
-          setTimeout(() => {
-            void fetchData(['menu'], { silent: true, timeoutMs: 8000, retries: 0 });
-          }, 1400);
           return;
         }
         const fastResult = await callGAS('updateMenu', newMenu, {
@@ -689,9 +703,6 @@ export const DingProvider = ({ children }) => {
           setData(prev => ({ ...prev, menu: previousMenu }));
           throw new Error(fastResult.error || '更新菜單失敗');
         }
-        setTimeout(() => {
-          void fetchData(['menu'], { silent: true, timeoutMs: 8000, retries: 0 });
-        }, 1200);
         return;
       }
       const result = await callGAS('updateMenu', newMenu, {
