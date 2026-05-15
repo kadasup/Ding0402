@@ -2126,15 +2126,29 @@ const StatsManager = ({ data, isLoading = false }) => {
         const ords = round ? round.orders : [];
         const tot = ords.reduce((sum, o) => sum + _getOrderTotal(o), 0);
 
-        const stats = Object.entries(
+        const stats = Object.values(
             ords.reduce((acc, order) => {
                 (order.items || []).forEach((item) => {
                     const name = String(item?.name || '').trim() || '未命名品項';
-                    acc[name] = (acc[name] || 0) + _getItemQty(item);
+                    const note = _normalizeNote(item?.note ?? item?.remark ?? item?.memo);
+                    const qty = _getItemQty(item);
+                    if (!acc[name]) acc[name] = { name, totalQty: 0, noteMap: {} };
+                    acc[name].totalQty += qty;
+                    if (note) {
+                        acc[name].noteMap[note] = (acc[name].noteMap[note] || 0) + qty;
+                    }
                 });
                 return acc;
             }, {})
-        ).sort((a, b) => b[1] - a[1]);
+        )
+            .map((s) => ({
+                name: s.name,
+                totalQty: s.totalQty,
+                notes: Object.entries(s.noteMap)
+                    .map(([note, qty]) => ({ note, qty }))
+                    .sort((a, b) => b.qty - a.qty || a.note.localeCompare(b.note, 'zh-Hant')),
+            }))
+            .sort((a, b) => b.totalQty - a.totalQty || a.name.localeCompare(b.name, 'zh-Hant'));
 
         const floors = Object.entries(
             ords.reduce((acc, order) => {
@@ -2184,7 +2198,7 @@ const StatsManager = ({ data, isLoading = false }) => {
             orders: ords,
             total: tot,
             itemStats: stats,
-            itemTotalQty: stats.reduce((sum, [, qty]) => sum + qty, 0),
+            itemTotalQty: stats.reduce((sum, s) => sum + s.totalQty, 0),
             floorStats: floors,
         };
     }, [roundOptions, effectiveRoundKey]);
@@ -2202,7 +2216,7 @@ const StatsManager = ({ data, isLoading = false }) => {
             .map((node) => node.outerHTML)
             .join('\n');
         const tabLabel = statsTab === 'item'
-            ? '品項統計（數量）'
+            ? '品項統計'
             : '樓層統計（成員 / 品項 / 金額）';
         const selectedRoundLabel = selectedRound ? getRoundLabel(selectedRound) : '未選擇輪次';
         const printedAt = _formatDateTime(Date.now());
@@ -2302,7 +2316,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                         onClick={() => setStatsTab('item')}
                         className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
                     >
-                        品項統計（數量）
+                        品項統計
                     </button>
                     <button
                         onClick={() => setStatsTab('floor')}
@@ -2314,17 +2328,39 @@ const StatsManager = ({ data, isLoading = false }) => {
 
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
-                        <h3 className="font-bold border-b pb-2">品項統計（數量）</h3>
+                        <h3 className="font-bold border-b pb-2">品項統計</h3>
                         {isLoading && (
                             <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
                                 <Loader size={16} className="animate-spin" />
                                 載入中...
                             </div>
                         )}
-                        {itemStats.map(([itemName, qty]) => (
-                            <div key={itemName} className="bg-white p-3 rounded-lg flex justify-between items-center text-sm">
-                                <span className="font-bold text-gray-700">{itemName}</span>
-                                <span className="font-black text-ac-green">x {qty}</span>
+                        {itemStats.map((stat) => (
+                            <div key={stat.name} className="bg-white p-3 rounded-lg text-sm">
+                                <div className="flex justify-between items-center gap-2">
+                                    <span className="font-bold text-gray-700">{stat.name}</span>
+                                    <span className="font-black text-ac-green whitespace-nowrap">x {stat.totalQty}</span>
+                                </div>
+                                {stat.notes.length > 0 && (
+                                    <div className="mt-2 pl-3 border-l-2 border-amber-200 flex flex-col gap-1">
+                                        {stat.notes.map((n) => (
+                                            <div key={n.note} className="flex justify-between items-center gap-2 text-xs">
+                                                <span style={{
+                                                    padding: '1px 6px',
+                                                    borderRadius: '999px',
+                                                    background: '#FEF3C7',
+                                                    color: '#B45309',
+                                                    border: '1px solid #FCD34D',
+                                                    fontWeight: 800,
+                                                    fontSize: '0.72rem',
+                                                }}>
+                                                    {n.note}
+                                                </span>
+                                                <span className="font-black text-ac-orange whitespace-nowrap">x {n.qty}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         {itemStats.length > 0 && (
@@ -2373,7 +2409,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                                                                     fontWeight: 800,
                                                                     fontSize: '0.72rem',
                                                                 }}>
-                                                                    備註：{_normalizeNote(item.note ?? item.remark ?? item.memo)}
+                                                                    {_normalizeNote(item.note ?? item.remark ?? item.memo)}
                                                                 </span>
                                                             )}
                                                         </span>
