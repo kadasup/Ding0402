@@ -30,6 +30,11 @@ function doPost(e) {
     return handleResponse({ error: "GAS JSON parse error: " + err.toString() });
   }
 
+  // LINE webhook payload does not contain "action"; handle it before action switch.
+  if (params && Array.isArray(params.events)) {
+    return handleLineWebhook(params);
+  }
+
   var action = params.action;
 
   switch (action) {
@@ -425,6 +430,123 @@ function doPost(e) {
   }
 }
 
+function handleLineWebhook(payload) {
+  var events = (payload && Array.isArray(payload.events)) ? payload.events : [];
+  if (!events.length) {
+    return handleResponse({ success: true, webhook: true, events: 0 });
+  }
+
+  var config = getLineNotifyConfig();
+  var results = [];
+
+  for (var i = 0; i < events.length; i++) {
+    var event = events[i] || {};
+    var source = event.source || {};
+    var sourceType = String(source.type || "").toLowerCase();
+    var groupId = source.groupId ? String(source.groupId) : "";
+    var userId = source.userId ? String(source.userId) : "";
+
+    // Capture latest IDs to Script Properties for easier setup/debugging.
+    if (groupId) {
+      // Keep "last seen" only; do not overwrite target group routing automatically.
+      PropertiesService.getScriptProperties().setProperty("LINE_LAST_GROUP_ID", groupId);
+    }
+    if (userId) {
+      PropertiesService.getScriptProperties().setProperty("LINE_LAST_USER_ID", userId);
+    }
+
+    var isTextMessage = event.type === "message" &&
+      event.message &&
+      event.message.type === "text";
+    var text = isTextMessage ? String(event.message.text || "") : "";
+    var shouldReplyId = isTextMessage && isLineIdQueryText(text);
+
+    if (!shouldReplyId) {
+      results.push({ handled: false, reason: "not_id_query", type: event.type || "" });
+      continue;
+    }
+
+    if (!event.replyToken) {
+      results.push({ handled: false, reason: "missing_reply_token" });
+      continue;
+    }
+    if (event.replyToken === "00000000000000000000000000000000") {
+      results.push({ handled: false, reason: "invalid_reply_token" });
+      continue;
+    }
+
+    var replyText = buildLineIdQueryReplyText(event, config);
+    var replyResult = replyLineTextMessage(event.replyToken, replyText, config.channelAccessToken);
+    results.push(replyResult);
+  }
+
+  return handleResponse({
+    success: true,
+    webhook: true,
+    events: events.length,
+    results: results
+  });
+}
+
+function isLineIdQueryText(text) {
+  var t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  if (t === "id" || t === "查id" || t === "查詢id") return true;
+  if (t === "group id" || t === "groupid") return true;
+  if (t.indexOf("查詢") === 0 && t.indexOf("id") > -1) return true;
+  return false;
+}
+
+function buildLineIdQueryReplyText(event, config) {
+  var source = event && event.source ? event.source : {};
+  var lines = [
+    "ID 查詢結果",
+    "source.type: " + (source.type || "(unknown)"),
+    "userId: " + (source.userId || "(none)"),
+    "groupId: " + (source.groupId || "(none)"),
+    "roomId: " + (source.roomId || "(none)"),
+    "目前 targetId: " + (config && config.targetId ? config.targetId : "(none)"),
+    "目前 targetGroupId: " + (config && config.targetGroupId ? config.targetGroupId : "(none)")
+  ];
+  return lines.join("\n");
+}
+
+function replyLineTextMessage(replyToken, text, accessToken) {
+  if (!accessToken) return { handled: false, reason: "missing_line_access_token" };
+
+  var payload = {
+    replyToken: replyToken,
+    messages: [{
+      type: "text",
+      text: String(text || "").slice(0, 5000)
+    }]
+  };
+
+  try {
+    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        Authorization: "Bearer " + accessToken
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return { handled: true, replied: true, code: code };
+    }
+    return {
+      handled: true,
+      replied: false,
+      code: code,
+      error: response.getContentText()
+    };
+  } catch (err) {
+    return { handled: true, replied: false, error: err.toString() };
+  }
+}
+
 function getData() {
   return getDataSections(["all"]);
 }
@@ -681,15 +803,35 @@ function updateWorksheetObject(sheetName, key, obj) {
 
 function getLineNotifyConfig() {
   var props = PropertiesService.getScriptProperties();
-  var channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || "";
-  var channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || "";
+  var defaultLineChannelId = "2009874004";
+  var defaultLineChannelSecret = "9a49c93e2928963dbbf41d9026cf82fb";
+  var defaultLineAccessToken = "kXB5wiPsMqfZYOO+Mu6m901rThcv4843XoDth05Wo/CXTUSLLrTqrTfHLtgpP2566SQymqiffyHLfB1/ddU6xgLFY6IqJY4NfmsoEZkQYAo5EuZP1fNGNubwLRClzRjx7XGECTLPbJaYq5OQt8UsgwdB04t89/1O/w1cDnyilFU=";
+
+  // Use the hardcoded channel by default to avoid stale Script Properties overriding it.
+  var channelId = defaultLineChannelId;
+  var channelAccessToken = defaultLineAccessToken;
+  var channelSecret = defaultLineChannelSecret;
+  var useScriptProperties = String(props.getProperty("LINE_USE_SCRIPT_PROPERTIES") || "").trim().toUpperCase() === "TRUE";
+  if (useScriptProperties) {
+    channelId = props.getProperty("LINE_CHANNEL_ID") || channelId;
+    channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || channelAccessToken;
+    channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || channelSecret;
+  }
+  // Option 2: always prefer Script Properties group routing; fallback to default group ID.
+  var targetUserId = props.getProperty("LINE_TARGET_USER_ID") || props.getProperty("LINE_USER_ID") || "";
   var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || "";
   var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
+  var normalizedTargetUserId = String(targetUserId || "").trim();
+  var normalizedTargetGroupId = String(targetGroupId || "").trim();
+  var targetId = normalizedTargetGroupId;
 
   return {
+    channelId: String(channelId || "").trim(),
     channelAccessToken: String(channelAccessToken || "").trim(),
     channelSecret: String(channelSecret || "").trim(),
-    targetGroupId: String(targetGroupId || "").trim(),
+    targetUserId: normalizedTargetUserId,
+    targetGroupId: normalizedTargetGroupId,
+    targetId: targetId,
     appFrontendUrl: String(appFrontendUrl || "").trim()
   };
 }
@@ -725,14 +867,14 @@ function sendLineMenuStatusNotification(status, menu) {
   try {
     var config = getLineNotifyConfig();
     if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
-    if (!config.targetGroupId) return { sent: false, skipped: true, reason: "missing_line_target_group_id" };
+    if (!config.targetId) return { sent: false, skipped: true, reason: "missing_line_target_id" };
 
     var menuData = menu || {};
     var flex = buildMenuStatusFlexMessage(status, menuData, config.appFrontendUrl);
     if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "invalid_flex_payload" };
 
     var payload = {
-      to: config.targetGroupId,
+      to: config.targetId,
       messages: [{
         type: "flex",
         altText: flex.altText,
@@ -1060,13 +1202,13 @@ function sendLineCloseSummaryNotification(menu) {
   try {
     var config = getLineNotifyConfig();
     if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
-    if (!config.targetGroupId) return { sent: false, skipped: true, reason: "missing_line_target_group_id" };
+    if (!config.targetId) return { sent: false, skipped: true, reason: "missing_line_target_id" };
 
     var flex = buildLineCloseSummaryFlexMessage(menu || {}, config.appFrontendUrl);
     if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "no_orders_for_summary" };
 
     var payload = {
-      to: config.targetGroupId,
+      to: config.targetId,
       messages: [{
         type: "flex",
         altText: flex.altText,
