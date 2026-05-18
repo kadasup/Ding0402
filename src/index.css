@@ -374,7 +374,6 @@ body {
   color: var(--ac-text);
   border: 2px solid #fff;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-  transform: rotate(-1deg);
   padding: 5px 18px;
 }
 
