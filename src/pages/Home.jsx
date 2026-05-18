@@ -435,65 +435,31 @@ const Home = () => {
             {isMobileViewport && (
             <div className="px-4">
                 <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
-                    <Link
-                        to="/guide"
-                        className="hover:scale-105 active:scale-95 transition-all"
-                        title="操作說明"
-                    >
-                        <Button
-                            variant="secondary"
-                            className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
-                            style={{ backgroundColor: '#FFB84D', color: '#FFF' }}
-                        >
-                            <HelpCircle size={16} />
-                            <span className="font-bold tracking-wide">操作說明</span>
-                        </Button>
+                    <Link to="/guide" className="ac-float-link-inline ac-float-link-inline--guide" title="操作說明">
+                        <HelpCircle size={14} />
+                        <span>操作說明</span>
                     </Link>
                     {canSeeAdminPortal && (
-                        <Link
-                            to="/admin"
-                            className="hover:scale-105 active:scale-95 transition-all"
-                            title="管理後台"
-                        >
-                            <Button
-                                variant="secondary"
-                                className="px-3 py-2 rounded-full shadow-md border-2 border-white flex items-center gap-1.5 text-sm"
-                            >
-                                <Lock size={16} />
-                                <span className="font-bold tracking-wide">管理</span>
-                            </Button>
+                        <Link to="/admin" className="ac-float-link-inline ac-float-link-inline--admin" title="管理後台">
+                            <Lock size={14} />
+                            <span>管理</span>
                         </Link>
                     )}
                 </div>
             </div>
             )}
-            {/* Admin Portal Entry (Fixed to avoid overlap) */}
-            {!isMobileViewport && canSeeAdminPortal && (
-                <Link 
-                    to="/admin" 
-                    className="ac-admin-link hover:scale-105 active:scale-95 transition-all"
-                    style={{ position: 'fixed', top: '24px', right: '24px', left: 'auto', zIndex: 99999, opacity: 0.8 }}
-                    title="進入後台"
-                >
-                    <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2">
-                        <Lock size={18} /> 
-                        <span className="font-bold tracking-widest">管理後台</span>
-                    </Button>
+
+            {/* Desktop floating corner buttons */}
+            {!isMobileViewport && (
+                <Link to="/guide" className="ac-float-link ac-float-link--left ac-float-link--guide" title="操作說明">
+                    <HelpCircle size={16} />
+                    <span>操作說明</span>
                 </Link>
             )}
-
-            {/* Guide Entry */}
-            {!isMobileViewport && (
-                <Link 
-                    to="/guide" 
-                    className="hover:scale-105 active:scale-95 transition-all"
-                    style={{ position: 'fixed', top: '24px', left: '24px', right: 'auto', zIndex: 99999, opacity: 0.8 }}
-                    title="操作說明"
-                >
-                    <Button variant="secondary" className="px-5 py-2.5 rounded-full shadow-lg border-2 border-white flex items-center gap-2" style={{ backgroundColor: '#FFB84D', color: '#FFF' }}>
-                        <HelpCircle size={18} /> 
-                        <span className="font-bold tracking-widest">操作說明</span>
-                    </Button>
+            {!isMobileViewport && canSeeAdminPortal && (
+                <Link to="/admin" className="ac-float-link ac-float-link--right ac-float-link--admin" title="進入後台">
+                    <Lock size={16} />
+                    <span>管理後台</span>
                 </Link>
             )}
 
@@ -920,16 +886,16 @@ const Home = () => {
                                 <div style={{
                                     borderRadius: isMobileViewport ? '22px 22px 0 0' : '22px',
                                     overflow: 'hidden',
-                                    border: '2.5px solid #2D3A6A',
-                                    borderBottom: isMobileViewport ? 'none' : '2.5px solid #2D3A6A',
-                                    boxShadow: '0 16px 48px rgba(20,30,80,0.28), 0 4px 12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.9)',
+                                    border: '2.5px solid #469cb0',
+                                    borderBottom: isMobileViewport ? 'none' : '2.5px solid #469cb0',
+                                    boxShadow: '0 16px 48px rgba(70,156,176,0.22), 0 4px 12px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9)',
                                     background: '#FAFAF8',
                                 }}>
 
                                     {/* ── 頭部 ── */}
                                     <div
                                         style={{
-                                            background: 'linear-gradient(135deg, #1E2D6B 0%, #2E4DA0 55%, #3B63C4 100%)',
+                                            background: 'linear-gradient(135deg, #469cb0 0%, #5FCDE4 55%, #8EE0EE 100%)',
                                             padding: '12px 16px',
                                             cursor: 'pointer',
                                             display: 'flex',
@@ -975,8 +941,8 @@ const Home = () => {
                                     {/* ── 成員名稱列 ── */}
                                     <div style={{
                                         padding: '8px 14px',
-                                        background: 'linear-gradient(180deg, #EEF2FF 0%, #F5F7FF 100%)',
-                                        borderBottom: '1.5px solid #C7D2FE',
+                                        background: 'linear-gradient(180deg, #EAF6FF 0%, #F2FAFF 100%)',
+                                        borderBottom: '1.5px solid #B9E3FF',
                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px',
                                     }}>
                                         <span style={{
@@ -1006,7 +972,7 @@ const Home = () => {
                                     <div style={{ padding: '8px 12px', background: '#FAFAF8' }}>
                                         <div style={{
                                             borderRadius: '12px',
-                                            background: 'linear-gradient(135deg, #1E2D6B 0%, #2E4DA0 100%)',
+                                            background: 'linear-gradient(135deg, #469cb0 0%, #5FCDE4 100%)',
                                             padding: '8px 12px',
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1035,7 +1001,7 @@ const Home = () => {
                                             </div>
                                             {myTodayOrders.length > 0 && (
                                                 <>
-                                                    <div style={{ fontSize: '0.82rem', fontWeight: 900, marginTop: '4px', color: '#C7D2FE' }}>
+                                                    <div style={{ fontSize: '0.82rem', fontWeight: 900, marginTop: '4px', color: '#EAF6FF' }}>
                                                         已點 {myTodayOrders.length} 筆，應繳 <span style={{ color: '#FCD34D' }}>${myTodayTotal}</span>
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
@@ -1059,14 +1025,14 @@ const Home = () => {
                                         <div className="animate-slide-up" style={{
                                             padding: '8px 12px',
                                             maxHeight: '38vh', overflowY: 'auto',
-                                            background: '#F8F6FF',
-                                            borderTop: '1.5px solid #E0E7FF',
+                                            background: '#F0F9FC',
+                                            borderTop: '1.5px solid #C7E7F0',
                                             display: 'flex', flexDirection: 'column', gap: '6px',
                                         }}>
                                             <div style={{
                                                 fontSize: '0.68rem', fontWeight: 800,
-                                                color: '#4338CA', background: '#EEF2FF',
-                                                border: '1px solid #C7D2FE',
+                                                color: '#0F766E', background: '#EAF6FF',
+                                                border: '1px solid #B9E3FF',
                                                 borderRadius: '8px', padding: '4px 10px',
                                             }}>
                                                 本次待送出：{cart.length} 項{hasOrderedInCurrentRound ? '（加點）' : ''}
@@ -1075,11 +1041,11 @@ const Home = () => {
                                                 <div key={idx} style={{
                                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                                     padding: '8px 10px', borderRadius: '12px',
-                                                    background: '#fff', border: '1.5px solid #E0E7FF',
-                                                    boxShadow: '0 1px 4px rgba(67,56,202,0.06)',
+                                                    background: '#fff', border: '1.5px solid #C7E7F0',
+                                                    boxShadow: '0 1px 4px rgba(70,156,176,0.06)',
                                                 }}>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#1E2D6B' }}>{item.name}</span>
+                                                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0F5E6E' }}>{item.name}</span>
                                                         {item.note && (
                                                             <span style={{ fontSize: '0.72rem', color: '#64748B' }}>備註：{item.note}</span>
                                                         )}
@@ -1139,7 +1105,7 @@ const Home = () => {
                                             padding: '10px 14px', textAlign: 'center',
                                             fontSize: '0.78rem', fontWeight: 600,
                                             color: '#94A3B8', background: '#FAFAF8',
-                                            borderTop: '1.5px solid #E0E7FF',
+                                            borderTop: '1.5px solid #C7E7F0',
                                         }}>
                                             {myTodayOrders.length > 0 ? '想加點？點選菜單即可加入' : '點選菜單上的餐點開始點餐'}
                                         </div>
@@ -1152,7 +1118,8 @@ const Home = () => {
 
                     <Modal isOpen={showConfirmModal} onClose={() => { if (isSubmittingOrder) return; setShowConfirmModal(false); }}>
                         <div className="flex flex-col items-center gap-4 text-center animate-pop w-full max-w-lg">
-                            <h3 className="text-xl font-bold text-ac-brown">確認下單</h3>
+                            <div className="ac-icon-ring ac-icon-ring--info">📨</div>
+                            <h3 className="text-xl font-black text-ac-brown m-0">確認下單</h3>
                             <div className="w-full bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-left">
                                 <div className="text-xs font-black text-ac-orange tracking-widest mb-1">本次下單成員</div>
                                 <div className="text-xl font-black text-ac-brown">{selectedMember || '-'}</div>
@@ -1202,11 +1169,14 @@ const Home = () => {
                     </Modal>
 
                     <Modal isOpen={!!pendingCartItem} onClose={() => { setPendingCartItem(null); setCartItemNote(''); }}>
-                        <div className="flex flex-col gap-4 text-left animate-pop w-full max-w-lg">
-                            <h3 className="text-xl font-bold text-ac-brown">加入購物車</h3>
-                            <div className="w-full border rounded-xl px-4 py-3" style={{ backgroundColor: '#FFF8E7', borderColor: '#F4C86A' }}>
-                                <div className="text-base font-black text-ac-brown">{pendingCartItem?.name || '-'}</div>
-                                <div className="text-sm font-bold text-ac-orange mt-1">${pendingCartItem?.price ?? '-'}</div>
+                        <div className="flex flex-col gap-4 animate-pop w-full max-w-lg">
+                            <div className="flex flex-col items-center text-center">
+                                <div className="ac-icon-ring ac-icon-ring--bento">🍱</div>
+                                <h3 className="text-xl font-black text-ac-brown m-0">加入購物車</h3>
+                            </div>
+                            <div className="ac-modal-item-preview">
+                                <span className="ac-modal-item-name">{pendingCartItem?.name || '-'}</span>
+                                <span className="ac-modal-item-price">${pendingCartItem?.price ?? '-'}</span>
                             </div>
                             <div className="w-full">
                                 <label htmlFor="cart-note" className="block text-sm font-bold text-ac-brown mb-1">備註（最多15字）</label>
@@ -1233,15 +1203,15 @@ const Home = () => {
                     </Modal>
 
                     <Modal isOpen={successModal} onClose={() => setSuccessModal(false)}>
-                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
-                            <h3 className="text-xl font-bold text-ac-brown">下單成功</h3>
-                            <div className="text-4xl animate-bounce">🍃</div>
-                            <p className="text-ac-text leading-relaxed">
+                        <div className="flex flex-col items-center gap-3 text-center animate-pop">
+                            <div className="ac-icon-ring ac-icon-ring--success">✅</div>
+                            <h3 className="text-xl font-black text-ac-brown m-0">已成功下單！</h3>
+                            <p className="text-ac-text leading-relaxed text-sm m-0">
                                 你的餐點已經送出。<br />
                                 可以到本輪已點區塊確認內容。
                             </p>
-                            <Button onClick={handleSuccessConfirm}>
-                                點我看明細
+                            <Button onClick={handleSuccessConfirm} className="w-full justify-center mt-1">
+                                看本輪已點
                             </Button>
                         </div>
                     </Modal>
@@ -1296,18 +1266,18 @@ const Home = () => {
                     </Modal>
 
                     <Modal isOpen={deleteModal} onClose={() => setDeleteModal(false)}>
-                        <div className="flex flex-col items-center gap-4 text-center animate-pop">
-                            <h3 className="text-xl font-bold text-ac-brown">取消訂單</h3>
-                            <p className="text-ac-text leading-relaxed">
-                                確定要取消這筆訂單嗎？<br />
-                                <span className="text-sm text-gray-500">(這筆訂單會直接刪除喔)</span>
+                        <div className="flex flex-col items-center gap-3 text-center animate-pop">
+                            <div className="ac-icon-ring ac-icon-ring--danger">❓</div>
+                            <h3 className="text-xl font-black text-ac-brown m-0">確定取消這筆訂單？</h3>
+                            <p className="text-ac-text leading-relaxed text-sm m-0">
+                                取消後可以再次從菜單下單。
                             </p>
-                            <div className="flex gap-4">
-                                <Button variant="secondary" onClick={() => setDeleteModal(false)}>
-                                    再想想
+                            <div className="flex gap-3 w-full mt-1">
+                                <Button variant="secondary" onClick={() => setDeleteModal(false)} className="flex-1 justify-center">
+                                    留著
                                 </Button>
-                                <Button variant="danger" onClick={confirmDelete}>
-                                    確定刪除
+                                <Button variant="danger" onClick={confirmDelete} className="flex-1 justify-center">
+                                    取消這筆
                                 </Button>
                             </div>
                         </div>
