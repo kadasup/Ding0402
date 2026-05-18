@@ -528,20 +528,18 @@ const Home = () => {
                 <DialogBox title="選擇角色" className="overflow-visible">
                     <div className="flex flex-col items-center gap-4 py-4 relative z-10 w-full">
                         {selectedMember && (
-                            <div className="w-full max-w-md bg-white border-2 border-ac-orange rounded-2xl px-4 py-3 shadow-sm">
-                                <div className="text-xs font-black text-ac-orange tracking-widest mb-1">您已選擇：</div>
-                                <div className="flex items-center justify-between gap-3">
-                                    <div className="text-2xl font-black text-ac-brown leading-tight">{selectedMember}</div>
-                                    <button
-                                        type="button"
-                                        onClick={() => openMemberSelector(true)}
-                                        className="shrink-0 px-3 py-1.5 rounded-full border-2 border-ac-orange text-ac-orange bg-white font-black text-sm hover:bg-orange-100 transition-colors"
-                                    >
+                            <div className="ac-selected-tile-wrap w-full max-w-md flex flex-col gap-2">
+                                <div className="ac-selected-tile">
+                                    <div className="ac-selected-tile-info">
+                                        <div className="ac-selected-tile-lbl">您已選擇：</div>
+                                        <div className="ac-selected-tile-name">{selectedMember}</div>
+                                    </div>
+                                    <Button variant="warn" onClick={() => openMemberSelector(true)} className="ac-btn sm">
                                         切換角色
-                                    </button>
+                                    </Button>
                                 </div>
                                 {showSwitchFeedback && (
-                                    <div className="mt-2 text-xs font-black text-ac-blue bg-blue-50 border border-blue-200 rounded-full px-3 py-1 inline-block">
+                                    <div className="text-xs font-black text-ac-blue bg-blue-50 border border-blue-200 rounded-full px-3 py-1 inline-block">
                                         已開啟成員選單，請在下方選擇
                                     </div>
                                 )}
@@ -571,14 +569,12 @@ const Home = () => {
                                                         handleMemberLogin('');
                                                     }
                                                 }}
-                                                className="whitespace-nowrap px-3 py-2 rounded-full border leading-none font-black transition-all"
+                                                className="floor-chip whitespace-nowrap leading-none font-black transition-all"
+                                                data-active={selectedFloor === floor ? 'true' : 'false'}
                                                 style={{
                                                     flex: 1,
                                                     minWidth: 72,
                                                     fontSize: isMobileViewport ? '1rem' : '1.125rem',
-                                                    background: selectedFloor === floor ? '#EAF6FF' : '#fff',
-                                                    borderColor: selectedFloor === floor ? '#5FCDE4' : '#E5E7EB',
-                                                    color: selectedFloor === floor ? '#0F766E' : '#4B5563',
                                                 }}
                                             >
                                                 {floor}
@@ -589,13 +585,12 @@ const Home = () => {
 
                                 {membersByFloor.length > 0 ? (
                                     <>
-                                        <ul className="grid grid-cols-2 gap-2 p-2" style={{ listStyle: 'none', margin: 0 }}>
+                                        <ul className="grid grid-cols-2 gap-2.5 p-3" style={{ listStyle: 'none', margin: 0 }}>
                                             {pagedMembers.map((m) => (
                                                 <li
                                                     key={m}
-                                                    className={`px-3 py-2 rounded-lg hover:bg-[#FFF8E7] cursor-pointer text-ac-brown font-bold text-center border border-gray-100 ${
-                                                        selectedMember === m ? 'bg-[#FFF8E7] border-ac-green' : 'bg-white'
-                                                    }`}
+                                                    className="member-chip"
+                                                    data-active={selectedMember === m ? 'true' : 'false'}
                                                     onClick={() => handleMemberLogin(m)}
                                                 >
                                                     {m}
@@ -604,22 +599,17 @@ const Home = () => {
                                         </ul>
 
                                         {memberTotalPages > 1 && (
-                                            <div className="flex items-center justify-between px-3 py-2 border-t bg-[#F8FAFC]">
+                                            <div className="ac-pager">
                                                 <button
                                                     type="button"
                                                     onClick={() => setMemberPage((prev) => Math.max(0, prev - 1))}
                                                     disabled={safeMemberPage === 0}
-                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
-                                                    style={{
-                                                        opacity: safeMemberPage === 0 ? 0.45 : 1,
-                                                        cursor: safeMemberPage === 0 ? 'not-allowed' : 'pointer',
-                                                        background: '#fff',
-                                                    }}
+                                                    className="ac-pager-btn"
                                                 >
                                                     上一頁
                                                 </button>
 
-                                                <span className="text-xs font-bold text-gray-500">
+                                                <span className="ac-pager-label">
                                                     {safeMemberPage + 1} / {memberTotalPages}
                                                 </span>
 
@@ -627,12 +617,7 @@ const Home = () => {
                                                     type="button"
                                                     onClick={() => setMemberPage((prev) => Math.min(memberTotalPages - 1, prev + 1))}
                                                     disabled={safeMemberPage >= memberTotalPages - 1}
-                                                    className="px-3 py-1 rounded-full border text-sm font-bold"
-                                                    style={{
-                                                        opacity: safeMemberPage >= memberTotalPages - 1 ? 0.45 : 1,
-                                                        cursor: safeMemberPage >= memberTotalPages - 1 ? 'not-allowed' : 'pointer',
-                                                        background: '#fff',
-                                                    }}
+                                                    className="ac-pager-btn"
                                                 >
                                                     下一頁
                                                 </button>
@@ -667,13 +652,13 @@ const Home = () => {
                 <>
                     {/* Shop Closed Message (Shown if not posted) */}
                     {!data.menu.posted && (
-                        <div className="max-w-3xl mx-auto w-full">
-                            <div className="py-16 text-center bg-white rounded-3xl border-2 border-dashed border-gray-300" style={{ opacity: 0.8 }}>
-                                <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
-                                    <img src={leafIcon} alt="動森葉子圖示" className="w-9 h-9 opacity-90" />
+                        <div className="max-w-3xl mx-auto w-full animate-pop">
+                            <div className="ac-panel ac-empty-panel">
+                                <div className="ac-empty-leaf">
+                                    <img src={leafIcon} alt="leaf" />
                                 </div>
-                                <h2 className="text-2xl font-black text-ac-brown mb-2" style={{ letterSpacing: '0.1em' }}>今日尚未開放點餐</h2>
-                                <p className="text-gray-400 font-medium">請等待管理員上架菜單！</p>
+                                <h2 className="ac-empty-title">今日尚未開放點餐</h2>
+                                <p className="ac-empty-hint">請等待管理員上架菜單！</p>
                             </div>
                         </div>
                     )}
@@ -788,47 +773,31 @@ const Home = () => {
                                 
                                 {/* Integrated Most Popular Section */}
                                 {!hasNoOrderInCurrentRound && (
-                                    <div className="mt-12 pt-8 border-t-2 border-dashed border-gray-300 w-full animate-pop">
-                                        <div className="rounded-2xl border-2 border-[#F4C86A] px-4 py-4" style={{ backgroundColor: '#FFF8E7' }}>
-                                            <div className="flex justify-center mb-4">
-                                                <div className="bg-hot-yellow text-ac-brown px-6 py-1 rounded-full shadow-md border-2 border-white transform -rotate-1">
-                                                    <span className="font-black text-sm tracking-widest leading-none block whitespace-nowrap">最多人點 🔥</span>
-                                                </div>
+                                    <div className="mt-10 pt-6 border-t-2 border-dashed border-gray-300 w-full animate-pop">
+                                        <div className="popular-wrap">
+                                            <div className="popular-header">
+                                                <span className="ac-pill hot">最多人點 🔥</span>
                                             </div>
-                                            <div className="flex flex-wrap justify-center gap-4">
+                                            <div className="popular-chips">
                                                 {mostPopularItems.map((name) => {
                                                     const menuItem = (data.menu.items || []).find(i => {
                                                         const menuName = i.name.trim().toLowerCase();
                                                         const popName = name.trim().toLowerCase();
-                                                        
-                                                        // Exact after normalization
                                                         if (menuName.replace(/\s/g, '') === popName.replace(/\s/g, '')) return true;
-                                                        
-                                                        // Partial match as fallback
                                                         if (menuName.includes(popName) || popName.includes(menuName)) return true;
-                                                        
                                                         return false;
                                                     });
                                                     return (
-                                                        <button 
-                                                            key={name} 
+                                                        <button
+                                                            key={name}
+                                                            type="button"
                                                             onClick={() => selectedMember && menuItem && openAddToCartModal(menuItem)}
-                                                            className={`
-                                                                group relative flex flex-col items-center justify-center
-                                                                min-w-[100px] px-4 py-2.5 rounded-xl border-2 transition-all duration-300
-                                                                ${selectedMember 
-                                                                    ? 'cursor-pointer hover:bg-orange-50 hover:border-ac-orange hover:-translate-y-1 shadow-sm hover:shadow-md' 
-                                                                    : 'cursor-default opacity-90'}
-                                                                bg-white border-orange-100/30
-                                                            `}
+                                                            className="popular-chip"
+                                                            disabled={!selectedMember}
                                                         >
-                                                            <span className="text-base font-black text-ac-brown whitespace-nowrap">
-                                                                {name}
-                                                            </span>
+                                                            <span>{name}</span>
                                                             {selectedMember && (
-                                                                <span className="text-[9px] font-black text-ac-orange mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    點我加點 +
-                                                                </span>
+                                                                <span className="popular-chip-hint">點我加點 +</span>
                                                             )}
                                                         </button>
                                                     );

@@ -4,24 +4,21 @@ import { createPortal } from 'react-dom';
 export const DialogBox = ({ children, title, color = 'var(--ac-panel)', className = '' }) => {
     return (
         <div className={`ac-panel ${className}`} style={{ background: color }}>
-            {title && (
-                <div className="w-full text-white py-2.5 text-center mb-6 rounded-full" style={{ background: 'linear-gradient(135deg, #78B159 0%, #6BA34D 100%)', boxShadow: '0 3px 0 #5a8c42, 0 4px 8px rgba(0,0,0,0.1)' }}>
-                    <span className="font-black text-xl" style={{ letterSpacing: '0.15em' }}>{title}</span>
-                </div>
-            )}
-            <div>
-                {children}
-            </div>
+            {title && <div className="ac-panel-title">{title}</div>}
+            <div>{children}</div>
         </div>
     );
 };
 
 export const Button = ({ children, onClick, variant = 'primary', className = '', ...props }) => {
-    const baseClass = "ac-btn";
-    const variantClass = variant === 'secondary' ? 'secondary' : variant === 'danger' ? 'danger' : '';
+    const variantClass =
+        variant === 'secondary' ? 'secondary'
+        : variant === 'warn' ? 'warn'
+        : variant === 'danger' ? 'danger'
+        : '';
 
     return (
-        <button className={`${baseClass} ${variantClass} ${className}`} onClick={onClick} {...props}>
+        <button className={`ac-btn ${variantClass} ${className}`} onClick={onClick} {...props}>
             {children}
         </button>
     );

@@ -229,20 +229,21 @@ const Admin = () => {
 
     return (
         <div className="max-w-5xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 px-2">
-            <div className="flex items-center gap-2">
-                <img src={leafIcon} className="w-8 h-8 opacity-80" />
-                <h1 className="text-2xl sm:text-3xl font-bold text-ac-green underline decoration-dashed decoration-2 underline-offset-8">
-                    管理後台
-                </h1>
+        <div className="admin-header">
+            <div className="admin-header-brand">
+                <div className="admin-header-leaf">
+                    <img src={leafIcon} alt="leaf" />
+                </div>
+                <div className="admin-header-text">
+                    <span className="eyebrow">DING BENTO · ADMIN</span>
+                    <h1 className="admin-header-title">管理後台</h1>
+                </div>
             </div>
-            <div className="w-full sm:w-auto flex justify-center">
-                <Link to="/" className="w-full sm:w-auto">
-                    <Button variant="secondary" className="w-full text-base sm:text-lg py-2.5 px-5 shadow-sm font-bold">
-                        <ArrowLeft size={18} /> 返回前台
-                    </Button>
-                </Link>
-            </div>
+            <Link to="/" className="admin-header-back">
+                <Button variant="secondary" className="px-5 py-2.5">
+                    <ArrowLeft size={18} /> 返回前台
+                </Button>
+            </Link>
         </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -263,8 +264,9 @@ const Admin = () => {
                                 if ((data?.menuLibrary || []).length > 0) return;
                                 void fetchLibraryData();
                             }}
-                            className={`text-left px-5 py-4 rounded-xl font-black flex items-center gap-3 transition-all animate-pop ${activeTab === tab.id ? 'bg-ac-green text-white shadow-md transform scale-105' : 'bg-white hover-bg-leaf-light'}`}
-                            style={{ animationDelay: `${idx * 0.05}s`, fontSize: '1.05rem', letterSpacing: '0.08em' }}
+                            className="admin-tab animate-pop"
+                            data-active={activeTab === tab.id ? 'true' : 'false'}
+                            style={{ animationDelay: `${idx * 0.05}s` }}
                         >
                             <tab.icon size={20} /> {tab.label}
                         </button>
@@ -701,40 +703,36 @@ const MenuManager = ({ data, actions }) => {
     return (
         <div className="flex flex-col gap-6 p-4">
             {/* Store Information Config (Read-only) */}
-            <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#ffffff', borderLeft: '4px solid var(--ac-green)' }}>
-                <div className="flex justify-between items-center border-b pb-3">
-                    <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                        店家資訊
-                    </h3>
+            <div className="ac-block ac-block--green">
+                <div className="ac-block-head">
+                    <span>店家資訊</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-green)' }}>店名</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.name || '(未填寫)'}</div>
+                        <span className="text-xs font-black mb-2 ml-1 tracking-wide uppercase" style={{ color: 'var(--ac-green)' }}>店名</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border text-base font-bold text-gray-700">{storeInfo.name || '(未填寫)'}</div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-blue)' }}>電話</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.phone || '(未填寫)'}</div>
+                        <span className="text-xs font-black mb-2 ml-1 tracking-wide uppercase" style={{ color: 'var(--ac-blue-deep)' }}>電話</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border text-base font-bold text-gray-700">{storeInfo.phone || '(未填寫)'}</div>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-sm font-black mb-2 ml-1 flex items-center gap-1" style={{ color: 'var(--ac-brown)' }}>地址</span>
-                        <div className="bg-gray-50 p-3 rounded-xl border shadow-sm text-base font-bold text-gray-700">{storeInfo.address || '(未填寫)'}</div>
+                        <span className="text-xs font-black mb-2 ml-1 tracking-wide uppercase" style={{ color: 'var(--ac-brown)' }}>地址</span>
+                        <div className="bg-gray-50 p-3 rounded-xl border text-base font-bold text-gray-700">{storeInfo.address || '(未填寫)'}</div>
                     </div>
                 </div>
             </div>
 
             {/* Original Menu Image for Verification */}
             {menuImage && (
-                <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#F7F7F5', borderLeft: '4px solid #B0BEC5' }}>
-                    <div className="flex justify-between items-center border-b pb-3">
-                        <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                            原始菜單圖片（核對用）
-                        </h3>
+                <div className="ac-block" style={{ borderLeftColor: '#B0BEC5' }}>
+                    <div className="ac-block-head">
+                        <span>原始菜單圖片（核對用）</span>
                     </div>
                     <div className="flex justify-center bg-gray-50 rounded-xl p-2 border overflow-hidden">
-                        <img 
-                            src={menuImage} 
-                            className="w-full h-auto object-contain max-h-[600px] rounded shadow-sm" 
+                        <img
+                            src={menuImage}
+                            className="w-full h-auto object-contain max-h-[600px] rounded shadow-sm"
                             alt="Original Menu"
                             loading="lazy"
                             decoding="async"
@@ -746,16 +744,14 @@ const MenuManager = ({ data, actions }) => {
             )}
 
             {/* Menu Items List - Read Only */}
-            <div className="p-6 rounded-2xl border shadow-sm flex flex-col gap-4" style={{ background: '#FFFBE6', borderLeft: '4px solid #F59E0B' }}>
-                <div className="flex justify-between items-center border-b pb-3">
-                    <h3 className="text-xl font-black text-ac-brown flex items-center gap-2">
-                        當前品項清單 ({draftItems.length})
-                    </h3>
+            <div className="ac-block ac-block--orange">
+                <div className="ac-block-head">
+                    <span>當前品項清單 ({draftItems.length})</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {draftItems.map((item, i) => (
-                        <div key={i} className="flex justify-between items-center bg-white p-3 rounded-xl border shadow-sm">
+                        <div key={i} className="flex justify-between items-center bg-white p-3 rounded-xl border">
                             <span className="font-bold text-gray-700">{item.name}</span>
                             <span className="font-black text-ac-green text-lg">${item.price}</span>
                         </div>
@@ -773,12 +769,14 @@ const MenuManager = ({ data, actions }) => {
             </div>
 
             {/* Closing Time Setting */}
-            <div className="p-5 rounded-2xl border shadow-sm flex flex-col items-center gap-4" style={{ background: '#EFF6FF', borderLeft: '4px solid #60A5FA' }}>
-                <div className="flex items-center gap-2">
-                    <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg">
-                        <Clock size={18} />
+            <div className="ac-block ac-block--blue">
+                <div className="ac-block-head">
+                    <span className="flex items-center gap-2">
+                        <span className="p-1.5 bg-blue-100 text-blue-600 rounded-lg inline-flex">
+                            <Clock size={16} />
+                        </span>
+                        結單時間設定
                     </span>
-                    <span className="font-black text-gray-800 text-base">結單時間設定</span>
                 </div>
                 
                 <div className="flex flex-col sm:flex-row justify-center items-center gap-4 w-full">
@@ -830,13 +828,15 @@ const MenuManager = ({ data, actions }) => {
             </div>
 
             {/* Today's Remark Setting */}
-            <div className="p-5 rounded-2xl border shadow-sm flex flex-col gap-3" style={{ background: '#FFF7ED', borderLeft: '4px solid #FDBA74' }}>
-                <span className="font-black text-gray-800 text-base flex items-center gap-2">今日備註 / 公告</span>
-                <textarea 
-                    className="ac-input text-sm min-h-[80px]" 
-                    placeholder="請輸入今天的補充資訊（例如：最晚 11:30 前下單）" 
-                    value={menuRemark} 
-                    onChange={e => setMenuRemark(e.target.value)} 
+            <div className="ac-block ac-block--amber">
+                <div className="ac-block-head">
+                    <span>📢 今日備註 / 公告</span>
+                </div>
+                <textarea
+                    className="ac-textarea text-sm"
+                    placeholder="請輸入今天的補充資訊（例如：最晚 11:30 前下單）"
+                    value={menuRemark}
+                    onChange={e => setMenuRemark(e.target.value)}
                 />
             </div>
 
