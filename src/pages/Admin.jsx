@@ -1993,11 +1993,15 @@ const MemberManager = ({ data, actions }) => {
     };
 
     return (
-        <div className="p-4 flex flex-col gap-4">
+        <div className="p-1 flex flex-col gap-4">
+            <div className="ac-section-header">
+                <span className="ac-section-header-title">成員管理</span>
+                <span className="ac-section-header-sub">共 {(data.members || []).length} 位成員</span>
+            </div>
             <div className="flex gap-2">
                 <input
                     className="ac-input flex-grow"
-                    placeholder="輸入新成員名稱..."
+                    placeholder="輸入新成員名稱…（例：14樓 阿德）"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     onKeyDown={(e) => {
@@ -2015,9 +2019,9 @@ const MemberManager = ({ data, actions }) => {
                     <Plus size={16} /> {isAdding ? '新增中...' : '新增'}
                 </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {data.members.map(m => (
-                    <div key={m} className="bg-white p-3 rounded-xl flex justify-between items-center shadow-sm h-14">
+                    <div key={m} className="ac-member-cell">
                         {editingMember === m ? (
                             <div className="flex flex-grow gap-2 items-center w-full">
                                 <input
@@ -2030,21 +2034,21 @@ const MemberManager = ({ data, actions }) => {
                                         if (e.key === 'Escape') cancelEdit();
                                     }}
                                 />
-                                <button onClick={() => saveEdit(m)} className="text-green-500 hover:text-green-700 bg-green-50 p-1.5 rounded-lg flex-shrink-0 transition-colors"><Check size={18} /></button>
-                                <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 bg-gray-100 p-1.5 rounded-lg flex-shrink-0 transition-colors"><X size={18} /></button>
+                                <button onClick={() => saveEdit(m)} className="ac-icon-btn ac-icon-btn--ok" title="儲存"><Check size={18} /></button>
+                                <button onClick={cancelEdit} className="ac-icon-btn ac-icon-btn--neutral" title="取消"><X size={18} /></button>
                             </div>
                         ) : (
                             <>
-                                <span className="font-bold truncate mr-2">{m}</span>
+                                <span className="ac-member-name">{m}</span>
                                 <div className="flex gap-2 flex-shrink-0">
-                                    <button onClick={() => startEdit(m)} className="text-ac-blue hover:text-blue-600 bg-blue-50 p-1.5 rounded-lg transition-colors"><Edit size={18} /></button>
+                                    <button onClick={() => startEdit(m)} className="ac-icon-btn ac-icon-btn--edit" title="編輯成員"><Edit size={16} /></button>
                                     <button
                                         onClick={() => void handleRemoveMember(m)}
                                         disabled={removingName === m}
-                                        className="text-red-400 hover:text-red-600 bg-red-50 p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="ac-icon-btn ac-icon-btn--danger"
                                         title={removingName === m ? '刪除中...' : '刪除成員'}
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
                             </>
@@ -2281,12 +2285,12 @@ const StatsManager = ({ data, isLoading = false }) => {
     };
 
     return (
-        <div id="admin-current-round" className="p-4 flex flex-col gap-6">
-            {/* Round Filter */}
-            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-                <span className="font-bold text-gray-600 shrink-0">選擇統計</span>
+        <div id="admin-current-round" className="p-1 flex flex-col gap-4">
+            {/* Round filter */}
+            <div className="ac-stats-filter">
+                <span className="ac-stats-filter-label">選擇統計</span>
                 <select
-                    className="ac-input py-1 flex-1 bg-white cursor-pointer"
+                    className="ac-stats-filter-select"
                     value={effectiveRoundKey}
                     onChange={(e) => setSelectedRoundKey(e.target.value)}
                 >
@@ -2299,13 +2303,14 @@ const StatsManager = ({ data, isLoading = false }) => {
                 <Button
                     onClick={handlePrintStats}
                     variant="secondary"
-                    className="whitespace-nowrap py-1.5 px-3"
+                    className="ac-btn sm whitespace-nowrap"
                     disabled={roundOptions.length === 0}
                 >
-                    <Printer size={16} /> 列印
+                    <Printer size={14} /> 列印
                 </Button>
             </div>
-            <div ref={statsPrintRef} className="flex flex-col gap-6">
+
+            <div ref={statsPrintRef} className="flex flex-col gap-4">
                 {roundOptions.length === 0 && (
                     <EmptyState
                         icon={BarChart3}
@@ -2314,28 +2319,34 @@ const StatsManager = ({ data, isLoading = false }) => {
                     />
                 )}
 
-                <div className="flex gap-4">
-                    <div className="flex-1 bg-ac-green text-white p-4 rounded-2xl shadow-md text-center">
-                        <div className="text-3xl font-bold">{orders.length}</div>
-                        <div className="text-sm opacity-90">訂單數</div>
+                {/* 2-KPI row */}
+                <div className="ac-kpi-row">
+                    <div className="ac-kpi ac-kpi--green">
+                        <div className="ac-kpi-value">{orders.length}</div>
+                        <div className="ac-kpi-label">訂單數</div>
                     </div>
-                    <div className="flex-1 bg-ac-orange text-white p-4 rounded-2xl shadow-md text-center relative overflow-hidden">
-                        <img src={bellsIcon} className="absolute -bottom-2 -right-2 w-16 h-16 opacity-30" loading="lazy" decoding="async" />
-                        <div className="text-3xl font-bold relative z-10">${total}</div>
-                        <div className="text-sm opacity-90 relative z-10">總金額</div>
+                    <div className="ac-kpi ac-kpi--orange">
+                        <img src={bellsIcon} className="ac-kpi-charm" loading="lazy" decoding="async" alt="" />
+                        <div className="ac-kpi-value">${total}</div>
+                        <div className="ac-kpi-label">總金額</div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+                {/* Sub-tabs */}
+                <div className="ac-subtab-bar">
                     <button
+                        type="button"
                         onClick={() => setStatsTab('item')}
-                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'item' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                        className="ac-subtab"
+                        data-active={statsTab === 'item' ? 'true' : 'false'}
                     >
                         品項統計
                     </button>
                     <button
+                        type="button"
                         onClick={() => setStatsTab('floor')}
-                        className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${statsTab === 'floor' ? 'bg-ac-green text-white' : 'bg-white text-gray-600 border border-gray-200'}`}
+                        className="ac-subtab"
+                        data-active={statsTab === 'floor' ? 'true' : 'false'}
                     >
                         樓層統計
                     </button>
@@ -2343,7 +2354,6 @@ const StatsManager = ({ data, isLoading = false }) => {
 
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
-                        <h3 className="font-bold border-b pb-2">品項統計</h3>
                         {isLoading && (
                             <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
                                 <Loader size={16} className="animate-spin" />
@@ -2351,26 +2361,16 @@ const StatsManager = ({ data, isLoading = false }) => {
                             </div>
                         )}
                         {itemStats.map((stat) => (
-                            <div key={stat.name} className="bg-white p-3 rounded-lg text-sm">
-                                <div className="flex justify-between items-center gap-2">
-                                    <span className="font-bold text-gray-700">{stat.name}</span>
-                                    <span className="font-black text-ac-green whitespace-nowrap">x {stat.totalQty}</span>
+                            <div key={stat.name} className="ac-stat-item">
+                                <div className="ac-stat-item-head">
+                                    <span className="ac-stat-item-name">{stat.name}</span>
+                                    <span className="ac-stat-item-qty">x {stat.totalQty}</span>
                                 </div>
                                 {stat.notes.length > 0 && (
-                                    <div className="mt-2 pl-3 border-l-2 border-amber-200 flex flex-col gap-1">
+                                    <div className="ac-stat-notes">
                                         {stat.notes.map((n) => (
                                             <div key={n.note} className="flex justify-between items-center gap-2 text-xs">
-                                                <span style={{
-                                                    padding: '1px 6px',
-                                                    borderRadius: '999px',
-                                                    background: '#FEF3C7',
-                                                    color: '#B45309',
-                                                    border: '1px solid #FCD34D',
-                                                    fontWeight: 800,
-                                                    fontSize: '0.72rem',
-                                                }}>
-                                                    {n.note}
-                                                </span>
+                                                <span className="ac-note-tag">{n.note}</span>
                                                 <span className="font-black text-ac-orange whitespace-nowrap">x {n.qty}</span>
                                             </div>
                                         ))}
@@ -2379,9 +2379,9 @@ const StatsManager = ({ data, isLoading = false }) => {
                             </div>
                         ))}
                         {itemStats.length > 0 && (
-                            <div className="bg-green-50 p-3 rounded-lg flex justify-between items-center text-sm border border-green-200">
-                                <span className="font-black text-green-700">總計</span>
-                                <span className="font-black text-green-700">x {itemTotalQty}</span>
+                            <div className="ac-stat-total">
+                                <span>總計</span>
+                                <span>x {itemTotalQty}</span>
                             </div>
                         )}
                         {itemStats.length === 0 && (
@@ -2389,60 +2389,47 @@ const StatsManager = ({ data, isLoading = false }) => {
                         )}
                     </div>
                 )}
+
                 {statsTab === 'floor' && (
                     <div className="flex flex-col gap-3">
-                        <h3 className="font-bold border-b pb-2">樓層統計（成員 / 品項 / 金額）</h3>
                         {floorStats.map((floorStat) => (
-                            <div key={floorStat.floor} className="bg-white border rounded-xl p-3 shadow-sm">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className="font-black text-ac-brown text-lg">{floorStat.floor}</span>
-                                    <div className="text-xs font-bold text-gray-500 flex items-center gap-2">
-                                        <span>訂單 {floorStat.orderCount} 筆 ・ 數量 x{floorStat.totalQty}</span>
-                                        <span className="text-sm md:text-base font-black text-ac-orange">
-                                            ${floorStat.totalAmount}
-                                        </span>
+                            <div key={floorStat.floor} className="ac-floor-card">
+                                <div className="ac-floor-head">
+                                    <span className="ac-floor-label">{floorStat.floor}</span>
+                                    <div className="ac-floor-meta">
+                                        <span>訂單 {floorStat.orderCount} 筆 · 數量 x{floorStat.totalQty}</span>
+                                        <span className="ac-floor-meta-amount">${floorStat.totalAmount}</span>
                                     </div>
                                 </div>
-                                <div className="flex flex-col gap-2">
+                                <div className="flex flex-col gap-1">
                                     {floorStat.memberList.map((member) => (
-                                        <div key={`${floorStat.floor}-${member.name}`} className="bg-gray-50 rounded-lg px-3 py-2 flex items-center gap-2">
-                                            <span className="font-bold text-ac-brown shrink-0">{member.name}</span>
-                                            <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                                                {member.items.map((item, idx) => (
-                                                    <span
-                                                        key={`${member.name}-${item.name}-${idx}`}
-                                                        className="inline-flex items-center gap-1 bg-green-50 text-green-800 rounded-md px-2.5 py-1 text-sm font-medium"
-                                                    >
-                                                        <span>
-                                                            {item.name}
-                                                            {_normalizeNote(item.note ?? item.remark ?? item.memo) && (
-                                                                <span style={{
-                                                                    marginLeft: '6px',
-                                                                    padding: '1px 6px',
-                                                                    borderRadius: '999px',
-                                                                    background: '#FEF3C7',
-                                                                    color: '#B45309',
-                                                                    border: '1px solid #FCD34D',
-                                                                    fontWeight: 800,
-                                                                    fontSize: '0.72rem',
-                                                                }}>
-                                                                    {_normalizeNote(item.note ?? item.remark ?? item.memo)}
-                                                                </span>
-                                                            )}
+                                        <div key={`${floorStat.floor}-${member.name}`} className="ac-floor-member-row">
+                                            <span className="ac-floor-member-name">{member.name}</span>
+                                            <div className="ac-floor-member-items">
+                                                {member.items.map((item, idx) => {
+                                                    const note = _normalizeNote(item.note ?? item.remark ?? item.memo);
+                                                    return (
+                                                        <span
+                                                            key={`${member.name}-${item.name}-${idx}`}
+                                                            className="ac-floor-member-item"
+                                                        >
+                                                            <span>
+                                                                {item.name}
+                                                                {note && <span className="ac-note-tag" style={{ marginLeft: 6 }}>{note}</span>}
+                                                            </span>
+                                                            {item.qty > 1 && <span className="font-bold text-ac-green-deep">x{item.qty}</span>}
                                                         </span>
-                                                        {item.qty > 1 && <span className="font-bold text-ac-green">x{item.qty}</span>}
-                                                    </span>
-                                                ))}
+                                                    );
+                                                })}
                                                 {member.items.length === 0 && (
                                                     <span className="text-xs italic text-gray-400">無品項</span>
                                                 )}
                                             </div>
-                                            <span className="font-black text-ac-orange text-sm shrink-0">${member.total}</span>
+                                            <span className="ac-floor-member-total">${member.total}</span>
                                         </div>
                                     ))}
                                     {floorStat.memberList.length === 0 && (
                                         <EmptyState icon={Building2} title="此樓層當日無訂單" compact />
-
                                     )}
                                 </div>
                             </div>
@@ -2525,72 +2512,62 @@ const SettingsManager = () => {
     const isDisconnected = !gasUrl;
 
     return (
-        <div className="p-4 flex flex-col gap-6">
+        <div className="p-1 flex flex-col gap-3">
+            <div className="ac-section-header">
+                <span className="ac-section-header-title">系統設定</span>
+            </div>
+
             {isDisconnected && (
-                <div className="bg-red-50 border-2 border-red-200 p-6 rounded-2xl animate-pulse">
-                    <div className="flex items-center gap-4 text-red-600 mb-2">
-                        <span className="text-3xl">⚠️</span>
-                        <h2 className="text-xl font-black">系統目前未連線</h2>
+                <div className="ac-setting-card" style={{ borderLeftColor: 'var(--ac-red)', background: '#FEF2F2' }}>
+                    <div className="ac-setting-card-head" style={{ color: '#991B1B' }}>
+                        <span className="text-xl">⚠️</span> 系統目前未連線
                     </div>
-                    <p className="text-sm text-red-700 mb-4">
+                    <p className="ac-setting-card-hint" style={{ color: '#7F1D1D' }}>
                         如果你重新部署過 GAS，Web App URL 可能改變，請更新下方網址。
                     </p>
-                    <button
-                        onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
-                        className="bg-red-600 text-white px-6 py-2 rounded-lg font-bold shadow-lg hover:bg-red-700 transition-colors"
-                    >
-                        前往連線設定
-                    </button>
                 </div>
             )}
 
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                <h3 className="font-bold text-blue-800 mb-2">Google Apps Script 連線設定</h3>
-                <div style={{ background: '#F0FDF4', border: '1px solid #22C55E', borderRadius: '8px', padding: '8px 12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span>🔗</span>
-                    <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 'bold' }}>系統連線設定</span>
-                </div>
-                <p className="text-sm text-blue-600 mb-4">
+            <div className="ac-setting-card ac-setting-card--blue">
+                <div className="ac-setting-card-head">🔗 Google Apps Script 連線設定</div>
+                <p className="ac-setting-card-hint">
                     若重新部署 GAS 專案，請在此更新 Web App URL，確保前後端正確連線。
                 </p>
                 <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-gray-500">Web App URL</label>
+                    <label className="text-xs font-black tracking-wide" style={{ color: 'var(--ac-blue-deep)' }}>Web App URL</label>
                     <div className="flex gap-2">
                         <input
-                            className="ac-input font-mono text-xs flex-1"
+                            className="ac-mono-input"
                             value={urlInput}
                             readOnly
                             placeholder="請貼上 Google Apps Script Web App URL"
                         />
-                        <Button
-                            onClick={() => {}}
-                            variant="primary"
-                            className="text-xs py-1 px-4"
-                            disabled
-                        >
+                        <Button variant="secondary" className="ac-btn sm" disabled>
                             唯讀
                         </Button>
                     </div>
                 </div>
-
-                <div className="mt-4 pt-4 border-t border-blue-200 flex flex-col gap-4">
-                    <div className="bg-white p-3 rounded-xl border text-xs font-mono">
-                        <p className="font-bold text-gray-400 mb-1 border-b pb-1">現有資料狀態</p>
-                        <ul className="list-disc ml-4 text-gray-600 gap-1 flex flex-col">
-                            <li>人員: {data?.members?.length || 0} 位</li>
-                            <li>菜單庫: {data?.menuLibrary?.length || 0} 筆</li>
-                            <li>歷史紀錄: {data?.menuHistory?.length || 0} 筆</li>
-                            <li>今日訂單: {data?.orders?.length || 0} 筆</li>
-                            <li className="text-[10px] text-blue-500 mt-1 border-t pt-1">
-                                偵測分頁: {data?.debugSheets?.join(', ') || '無資料'}
-                            </li>
-                        </ul>
-                    </div>
-                    <DebugConnection url={urlInput} />
-                </div>
             </div>
 
-            <div className="text-center text-xs text-gray-400 mt-10">
+            <div className="ac-setting-card ac-setting-card--green">
+                <div className="ac-setting-card-head">📊 現有資料狀態</div>
+                <ul className="text-sm" style={{ background: 'var(--gray-50)', borderRadius: 10, border: '1px solid var(--gray-200)', padding: 12, listStyle: 'none', margin: 0, lineHeight: 1.7 }}>
+                    <li className="flex justify-between" style={{ borderBottom: '1px dashed var(--gray-200)', padding: '4px 0' }}><span>成員</span><span className="font-bold">{data?.members?.length || 0} 位</span></li>
+                    <li className="flex justify-between" style={{ borderBottom: '1px dashed var(--gray-200)', padding: '4px 0' }}><span>菜單庫</span><span className="font-bold">{data?.menuLibrary?.length || 0} 筆</span></li>
+                    <li className="flex justify-between" style={{ borderBottom: '1px dashed var(--gray-200)', padding: '4px 0' }}><span>歷史紀錄</span><span className="font-bold">{data?.menuHistory?.length || 0} 筆</span></li>
+                    <li className="flex justify-between" style={{ borderBottom: '1px dashed var(--gray-200)', padding: '4px 0' }}><span>今日訂單</span><span className="font-bold">{data?.orders?.length || 0} 筆</span></li>
+                    <li className="flex justify-between text-xs" style={{ paddingTop: 6, color: 'var(--ac-blue-deep)' }}>
+                        <span>偵測分頁</span><span className="truncate ml-2">{data?.debugSheets?.join(', ') || '無資料'}</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div className="ac-setting-card ac-setting-card--brown">
+                <div className="ac-setting-card-head">🔧 連線診斷</div>
+                <DebugConnection url={urlInput} />
+            </div>
+
+            <div className="text-center text-xs text-gray-400 mt-2">
                 Ding Lunch System v1.2 (Security Patch)
             </div>
         </div>

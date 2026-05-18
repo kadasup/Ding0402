@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useDing } from '../context/DingContext';
 import { DialogBox, Button, Modal, EmptyState } from '../components/Components';
-import { ShoppingBag, History, User, Lock, Coffee, Loader, ChevronUp, X, HelpCircle, UtensilsCrossed, Inbox, Users } from 'lucide-react';
+import { User, Lock, Loader, ChevronUp, HelpCircle, UtensilsCrossed, Users } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { getLocalDateKey, isSameLocalDate } from '../utils/date';
 import leafIcon from '../assets/img/leaf.svg';
@@ -845,12 +845,12 @@ const Home = () => {
                     {selectedMember && (
                         <div ref={currentRoundSectionRef} className="max-w-3xl mx-auto w-full mt-4 animate-pop">
                             <DialogBox title="本輪已點" className="overflow-visible">
-                                <div className="p-4 flex flex-col gap-3">
-                                    <div className="w-full max-w-md bg-orange-50 border-2 border-ac-orange rounded-2xl px-4 py-3 shadow-sm">
-                                        <div className="text-2xl font-black text-ac-brown leading-tight">{selectedMember}</div>
+                                <div className="p-2 flex flex-col gap-3">
+                                    <div className="ac-current-round-tile">
+                                        <div className="ac-current-round-tile-name">{selectedMember}</div>
                                     </div>
 
-                                    <div className="flex flex-col gap-3 w-full">
+                                    <div className="flex flex-col gap-2 w-full">
                                         {myTodayOrders.length === 0 && (
                                             <div className="bg-white rounded-xl border border-dashed">
                                                 <EmptyState
@@ -863,16 +863,16 @@ const Home = () => {
                                         )}
 
                                         {myTodayOrders.map(order => (
-                                            <div key={order.id} className="flex justify-between items-center bg-white border border-ac-green/30 rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-                                                <div className="flex flex-col gap-1">
-                                                    <span className="font-black text-lg text-ac-brown leading-tight tracking-wide">
+                                            <div key={order.id} className="ac-order-row">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="ac-order-items">
                                                         {order.items.map((i) => {
                                                             const itemName = String(i?.name || '').trim();
                                                             const itemNote = sanitizeNote(i?.note);
                                                             return itemNote ? `${itemName}（${itemNote}）` : itemName;
-                                                        }).join(', ')}
+                                                        }).join('、')}
                                                     </span>
-                                                    <span className="font-bold text-ac-orange text-base">
+                                                    <span className="ac-order-total">
                                                         ${order.total}
                                                     </span>
                                                 </div>
@@ -881,11 +881,11 @@ const Home = () => {
                                                     <Button variant="danger" onClick={() => {
                                                         setOrderToDelete(order.id);
                                                         setDeleteModal(true);
-                                                    }} className="px-3 py-1.5 text-sm rounded-full shadow-sm hover:scale-105 active:scale-95 transition-transform">
+                                                    }} className="ac-btn sm">
                                                         取消
                                                     </Button>
                                                 ) : (
-                                                    <div className="px-3 py-1.5 text-xs font-bold text-gray-400 bg-gray-50 rounded-full border border-gray-200">
+                                                    <div className="ac-order-closed-tag">
                                                         已結單
                                                     </div>
                                                 )}
@@ -893,11 +893,11 @@ const Home = () => {
                                         ))}
                                     </div>
 
-                                    <div className="mt-1 pt-3 border-t-2 border-dashed border-ac-green/30 w-full text-center">
-                                        <div className="text-ac-orange font-black text-xl">
-                                            應繳金額：${myTodayTotal}
+                                    {myTodayOrders.length > 0 && (
+                                        <div className="ac-current-round-footer">
+                                            <span className="ac-current-round-amount">應繳金額：${myTodayTotal}</span>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
                             </DialogBox>
                         </div>
