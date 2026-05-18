@@ -377,7 +377,6 @@ const MenuManager = ({ data, actions }) => {
     const [showHistory, setShowHistory] = useState(false);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null); // null | 'publish' | 'closeOrder'
-    const [hoveredActionCard, setHoveredActionCard] = useState(null); // null | 'close' | 'publish'
     const [storeInfo, setStoreInfo] = useState({ name: '', address: '', phone: '' });
     const [menuRemark, setMenuRemark] = useState(data.menu.remark || '');
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -841,138 +840,32 @@ const MenuManager = ({ data, actions }) => {
             </div>
 
             {/* Publish Action Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-2 md:px-3 py-2" style={{ minHeight: '170px' }}>
-                    <button
-                        type="button"
-                        onClick={() => canCloseOrder && setConfirmAction('closeOrder')}
-                        onMouseEnter={() => { if (canCloseOrder) setHoveredActionCard('close'); }}
-                        onMouseLeave={() => setHoveredActionCard(null)}
-                        disabled={!canCloseOrder}
-                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 ${canCloseOrder ? 'mobile-action-card-primary action-card-breathe' : ''}`}
-                        style={{
-                            background: isPosted
-                                ? 'linear-gradient(180deg, rgba(255,248,250,0.88) 0%, rgba(255,232,238,0.74) 100%)'
-                                : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
-                            borderColor: isPosted ? 'rgba(244,114,182,0.32)' : 'rgba(255,255,255,0.55)',
-                            borderWidth: '1px',
-                            borderRadius: '2rem',
-                            backdropFilter: 'blur(16px)',
-                            WebkitBackdropFilter: 'blur(16px)',
-                            appearance: 'none',
-                            WebkitAppearance: 'none',
-                            boxShadow: isPosted
-                                ? (hoveredActionCard === 'close'
-                                    ? '0 26px 46px rgba(190, 24, 93, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
-                                    : '0 18px 40px rgba(190, 24, 93, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
-                                : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-                            cursor: !canCloseOrder ? 'not-allowed' : 'pointer',
-                            transform: hoveredActionCard === 'close' ? 'translateY(-8px)' : 'translateY(0)',
-                            opacity: !isPosted ? 0.78 : 1
-                        }}
-                    >
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -top-8 -right-8 w-28 h-28 rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 70%)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute top-16 right-12 w-16 h-16 rounded-full"
-                            style={{ background: isPosted ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.24)', filter: 'blur(2px)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -bottom-6 left-5 w-24 h-24 rounded-full"
-                            style={{ background: isPosted ? 'rgba(244,114,182,0.16)' : 'rgba(191,219,254,0.16)', filter: 'blur(8px)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute left-6 top-6 w-6 h-6 rounded-full"
-                            style={{ background: 'rgba(255,255,255,0.5)' }}
-                        />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-2 text-center w-full max-w-[18rem] mx-auto min-h-[120px]">
-                            <div
-                                className="w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0"
-                                style={{
-                                    background: isPosted
-                                        ? 'radial-gradient(circle at 35% 35%, #FB7185 0%, #E11D48 60%, #9F1239 100%)'
-                                        : 'radial-gradient(circle at 35% 35%, #F3F4F6 0%, #D1D5DB 60%, #9CA3AF 100%)'
-                                }}
-                            />
-                            <div className={`font-black text-2xl leading-tight ${canCloseOrder ? 'action-card-breathe-text' : ''}`} style={{ color: isPosted ? '#991B1B' : '#94A3B8' }}>
-                                下架 / 結單
-                            </div>
-                        </div>
+            <div className="ac-action-grid">
+                <button
+                    type="button"
+                    onClick={() => canCloseOrder && setConfirmAction('closeOrder')}
+                    disabled={!canCloseOrder}
+                    className={`ac-action-card ac-action-card--danger mobile-action-card-primary ${canCloseOrder ? 'action-card-breathe' : ''}`}
+                >
+                    <div className="ac-action-icon">⏰</div>
+                    <div className={`ac-action-title ${canCloseOrder ? 'action-card-breathe-text' : ''}`}>
+                        下架 / 結單
+                    </div>
+                </button>
 
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => canPublishMenu && setConfirmAction('publish')}
-                        onMouseEnter={() => { if (canPublishMenu) setHoveredActionCard('publish'); }}
-                        onMouseLeave={() => setHoveredActionCard(null)}
-                        disabled={!canPublishMenu}
-                        className={`relative overflow-hidden flex flex-col items-center justify-center px-3 py-3 text-center border shadow-sm transition-all duration-200 mobile-publish-priority ${canPublishMenu ? 'mobile-action-card-primary publish-cta-breathe' : ''}`}
-                        style={{
-                            background: !isPosted
-                                ? (hasMenuDraft
-                                    ? 'linear-gradient(180deg, rgba(246,255,248,0.88) 0%, rgba(220,252,231,0.74) 100%)'
-                                    : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)')
-                                : 'linear-gradient(180deg, rgba(255,255,255,0.82) 0%, rgba(248,250,252,0.68) 100%)',
-                            borderColor: !isPosted && hasMenuDraft ? 'rgba(74, 222, 128, 0.34)' : 'rgba(255,255,255,0.55)',
-                            borderWidth: '1px',
-                            borderRadius: '2rem',
-                            backdropFilter: 'blur(16px)',
-                            WebkitBackdropFilter: 'blur(16px)',
-                            appearance: 'none',
-                            WebkitAppearance: 'none',
-                            boxShadow: !isPosted && hasMenuDraft
-                                ? (hoveredActionCard === 'publish'
-                                    ? '0 26px 46px rgba(22, 163, 74, 0.18), inset 0 1px 0 rgba(255,255,255,0.72)'
-                                    : '0 18px 40px rgba(22, 163, 74, 0.14), inset 0 1px 0 rgba(255,255,255,0.7)')
-                                : '0 18px 36px rgba(148, 163, 184, 0.12), inset 0 1px 0 rgba(255,255,255,0.82)',
-                            cursor: !canPublishMenu ? 'not-allowed' : 'pointer',
-                            transform: hoveredActionCard === 'publish' ? 'translateY(-8px)' : 'translateY(0)',
-                            opacity: isPosted || !hasMenuDraft ? 0.82 : 1
-                        }}
-                    >
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -top-8 -left-8 w-28 h-28 rounded-full"
-                            style={{ background: 'radial-gradient(circle, rgba(255,255,255,0.72) 0%, rgba(255,255,255,0) 70%)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute top-16 left-12 w-16 h-16 rounded-full"
-                            style={{ background: !isPosted && hasMenuDraft ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.24)', filter: 'blur(2px)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute -bottom-6 right-5 w-24 h-24 rounded-full"
-                            style={{ background: !isPosted && hasMenuDraft ? 'rgba(74,222,128,0.16)' : 'rgba(191,219,254,0.16)', filter: 'blur(8px)' }}
-                        />
-                        <div
-                            aria-hidden="true"
-                            className="pointer-events-none absolute right-6 top-6 w-6 h-6 rounded-full"
-                            style={{ background: 'rgba(255,255,255,0.5)' }}
-                        />
-                        <div className="relative z-[1] flex flex-col items-center justify-center gap-2 text-center w-full max-w-[18rem] mx-auto min-h-[120px]">
-                            <div
-                                className="w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0"
-                                style={{
-                                    background: !isPosted
-                                        ? (hasMenuDraft
-                                            ? 'radial-gradient(circle at 35% 35%, #86EFAC 0%, #4ADE80 55%, #16A34A 100%)'
-                                            : 'radial-gradient(circle at 35% 35%, #F3F4F6 0%, #D1D5DB 60%, #9CA3AF 100%)')
-                                        : 'radial-gradient(circle at 35% 35%, #BBF7D0 0%, #86EFAC 55%, #22C55E 100%)'
-                                }}
-                            />
-                            <div className={`font-black text-2xl leading-tight ${canPublishMenu ? 'publish-cta-breathe-text' : ''}`} style={{ color: !isPosted ? '#065F46' : '#94A3B8' }}>
-                                上架
-                            </div>
-                        </div>
-
-                    </button>
+                <button
+                    type="button"
+                    onClick={() => canPublishMenu && setConfirmAction('publish')}
+                    disabled={!canPublishMenu}
+                    className={`ac-action-card ac-action-card--ok mobile-publish-priority ${canPublishMenu ? 'publish-cta-breathe' : ''}`}
+                    data-hot={canPublishMenu ? 'true' : 'false'}
+                >
+                    {canPublishMenu && <div className="ac-action-hot">推薦下一步</div>}
+                    <div className="ac-action-icon">🍱</div>
+                    <div className={`ac-action-title ${canPublishMenu ? 'publish-cta-breathe-text' : ''}`}>
+                        上架
+                    </div>
+                </button>
             </div>
             {isActionLoading && (
                 <div className="flex items-center justify-center gap-2 text-sm font-bold text-ac-blue bg-blue-50 border border-blue-200 rounded-xl py-2">
