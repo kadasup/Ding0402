@@ -2,9 +2,16 @@
  * Ding Bento backend (Google Apps Script)
  * Version: 3.3-Stable
  */
+var DING_BACKEND_VERSION = "3.4-VersionProbe";
+var DING_BACKEND_UPDATED_AT = "2026-05-18";
 
 function doGet(e) {
   var params = (e && e.parameter) ? e.parameter : {};
+  var action = String(params.action || "").toLowerCase();
+  if (action === "version" || action === "ping") {
+    return handleResponse(getVersionInfo());
+  }
+
   var sectionParam = params.sections || params.section || "";
   if (!sectionParam) {
     return handleResponse(getData());
@@ -38,6 +45,10 @@ function doPost(e) {
   var action = params.action;
 
   switch (action) {
+    case "version":
+    case "ping":
+      return handleResponse(getVersionInfo());
+
     case "getMenu":
       return handleResponse(getData());
 
@@ -446,6 +457,16 @@ function doPost(e) {
   }
 }
 
+function getVersionInfo() {
+  return {
+    success: true,
+    version: DING_BACKEND_VERSION,
+    updatedAt: DING_BACKEND_UPDATED_AT,
+    serverTime: new Date().toISOString(),
+    scriptTimeZone: Session.getScriptTimeZone()
+  };
+}
+
 function handleLineWebhook(payload) {
   var events = (payload && Array.isArray(payload.events)) ? payload.events : [];
   if (!events.length) {
@@ -576,7 +597,7 @@ function getDataSections(sections) {
   var includeAll = include.all === true;
   var includeCore = include.core === true;
   var result = {
-    sysVersion: "3.3-Stable"
+    sysVersion: DING_BACKEND_VERSION
   };
 
   if (includeAll || includeCore || include.menu) {
