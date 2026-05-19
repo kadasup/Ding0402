@@ -1625,6 +1625,14 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
 
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mt-4 pt-6 border-t font-black">
                             <Button
+                                onClick={handleSave}
+                                className="w-full sm:w-auto sm:min-w-[168px] whitespace-nowrap"
+                                style={{ padding: '12px 28px', minHeight: '52px' }}
+                                disabled={isSaving}
+                            >
+                                {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 儲存中...</span> : (editingId ? '更新菜單' : '建立菜單')}
+                            </Button>
+                            <Button
                                 variant="secondary"
                                 onClick={resetForm}
                                 className="w-full sm:w-auto sm:min-w-[168px] whitespace-nowrap"
@@ -1632,14 +1640,6 @@ const MenuLibraryManager = ({ data, actions, setActiveTab, uploadImageToCloud, i
                                 disabled={isSaving}
                             >
                                 取消
-                            </Button>
-                            <Button
-                                onClick={handleSave}
-                                className="w-full sm:w-auto sm:min-w-[168px] whitespace-nowrap"
-                                style={{ padding: '12px 28px', minHeight: '52px' }}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? <span className="flex items-center gap-2"><Loader className="animate-spin relative" size={18} style={{ top: ' -1px' }} /> 儲存中...</span> : (editingId ? '更新菜單' : '建立菜單')}
                             </Button>
                         </div>
                     </div>
@@ -2210,7 +2210,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                 {/* 2-KPI row */}
                 <div className="ac-kpi-row">
                     <div className="ac-kpi ac-kpi--green">
-                        <div className="ac-kpi-value">{orders.length}</div>
+                        <div className="ac-kpi-value">{itemTotalQty}</div>
                         <div className="ac-kpi-label">訂單數</div>
                     </div>
                     <div className="ac-kpi ac-kpi--orange">

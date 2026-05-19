@@ -116,7 +116,7 @@ function doPost(e) {
         ? "unpublish"
         : "publish";
       var previewMenu = buildLineTestMenuPayload(params, previewStatus);
-      var previewFlex = buildMenuStatusFlexMessage(previewStatus, previewMenu, getLineNotifyConfig().appFrontendUrl);
+      var previewFlex = buildMenuStatusFlexMessage(previewStatus, previewMenu, getLineNotifyConfig());
       return handleResponse({
         success: true,
         status: previewStatus,
@@ -497,9 +497,11 @@ function handleLineWebhook(payload) {
       event.message.type === "text";
     var text = isTextMessage ? String(event.message.text || "") : "";
     var shouldReplyId = isTextMessage && isLineIdQueryText(text);
+    var shouldReplyPublishCard = isTextMessage && isLinePublishKeywordText(text);
+    var shouldReplyCloseCard = isTextMessage && isLineCloseKeywordText(text);
 
-    if (!shouldReplyId) {
-      results.push({ handled: false, reason: "not_id_query", type: event.type || "" });
+    if (!shouldReplyId && !shouldReplyPublishCard && !shouldReplyCloseCard) {
+      results.push({ handled: false, reason: "not_supported_keyword", type: event.type || "" });
       continue;
     }
 
@@ -512,9 +514,55 @@ function handleLineWebhook(payload) {
       continue;
     }
 
-    var replyText = buildLineIdQueryReplyText(event, config);
-    var replyResult = replyLineTextMessage(event.replyToken, replyText, config.channelAccessToken);
-    results.push(replyResult);
+    if (shouldReplyId) {
+      var replyText = buildLineIdQueryReplyText(event, config);
+      var replyResult = replyLineTextMessage(event.replyToken, replyText, config.channelAccessToken, config.lineApiBaseUrl);
+      results.push(replyResult);
+      continue;
+    }
+
+    var currentMenu = getWorksheetObject("Settings", "current_menu") || {};
+    var isPosted = parseSheetBoolean(currentMenu.posted);
+
+    if (shouldReplyPublishCard && !isPosted) {
+      results.push(replyLineTextMessage(
+        event.replyToken,
+        "今日菜單尚未上架，請連絡管理員",
+        config.channelAccessToken,
+        config.lineApiBaseUrl
+      ));
+      continue;
+    }
+
+    if (shouldReplyCloseCard && isPosted) {
+      results.push(replyLineTextMessage(
+        event.replyToken,
+        "尚未結，請先結單",
+        config.channelAccessToken,
+        config.lineApiBaseUrl
+      ));
+      continue;
+    }
+
+    var targetStatus = shouldReplyPublishCard ? "publish" : "unpublish";
+    var fallbackText = shouldReplyPublishCard ? "今日菜單尚未上架，請連絡管理員" : "已結單，下次請早！";
+    var targetFlex = buildMenuStatusFlexMessage(targetStatus, currentMenu, config);
+    if (!targetFlex || !targetFlex.contents) {
+      results.push(replyLineTextMessage(
+        event.replyToken,
+        fallbackText,
+        config.channelAccessToken,
+        config.lineApiBaseUrl
+      ));
+      continue;
+    }
+
+    results.push(replyLineFlexMessage(
+      event.replyToken,
+      targetFlex,
+      config.channelAccessToken,
+      config.lineApiBaseUrl
+    ));
   }
 
   return handleResponse({
@@ -528,10 +576,19 @@ function handleLineWebhook(payload) {
 function isLineIdQueryText(text) {
   var t = String(text || "").trim().toLowerCase();
   if (!t) return false;
-  if (t === "id" || t === "查id" || t === "查詢id") return true;
-  if (t === "group id" || t === "groupid") return true;
-  if (t.indexOf("查詢") === 0 && t.indexOf("id") > -1) return true;
-  return false;
+  return t === "查詢";
+}
+
+function isLinePublishKeywordText(text) {
+  var t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  return t === "上架";
+}
+
+function isLineCloseKeywordText(text) {
+  var t = String(text || "").trim().toLowerCase();
+  if (!t) return false;
+  return t === "結單";
 }
 
 function buildLineIdQueryReplyText(event, config) {
@@ -548,7 +605,13 @@ function buildLineIdQueryReplyText(event, config) {
   return lines.join("\n");
 }
 
-function replyLineTextMessage(replyToken, text, accessToken) {
+function normalizeLineApiBaseUrl(value) {
+  var raw = String(value || "").trim();
+  if (!raw) return "https://api.line.me";
+  return raw.replace(/\/+$/, "");
+}
+
+function replyLineTextMessage(replyToken, text, accessToken, lineApiBaseUrl) {
   if (!accessToken) return { handled: false, reason: "missing_line_access_token" };
 
   var payload = {
@@ -560,7 +623,47 @@ function replyLineTextMessage(replyToken, text, accessToken) {
   };
 
   try {
-    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/reply", {
+    var apiBase = normalizeLineApiBaseUrl(lineApiBaseUrl);
+    var response = UrlFetchApp.fetch(apiBase + "/v2/bot/message/reply", {
+      method: "post",
+      contentType: "application/json",
+      headers: {
+        Authorization: "Bearer " + accessToken
+      },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    var code = response.getResponseCode();
+    if (code >= 200 && code < 300) {
+      return { handled: true, replied: true, code: code };
+    }
+    return {
+      handled: true,
+      replied: false,
+      code: code,
+      error: response.getContentText()
+    };
+  } catch (err) {
+    return { handled: true, replied: false, error: err.toString() };
+  }
+}
+
+function replyLineFlexMessage(replyToken, flex, accessToken, lineApiBaseUrl) {
+  if (!accessToken) return { handled: false, reason: "missing_line_access_token" };
+  if (!flex || !flex.contents) return { handled: false, reason: "invalid_flex_payload" };
+
+  var payload = {
+    replyToken: replyToken,
+    messages: [{
+      type: "flex",
+      altText: String(flex.altText || "菜單通知"),
+      contents: flex.contents
+    }]
+  };
+
+  try {
+    var apiBase = normalizeLineApiBaseUrl(lineApiBaseUrl);
+    var response = UrlFetchApp.fetch(apiBase + "/v2/bot/message/reply", {
       method: "post",
       contentType: "application/json",
       headers: {
@@ -879,29 +982,37 @@ function updateWorksheetObject(sheetName, key, obj) {
   sheet.appendRow([key, valStr]);
 }
 
+function getScriptProp(name, fallbackValue) {
+  var raw = PropertiesService.getScriptProperties().getProperty(name);
+  if (raw === null || raw === undefined) return fallbackValue || "";
+  var value = String(raw).trim();
+  return value || (fallbackValue || "");
+}
+
+function getFirstScriptProp(keys, fallbackValue) {
+  for (var i = 0; i < keys.length; i++) {
+    var v = getScriptProp(keys[i], "");
+    if (v) return v;
+  }
+  return fallbackValue || "";
+}
+
 function getLineNotifyConfig() {
   var props = PropertiesService.getScriptProperties();
-  var defaultLineChannelId = "2009874004";
-  var defaultLineChannelSecret = "9a49c93e2928963dbbf41d9026cf82fb";
-  var defaultLineAccessToken = "kXB5wiPsMqfZYOO+Mu6m901rThcv4843XoDth05Wo/CXTUSLLrTqrTfHLtgpP2566SQymqiffyHLfB1/ddU6xgLFY6IqJY4NfmsoEZkQYAo5EuZP1fNGNubwLRClzRjx7XGECTLPbJaYq5OQt8UsgwdB04t89/1O/w1cDnyilFU=";
-
-  // Use the hardcoded channel by default to avoid stale Script Properties overriding it.
-  var channelId = defaultLineChannelId;
-  var channelAccessToken = defaultLineAccessToken;
-  var channelSecret = defaultLineChannelSecret;
-  var useScriptProperties = String(props.getProperty("LINE_USE_SCRIPT_PROPERTIES") || "").trim().toUpperCase() === "TRUE";
-  if (useScriptProperties) {
-    channelId = props.getProperty("LINE_CHANNEL_ID") || channelId;
-    channelAccessToken = props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || props.getProperty("LINE_ACCESS_TOKEN") || channelAccessToken;
-    channelSecret = props.getProperty("LINE_CHANNEL_SECRET") || channelSecret;
-  }
-  // Option 2: always prefer Script Properties group routing; fallback to default group ID.
-  var targetUserId = props.getProperty("LINE_TARGET_USER_ID") || props.getProperty("LINE_USER_ID") || "";
-  var targetGroupId = props.getProperty("LINE_TARGET_GROUP_ID") || "";
-  var appFrontendUrl = props.getProperty("APP_FRONTEND_URL") || props.getProperty("FRONTEND_URL") || "";
+  var channelId = getFirstScriptProp(["LINE_CHANNEL_ID"], "");
+  var channelAccessToken = getFirstScriptProp(["LINE_CHANNEL_ACCESS_TOKEN", "LINE_ACCESS_TOKEN"], "");
+  var channelSecret = getFirstScriptProp(["LINE_CHANNEL_SECRET"], "");
+  var targetUserId = getFirstScriptProp(["LINE_TARGET_USER_ID", "LINE_USER_ID"], "");
+  var targetGroupId = getFirstScriptProp(["LINE_TARGET_GROUP_ID"], "");
+  var explicitTargetId = getFirstScriptProp(["LINE_TARGET_ID"], "");
+  var appFrontendUrl = getFirstScriptProp(["APP_FRONTEND_URL", "FRONTEND_URL"], "");
+  var publishHeroImageUrl = getFirstScriptProp(["LINE_PUBLISH_HERO_IMAGE_URL"], "");
+  var unpublishHeroImageUrl = getFirstScriptProp(["LINE_UNPUBLISH_HERO_IMAGE_URL"], "");
+  var lineApiBaseUrl = normalizeLineApiBaseUrl(getFirstScriptProp(["LINE_API_BASE_URL"], "https://api.line.me"));
+  var driveImageFolderName = getFirstScriptProp(["DING_MENU_IMAGE_FOLDER_NAME"], "DingMenuImages");
   var normalizedTargetUserId = String(targetUserId || "").trim();
   var normalizedTargetGroupId = String(targetGroupId || "").trim();
-  var targetId = normalizedTargetGroupId;
+  var targetId = String(explicitTargetId || "").trim() || normalizedTargetGroupId || normalizedTargetUserId;
 
   return {
     channelId: String(channelId || "").trim(),
@@ -910,7 +1021,11 @@ function getLineNotifyConfig() {
     targetUserId: normalizedTargetUserId,
     targetGroupId: normalizedTargetGroupId,
     targetId: targetId,
-    appFrontendUrl: String(appFrontendUrl || "").trim()
+    appFrontendUrl: String(appFrontendUrl || "").trim(),
+    publishHeroImageUrl: String(publishHeroImageUrl || "").trim(),
+    unpublishHeroImageUrl: String(unpublishHeroImageUrl || "").trim(),
+    lineApiBaseUrl: lineApiBaseUrl,
+    driveImageFolderName: String(driveImageFolderName || "").trim()
   };
 }
 
@@ -946,9 +1061,10 @@ function sendLineMenuStatusNotification(status, menu) {
     var config = getLineNotifyConfig();
     if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
     if (!config.targetId) return { sent: false, skipped: true, reason: "missing_line_target_id" };
+    if (!isValidHttpsUrl(config.appFrontendUrl)) return { sent: false, skipped: true, reason: "missing_app_frontend_url" };
 
     var menuData = menu || {};
-    var flex = buildMenuStatusFlexMessage(status, menuData, config.appFrontendUrl);
+    var flex = buildMenuStatusFlexMessage(status, menuData, config);
     if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "invalid_flex_payload" };
 
     var payload = {
@@ -960,7 +1076,8 @@ function sendLineMenuStatusNotification(status, menu) {
       }]
     };
 
-    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    var apiBase = normalizeLineApiBaseUrl(config.lineApiBaseUrl);
+    var response = UrlFetchApp.fetch(apiBase + "/v2/bot/message/push", {
       method: "post",
       contentType: "application/json",
       headers: {
@@ -984,13 +1101,14 @@ function sendLineMenuStatusNotification(status, menu) {
   }
 }
 
-function buildMenuStatusFlexMessage(status, menu, appFrontendUrl) {
+function buildMenuStatusFlexMessage(status, menu, lineConfig) {
   var safeMenu = menu || {};
+  var config = lineConfig || {};
   var isPublish = String(status || "").toLowerCase() === "publish";
   if (isPublish) {
-    return buildLinePublishFlexMessage(safeMenu, appFrontendUrl);
+    return buildLinePublishFlexMessage(safeMenu, config);
   }
-  return buildLineUnpublishFlexMessage(safeMenu, appFrontendUrl);
+  return buildLineUnpublishFlexMessage(safeMenu, config);
 }
 
 function isValidHttpsUrl(value) {
@@ -1000,7 +1118,8 @@ function isValidHttpsUrl(value) {
 }
 
 function buildAdminCurrentRoundUrl(appFrontendUrl) {
-  var baseUrl = isValidHttpsUrl(appFrontendUrl) ? String(appFrontendUrl).trim() : "https://example.com/ding";
+  if (!isValidHttpsUrl(appFrontendUrl)) return "";
+  var baseUrl = String(appFrontendUrl).trim();
   var hashIndex = baseUrl.indexOf("#");
   if (hashIndex >= 0) {
     baseUrl = baseUrl.substring(0, hashIndex);
@@ -1049,230 +1168,246 @@ function formatLineClosingTimeZh(value) {
   return dayLabel + " " + timePart;
 }
 
-function buildLinePublishFlexMessage(menu, appFrontendUrl) {
+function buildLinePublishFlexMessage(menu, lineConfig) {
+  var config = lineConfig || {};
+  var appFrontendUrl = config.appFrontendUrl;
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var itemCount = Array.isArray(menu.items) ? menu.items.length : 0;
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
   var topItems = summarizeMenuItemNames(menu.items, 3) || "\u672a\u63d0\u4f9b\u7cbe\u9078";
-  var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/publish.png";
-  var orderUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "https://example.com/ding";
+  var heroImageUrl = resolveLineImageUrl(config.publishHeroImageUrl) || resolveLineImageUrl(menu.image);
+  var orderUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "";
+  if (!orderUrl) return null;
+
+  var bubble = {
+    type: "bubble",
+    header: {
+      type: "box",
+      layout: "baseline",
+      backgroundColor: "#78B159",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "\u83dc\u55ae\u4e0a\u67b6\u901a\u77e5",
+          color: "#FFFFFF",
+          size: "sm",
+          weight: "bold"
+        },
+        {
+          type: "text",
+          text: "\u5df2\u4e0a\u67b6",
+          color: "#FFFFFF",
+          size: "xs",
+          align: "end"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
+          weight: "bold",
+          size: "xl",
+          color: "#5A4D41",
+          wrap: true
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          margin: "md",
+          paddingAll: "10px",
+          backgroundColor: "#FEF3C7",
+          cornerRadius: "10px",
+          contents: [
+            { type: "text", text: "\u220e \u5e97\u5bb6\uff1a", size: "sm", color: "#92400E", weight: "bold", flex: 2 },
+            { type: "text", text: storeName, size: "xl", color: "#7C2D12", weight: "bold", wrap: true, flex: 5 }
+          ]
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "\u220e \u54c1\u9805", size: "md", color: "#7C6044", flex: 2 },
+            { type: "text", text: itemCount + " \u9805", size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+          ]
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
+            { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+          ]
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "\u220e \u7cbe\u9078", size: "md", color: "#7C6044", flex: 2 },
+            { type: "text", text: topItems, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "12px",
+      backgroundColor: "#FFFBE6",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#78B159",
+          action: {
+            type: "uri",
+            label: "\u7acb\u5373\u9ede\u9910",
+            uri: orderUrl
+          }
+        }
+      ]
+    },
+    styles: {
+      body: { backgroundColor: "#FFFBE6" },
+      footer: { separator: true }
+    }
+  };
+
+  if (heroImageUrl) {
+    bubble.hero = {
+      type: "image",
+      url: heroImageUrl,
+      size: "full",
+      aspectRatio: "20:11",
+      aspectMode: "fit"
+    };
+  }
 
   return {
     altText: "\u3010\u83dc\u55ae\u5df2\u4e0a\u67b6\u3011" + storeName + "\uff0c\u5171 " + itemCount + " \u9805",
-    contents: {
-      type: "bubble",
-      hero: {
-        type: "image",
-        url: heroImageUrl,
-        size: "full",
-        aspectRatio: "20:11",
-        aspectMode: "fit"
-      },
-      header: {
-        type: "box",
-        layout: "baseline",
-        backgroundColor: "#78B159",
-        paddingAll: "12px",
-        contents: [
-          {
-            type: "text",
-            text: "\u83dc\u55ae\u4e0a\u67b6\u901a\u77e5",
-            color: "#FFFFFF",
-            size: "sm",
-            weight: "bold"
-          },
-          {
-            type: "text",
-            text: "\u5df2\u4e0a\u67b6",
-            color: "#FFFFFF",
-            size: "xs",
-            align: "end"
-          }
-        ]
-      },
-      body: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        paddingAll: "14px",
-        contents: [
-          {
-            type: "text",
-            text: "\u83dc\u55ae\u5df2\u4e0a\u67b6\uff0c\u958b\u59cb\u9ede\u9910\u56c9\uff01",
-            weight: "bold",
-            size: "xl",
-            color: "#5A4D41",
-            wrap: true
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            margin: "md",
-            paddingAll: "10px",
-            backgroundColor: "#FEF3C7",
-            cornerRadius: "10px",
-            contents: [
-              { type: "text", text: "\u220e \u5e97\u5bb6\uff1a", size: "sm", color: "#92400E", weight: "bold", flex: 2 },
-              { type: "text", text: storeName, size: "xl", color: "#7C2D12", weight: "bold", wrap: true, flex: 5 }
-            ]
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            spacing: "sm",
-            margin: "sm",
-            contents: [
-              { type: "text", text: "\u220e \u54c1\u9805", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: itemCount + " \u9805", size: "md", color: "#5A4D41", wrap: true, flex: 5 }
-            ]
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            spacing: "sm",
-            margin: "sm",
-            contents: [
-              { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
-            ]
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            spacing: "sm",
-            margin: "sm",
-            contents: [
-              { type: "text", text: "\u220e \u7cbe\u9078", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: topItems, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
-            ]
-          }
-        ]
-      },
-      footer: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        paddingAll: "12px",
-        backgroundColor: "#FFFBE6",
-        contents: [
-          {
-            type: "button",
-            style: "primary",
-            color: "#78B159",
-            action: {
-              type: "uri",
-              label: "\u7acb\u5373\u9ede\u9910",
-              uri: orderUrl
-            }
-          }
-        ]
-      },
-      styles: {
-        body: { backgroundColor: "#FFFBE6" },
-        footer: { separator: true }
-      }
-    }
+    contents: bubble
   };
 }
-function buildLineUnpublishFlexMessage(menu, appFrontendUrl) {
+function buildLineUnpublishFlexMessage(menu, lineConfig) {
+  var config = lineConfig || {};
+  var appFrontendUrl = config.appFrontendUrl;
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
-  var heroImageUrl = "https://raw.githubusercontent.com/kadasup/Ding0402/main/public/unpublish.png";
+  var heroImageUrl = resolveLineImageUrl(config.unpublishHeroImageUrl) || resolveLineImageUrl(menu.image);
   var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
+  if (!detailUrl) return null;
+
+  var bubble = {
+    type: "bubble",
+    header: {
+      type: "box",
+      layout: "horizontal",
+      backgroundColor: "#B87434",
+      paddingAll: "12px",
+      contents: [
+        {
+          type: "text",
+          text: "\u7d50\u55ae\u901a\u77e5",
+          color: "#FFFFFF",
+          size: "sm",
+          weight: "bold"
+        },
+        {
+          type: "text",
+          text: "\u5df2\u7d50\u55ae",
+          color: "#FFFFFF",
+          size: "xs",
+          align: "end"
+        }
+      ]
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "14px",
+      contents: [
+        {
+          type: "text",
+          text: "\u5df2\u7d50\u55ae\uff0c\u4e0b\u6b21\u8acb\u65e9\uff01",
+          weight: "bold",
+          size: "xl",
+          color: "#5A4D41",
+          wrap: true
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          margin: "md",
+          contents: [
+            { type: "text", text: "\u220e \u5e97\u5bb6", size: "md", color: "#7C6044", flex: 2 },
+            { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+          ]
+        },
+        {
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          margin: "sm",
+          contents: [
+            { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
+            { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
+          ]
+        }
+      ]
+    },
+    footer: {
+      type: "box",
+      layout: "vertical",
+      spacing: "sm",
+      paddingAll: "12px",
+      backgroundColor: "#FFFBE6",
+      contents: [
+        {
+          type: "button",
+          style: "primary",
+          color: "#B87434",
+          action: {
+            type: "uri",
+            label: "\u67e5\u770b\u8a02\u55ae\u660e\u7d30",
+            uri: detailUrl
+          }
+        }
+      ]
+    },
+    styles: {
+      body: { backgroundColor: "#FFFBE6" },
+      footer: { separator: true }
+    }
+  };
+
+  if (heroImageUrl) {
+    bubble.hero = {
+      type: "image",
+      url: heroImageUrl,
+      size: "full",
+      aspectRatio: "20:11",
+      aspectMode: "fit"
+    };
+  }
 
   return {
     altText: "\u3010\u5df2\u7d50\u55ae\u901a\u77e5\u3011" + storeName + "\uff0c\u672c\u8f2a\u5df2\u7d50\u55ae",
-    contents: {
-      type: "bubble",
-      hero: {
-        type: "image",
-        url: heroImageUrl,
-        size: "full",
-        aspectRatio: "20:11",
-        aspectMode: "fit"
-      },
-      header: {
-        type: "box",
-        layout: "horizontal",
-        backgroundColor: "#B87434",
-        paddingAll: "12px",
-        contents: [
-          {
-            type: "text",
-            text: "\u7d50\u55ae\u901a\u77e5",
-            color: "#FFFFFF",
-            size: "sm",
-            weight: "bold"
-          },
-          {
-            type: "text",
-            text: "\u5df2\u7d50\u55ae",
-            color: "#FFFFFF",
-            size: "xs",
-            align: "end"
-          }
-        ]
-      },
-      body: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        paddingAll: "14px",
-        contents: [
-          {
-            type: "text",
-            text: "\u5df2\u7d50\u55ae\uff0c\u4e0b\u6b21\u8acb\u65e9\uff01",
-            weight: "bold",
-            size: "xl",
-            color: "#5A4D41",
-            wrap: true
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            spacing: "sm",
-            margin: "md",
-            contents: [
-              { type: "text", text: "\u220e \u5e97\u5bb6", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
-            ]
-          },
-          {
-            type: "box",
-            layout: "baseline",
-            spacing: "sm",
-            margin: "sm",
-            contents: [
-              { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
-              { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
-            ]
-          }
-        ]
-      },
-      footer: {
-        type: "box",
-        layout: "vertical",
-        spacing: "sm",
-        paddingAll: "12px",
-        backgroundColor: "#FFFBE6",
-        contents: [
-          {
-            type: "button",
-            style: "primary",
-            color: "#B87434",
-            action: {
-              type: "uri",
-              label: "\u67e5\u770b\u8a02\u55ae\u660e\u7d30",
-              uri: detailUrl
-            }
-          }
-        ]
-      },
-      styles: {
-        body: { backgroundColor: "#FFFBE6" },
-        footer: { separator: true }
-      }
-    }
+    contents: bubble
   };
 }
 
@@ -1281,8 +1416,9 @@ function sendLineCloseSummaryNotification(menu) {
     var config = getLineNotifyConfig();
     if (!config.channelAccessToken) return { sent: false, skipped: true, reason: "missing_line_access_token" };
     if (!config.targetId) return { sent: false, skipped: true, reason: "missing_line_target_id" };
+    if (!isValidHttpsUrl(config.appFrontendUrl)) return { sent: false, skipped: true, reason: "missing_app_frontend_url" };
 
-    var flex = buildLineCloseSummaryFlexMessage(menu || {}, config.appFrontendUrl);
+    var flex = buildLineCloseSummaryFlexMessage(menu || {}, config);
     if (!flex || !flex.contents) return { sent: false, skipped: true, reason: "no_orders_for_summary" };
 
     var payload = {
@@ -1294,7 +1430,8 @@ function sendLineCloseSummaryNotification(menu) {
       }]
     };
 
-    var response = UrlFetchApp.fetch("https://api.line.me/v2/bot/message/push", {
+    var apiBase = normalizeLineApiBaseUrl(config.lineApiBaseUrl);
+    var response = UrlFetchApp.fetch(apiBase + "/v2/bot/message/push", {
       method: "post",
       contentType: "application/json",
       headers: {
@@ -1318,7 +1455,9 @@ function sendLineCloseSummaryNotification(menu) {
   }
 }
 
-function buildLineCloseSummaryFlexMessage(menu, appFrontendUrl) {
+function buildLineCloseSummaryFlexMessage(menu, lineConfig) {
+  var config = lineConfig || {};
+  var appFrontendUrl = config.appFrontendUrl;
   var orders = getOrdersData();
   var targetMenuId = menu && menu.lastUpdated ? String(menu.lastUpdated) : "";
   var todayKey = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
@@ -1590,7 +1729,7 @@ function handleOcr(params) {
 
 // Save base64 image to Google Drive and return a public thumbnail URL.
 function saveBase64ToDrive(base64Data, fileName) {
-  var folderName = "DingMenuImages";
+  var folderName = getScriptProp("DING_MENU_IMAGE_FOLDER_NAME", "DingMenuImages");
   var folder = getOrCreateFolder(folderName);
 
   // Support full data URL or raw base64
