@@ -1006,8 +1006,6 @@ function getLineNotifyConfig() {
   var targetGroupId = getFirstScriptProp(["LINE_TARGET_GROUP_ID"], "");
   var explicitTargetId = getFirstScriptProp(["LINE_TARGET_ID"], "");
   var appFrontendUrl = getFirstScriptProp(["APP_FRONTEND_URL", "FRONTEND_URL"], "");
-  var publishHeroImageUrl = getFirstScriptProp(["LINE_PUBLISH_HERO_IMAGE_URL"], "");
-  var unpublishHeroImageUrl = getFirstScriptProp(["LINE_UNPUBLISH_HERO_IMAGE_URL"], "");
   var lineApiBaseUrl = normalizeLineApiBaseUrl(getFirstScriptProp(["LINE_API_BASE_URL"], "https://api.line.me"));
   var driveImageFolderName = getFirstScriptProp(["DING_MENU_IMAGE_FOLDER_NAME"], "DingMenuImages");
   var normalizedTargetUserId = String(targetUserId || "").trim();
@@ -1022,8 +1020,6 @@ function getLineNotifyConfig() {
     targetGroupId: normalizedTargetGroupId,
     targetId: targetId,
     appFrontendUrl: String(appFrontendUrl || "").trim(),
-    publishHeroImageUrl: String(publishHeroImageUrl || "").trim(),
-    unpublishHeroImageUrl: String(unpublishHeroImageUrl || "").trim(),
     lineApiBaseUrl: lineApiBaseUrl,
     driveImageFolderName: String(driveImageFolderName || "").trim()
   };
@@ -1127,6 +1123,19 @@ function buildAdminCurrentRoundUrl(appFrontendUrl) {
   return baseUrl + "#/?focus=current-round";
 }
 
+function buildPublicAssetUrl(appFrontendUrl, fileName) {
+  if (!isValidHttpsUrl(appFrontendUrl)) return "";
+  var baseUrl = String(appFrontendUrl || "").trim();
+  var hashIndex = baseUrl.indexOf("#");
+  if (hashIndex >= 0) {
+    baseUrl = baseUrl.substring(0, hashIndex);
+  }
+  baseUrl = baseUrl.replace(/\/+$/, "");
+  var assetName = String(fileName || "").trim().replace(/^\/+/, "");
+  if (!assetName) return "";
+  return baseUrl + "/" + assetName;
+}
+
 function summarizeMenuItemNames(items, maxCount) {
   if (!Array.isArray(items) || items.length === 0) return "";
   var names = [];
@@ -1175,7 +1184,7 @@ function buildLinePublishFlexMessage(menu, lineConfig) {
   var itemCount = Array.isArray(menu.items) ? menu.items.length : 0;
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
   var topItems = summarizeMenuItemNames(menu.items, 3) || "\u672a\u63d0\u4f9b\u7cbe\u9078";
-  var heroImageUrl = resolveLineImageUrl(config.publishHeroImageUrl) || resolveLineImageUrl(menu.image);
+  var heroImageUrl = buildPublicAssetUrl(appFrontendUrl, "publish.png");
   var orderUrl = isValidHttpsUrl(appFrontendUrl) ? appFrontendUrl : "";
   if (!orderUrl) return null;
 
@@ -1306,7 +1315,7 @@ function buildLineUnpublishFlexMessage(menu, lineConfig) {
   var appFrontendUrl = config.appFrontendUrl;
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
   var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
-  var heroImageUrl = resolveLineImageUrl(config.unpublishHeroImageUrl) || resolveLineImageUrl(menu.image);
+  var heroImageUrl = buildPublicAssetUrl(appFrontendUrl, "unpublish.png");
   var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
   if (!detailUrl) return null;
 
