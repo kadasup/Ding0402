@@ -2030,7 +2030,7 @@ const StatsManager = ({ data, isLoading = false }) => {
         return preferredExists ? preferredKey : roundOptions[0].key;
     }, [roundOptions, selectedRoundKey, data.menu?.lastUpdated]);
 
-    const { selectedRound, orders, total, itemStats, itemTotalQty, floorStats } = useMemo(() => {
+    const { selectedRound, total, itemStats, itemTotalQty, floorStats } = useMemo(() => {
         const round = roundOptions.find((r) => r.key === effectiveRoundKey) || null;
         const ords = round ? round.orders : [];
         const tot = ords.reduce((sum, o) => sum + _getOrderTotal(o), 0);
@@ -2216,8 +2216,8 @@ const StatsManager = ({ data, isLoading = false }) => {
                 {/* 2-KPI row */}
                 <div className="ac-kpi-row">
                     <div className="ac-kpi ac-kpi--green">
-                        <div className="ac-kpi-value">{orders.length}</div>
-                        <div className="ac-kpi-label">訂單數</div>
+                        <div className="ac-kpi-value">{itemTotalQty}</div>
+                        <div className="ac-kpi-label">總計</div>
                     </div>
                     <div className="ac-kpi ac-kpi--orange">
                         <img src={bellsIcon} className="ac-kpi-charm" loading="lazy" decoding="async" alt="" />
