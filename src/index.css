@@ -1716,6 +1716,32 @@ body {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
 }
 
+/* Contextual badge on an inactive sidebar tab */
+.admin-tab-badge {
+  margin-left: auto;
+  font-size: 0.68rem;
+  font-weight: var(--fw-black);
+  padding: 2px 9px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.02em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.admin-tab-badge--posted {
+  background: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FCD34D;
+}
+
+.admin-tab-badge--count {
+  background: var(--ac-green);
+  color: #fff;
+  border: 1px solid var(--ac-green-deep);
+  min-width: 22px;
+  text-align: center;
+}
+
 .admin-tab[data-active='true']:hover {
   transform: translateY(-2px);
   box-shadow:

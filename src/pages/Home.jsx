@@ -73,6 +73,7 @@ const Home = () => {
     const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
     const [isDuplicateRoundOrder, setIsDuplicateRoundOrder] = useState(false);
     const [successModal, setSuccessModal] = useState(false);
+    const [successItems, setSuccessItems] = useState([]);
     const [deleteModal, setDeleteModal] = useState(false);
     const [orderToDelete, setOrderToDelete] = useState(null);
     const [isSwitchingMember, setIsSwitchingMember] = useState(false);
@@ -292,6 +293,7 @@ const Home = () => {
         // Optimistic UX: close modal and show success immediately while request runs in background.
         setCart([]);
         setShowConfirmModal(false);
+        setSuccessItems(submittingItems);
         setTimeout(() => setSuccessModal(true), 80);
         try {
             const result = await actions.placeOrder(selectedMember, submittingItems);
@@ -1207,8 +1209,17 @@ const Home = () => {
                             <div className="ac-icon-ring ac-icon-ring--success">✅</div>
                             <h3 className="text-xl font-black text-ac-brown m-0">已成功下單！</h3>
                             <p className="text-ac-text leading-relaxed text-sm m-0">
-                                你的餐點已經送出。<br />
-                                可以到本輪已點區塊確認內容。
+                                {successItems
+                                    .map((i) => {
+                                        const itemName = String(i?.name || '').trim();
+                                        const itemNote = sanitizeNote(i?.note);
+                                        return itemNote ? `${itemName}（${itemNote}）` : itemName;
+                                    })
+                                    .join('、')}
+                                <br />
+                                <span className="font-black text-ac-brown">
+                                    共 {successItems.length} 份 · 合計 ${successItems.reduce((s, i) => s + Number(i?.price || 0), 0)}
+                                </span>
                             </p>
                             <Button onClick={handleSuccessConfirm} className="w-full justify-center mt-1">
                                 看本輪已點

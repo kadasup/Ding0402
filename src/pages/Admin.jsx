@@ -269,6 +269,12 @@ const Admin = () => {
                             style={{ animationDelay: `${idx * 0.05}s` }}
                         >
                             <tab.icon size={20} /> {tab.label}
+                            {tab.id === 'menu' && activeTab !== 'menu' && data?.menu?.posted && (
+                                <span className="admin-tab-badge admin-tab-badge--posted">已上架</span>
+                            )}
+                            {tab.id === 'stats' && activeTab !== 'stats' && (data?.orders || []).length > 0 && (
+                                <span className="admin-tab-badge admin-tab-badge--count">{(data.orders || []).length}</span>
+                            )}
                         </button>
                     ))}
                 </div>
@@ -2210,7 +2216,7 @@ const StatsManager = ({ data, isLoading = false }) => {
                 {/* 2-KPI row */}
                 <div className="ac-kpi-row">
                     <div className="ac-kpi ac-kpi--green">
-                        <div className="ac-kpi-value">{itemTotalQty}</div>
+                        <div className="ac-kpi-value">{orders.length}</div>
                         <div className="ac-kpi-label">訂單數</div>
                     </div>
                     <div className="ac-kpi ac-kpi--orange">
