@@ -11,6 +11,18 @@ function doGet(e) {
   if (action === "version" || action === "ping") {
     return handleResponse(getVersionInfo());
   }
+  if (action === "runbackup") {
+    return handleResponse(backupSpreadsheet());
+  }
+  if (action === "backupstatus") {
+    return handleResponse(getWorksheetObject("Settings", "last_backup") || { ok: false, reason: "no_backup_yet" });
+  }
+  if (action === "setupbackuptrigger") {
+    return handleResponse(setupDailyBackupTrigger());
+  }
+  if (action === "listtriggers") {
+    return handleResponse(listProjectTriggers());
+  }
 
   var sectionParam = params.sections || params.section || "";
   if (!sectionParam) {
@@ -84,6 +96,9 @@ function doPost(e) {
           // Keep previous round id for close-summary matching; fallback to next menu version only if missing.
           lastUpdated: (previousMenu && previousMenu.lastUpdated) ? previousMenu.lastUpdated : nextMenu.lastUpdated
         };
+        // Snapshot the just-closed round so the LINE "結單" keyword reply keeps showing
+        // this menu even after admin uploads a new pending menu into current_menu.
+        updateWorksheetObject("Settings", "last_closed_menu", downMenu);
         lineNotifyResult = sendLineMenuStatusNotification("unpublish", downMenu);
       }
 
@@ -546,7 +561,13 @@ function handleLineWebhook(payload) {
 
     var targetStatus = shouldReplyPublishCard ? "publish" : "unpublish";
     var fallbackText = shouldReplyPublishCard ? "今日菜單尚未上架，請連絡管理員" : "已結單，下次請早！";
-    var targetFlex = buildMenuStatusFlexMessage(targetStatus, currentMenu, config);
+    // For "結單" keyword: prefer the snapshot saved at close-time so a newly uploaded
+    // (but not yet posted) menu in current_menu doesn't bleed into the close card.
+    var menuForCard = currentMenu;
+    if (shouldReplyCloseCard) {
+      menuForCard = resolveMenuForCloseCard(currentMenu);
+    }
+    var targetFlex = buildMenuStatusFlexMessage(targetStatus, menuForCard, config);
     if (!targetFlex || !targetFlex.contents) {
       results.push(replyLineTextMessage(
         event.replyToken,
@@ -557,9 +578,27 @@ function handleLineWebhook(payload) {
       continue;
     }
 
-    results.push(replyLineFlexMessage(
+    var replyMessages = [{
+      type: "flex",
+      altText: String(targetFlex.altText || "菜單通知"),
+      contents: targetFlex.contents
+    }];
+
+    // 「結單」關鍵字額外附上每樓層每人訂購核對 carousel。沒有對應訂單就只回 unpublish 卡。
+    if (shouldReplyCloseCard) {
+      var summaryFlex = buildLineCloseSummaryFlexMessage(menuForCard, config);
+      if (summaryFlex && summaryFlex.contents) {
+        replyMessages.push({
+          type: "flex",
+          altText: String(summaryFlex.altText || "結單核對"),
+          contents: summaryFlex.contents
+        });
+      }
+    }
+
+    results.push(replyLineMessages(
       event.replyToken,
-      targetFlex,
+      replyMessages,
       config.channelAccessToken,
       config.lineApiBaseUrl
     ));
@@ -571,6 +610,38 @@ function handleLineWebhook(payload) {
     events: events.length,
     results: results
   });
+}
+
+// Pick the best menu object for the "結單" close-card reply. Tries in order:
+//   1. last_closed_menu snapshot (only when admin has triggered a close since
+//      the snapshot logic was deployed AND it has a usable storeInfo.name)
+//   2. Latest MenuHistory entry, merged with currentMenu's lastUpdated/closingTime
+//      so the summary carousel can still match orders by menuId
+//   3. currentMenu as last resort
+function resolveMenuForCloseCard(currentMenu) {
+  var lastClosed = getWorksheetObject("Settings", "last_closed_menu");
+  if (lastClosed && lastClosed.storeInfo && String(lastClosed.storeInfo.name || "").trim()) {
+    return lastClosed;
+  }
+
+  var history = getHistoryList();
+  var latest = (history && history.length) ? history[0] : null;
+  if (latest && latest.storeInfo && String(latest.storeInfo.name || "").trim()) {
+    var safeCurrent = currentMenu || {};
+    return {
+      posted: false,
+      items: Array.isArray(latest.items) ? latest.items : [],
+      // History doesn't preserve closingTime — leave it empty so the card omits that row.
+      closingTime: (lastClosed && lastClosed.closingTime) || safeCurrent.closingTime || "",
+      image: latest.image || (lastClosed && lastClosed.image) || safeCurrent.image || "",
+      storeInfo: latest.storeInfo,
+      remark: latest.remark || (lastClosed && lastClosed.remark) || safeCurrent.remark || "",
+      // Keep currentMenu.lastUpdated so the summary carousel still filters orders correctly.
+      lastUpdated: (lastClosed && lastClosed.lastUpdated) || safeCurrent.lastUpdated || ""
+    };
+  }
+
+  return currentMenu || {};
 }
 
 function isLineIdQueryText(text) {
@@ -649,17 +720,19 @@ function replyLineTextMessage(replyToken, text, accessToken, lineApiBaseUrl) {
 }
 
 function replyLineFlexMessage(replyToken, flex, accessToken, lineApiBaseUrl) {
-  if (!accessToken) return { handled: false, reason: "missing_line_access_token" };
   if (!flex || !flex.contents) return { handled: false, reason: "invalid_flex_payload" };
+  return replyLineMessages(replyToken, [{
+    type: "flex",
+    altText: String(flex.altText || "菜單通知"),
+    contents: flex.contents
+  }], accessToken, lineApiBaseUrl);
+}
 
-  var payload = {
-    replyToken: replyToken,
-    messages: [{
-      type: "flex",
-      altText: String(flex.altText || "菜單通知"),
-      contents: flex.contents
-    }]
-  };
+function replyLineMessages(replyToken, messages, accessToken, lineApiBaseUrl) {
+  if (!accessToken) return { handled: false, reason: "missing_line_access_token" };
+  if (!Array.isArray(messages) || messages.length === 0) return { handled: false, reason: "no_messages" };
+
+  var payload = { replyToken: replyToken, messages: messages };
 
   try {
     var apiBase = normalizeLineApiBaseUrl(lineApiBaseUrl);
@@ -674,7 +747,7 @@ function replyLineFlexMessage(replyToken, flex, accessToken, lineApiBaseUrl) {
     });
     var code = response.getResponseCode();
     if (code >= 200 && code < 300) {
-      return { handled: true, replied: true, code: code };
+      return { handled: true, replied: true, code: code, count: messages.length };
     }
     return {
       handled: true,
@@ -1314,7 +1387,8 @@ function buildLineUnpublishFlexMessage(menu, lineConfig) {
   var config = lineConfig || {};
   var appFrontendUrl = config.appFrontendUrl;
   var storeName = (menu.storeInfo && menu.storeInfo.name) ? String(menu.storeInfo.name) : "\u672a\u547d\u540d\u5e97\u5bb6";
-  var closingDisplay = formatLineClosingTimeZh(menu.closingTime);
+  var rawClosing = String(menu.closingTime || "").trim();
+  var closingDisplay = rawClosing ? formatLineClosingTimeZh(rawClosing) : "";
   var heroImageUrl = buildPublicAssetUrl(appFrontendUrl, "unpublish.png");
   var detailUrl = buildAdminCurrentRoundUrl(appFrontendUrl);
   if (!detailUrl) return null;
@@ -1343,12 +1417,8 @@ function buildLineUnpublishFlexMessage(menu, lineConfig) {
         }
       ]
     },
-    body: {
-      type: "box",
-      layout: "vertical",
-      spacing: "sm",
-      paddingAll: "14px",
-      contents: [
+    body: (function () {
+      var rows = [
         {
           type: "text",
           text: "\u5df2\u7d50\u55ae\uff0c\u4e0b\u6b21\u8acb\u65e9\uff01",
@@ -1366,8 +1436,10 @@ function buildLineUnpublishFlexMessage(menu, lineConfig) {
             { type: "text", text: "\u220e \u5e97\u5bb6", size: "md", color: "#7C6044", flex: 2 },
             { type: "text", text: storeName, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
           ]
-        },
-        {
+        }
+      ];
+      if (closingDisplay) {
+        rows.push({
           type: "box",
           layout: "baseline",
           spacing: "sm",
@@ -1376,9 +1448,16 @@ function buildLineUnpublishFlexMessage(menu, lineConfig) {
             { type: "text", text: "\u220e \u622a\u6b62", size: "md", color: "#7C6044", flex: 2 },
             { type: "text", text: closingDisplay, size: "md", color: "#5A4D41", wrap: true, flex: 5 }
           ]
-        }
-      ]
-    },
+        });
+      }
+      return {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        paddingAll: "14px",
+        contents: rows
+      };
+    })(),
     footer: {
       type: "box",
       layout: "vertical",
@@ -1471,10 +1550,14 @@ function buildLineCloseSummaryFlexMessage(menu, lineConfig) {
   var targetMenuId = menu && menu.lastUpdated ? String(menu.lastUpdated) : "";
   var todayKey = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
 
+  // Prefer menuId-based matching so the summary still works after midnight (e.g. user
+  // types "結單" the morning after a close). Only fall back to today's date when the
+  // round has no usable menuId.
   var roundOrders = orders.filter(function (o) {
-    var orderDateKey = formatSheetDateKey(o.date);
-    var menuMatched = targetMenuId ? String(o.menuId || "") === targetMenuId : true;
-    return orderDateKey === todayKey && menuMatched;
+    if (targetMenuId) {
+      return String(o.menuId || "") === targetMenuId;
+    }
+    return formatSheetDateKey(o.date) === todayKey;
   });
 
   if (!roundOrders.length) return null;
@@ -1775,6 +1858,143 @@ function authTrigger() {
   var response = UrlFetchApp.fetch("https://google.com");
   var drive = DriveApp.getRootFolder(); // Trigger Drive scope permission
   Logger.log("Auth trigger OK, response code: " + response.getResponseCode());
+}
+
+/* ------------------------------------------------------------------ *
+ * Spreadsheet backup
+ *  - Run on a daily time-based trigger (set up in GAS UI: 凌晨 3 點)
+ *  - Also exposed via doGet?action=runBackup for manual one-off runs
+ *  - Copies the active spreadsheet into a DingBackups folder *next to*
+ *    the spreadsheet (same Drive parent), keeps the latest N copies
+ * ------------------------------------------------------------------ */
+
+var BACKUP_FOLDER_NAME = "DingBackups";
+var BACKUP_FILE_PREFIX = "Ding-";
+var BACKUP_KEEP_COUNT = 14;
+
+function backupSpreadsheet() {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ssFile = DriveApp.getFileById(ss.getId());
+    var backupFolder = getOrCreateBackupFolder_(ssFile);
+
+    var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd-HHmm");
+    var copyName = BACKUP_FILE_PREFIX + stamp;
+    var copy = ssFile.makeCopy(copyName, backupFolder);
+    var rotated = rotateBackupFiles_(backupFolder, BACKUP_FILE_PREFIX, BACKUP_KEEP_COUNT);
+
+    var status = {
+      ok: true,
+      stamp: stamp,
+      name: copyName,
+      fileId: copy.getId(),
+      folder: backupFolder.getName(),
+      kept: rotated.kept,
+      deleted: rotated.deleted,
+      runAt: new Date().toISOString()
+    };
+    updateWorksheetObject("Settings", "last_backup", status);
+    return status;
+  } catch (err) {
+    var failure = {
+      ok: false,
+      error: err && err.toString ? err.toString() : String(err),
+      runAt: new Date().toISOString()
+    };
+    try { updateWorksheetObject("Settings", "last_backup", failure); } catch (e) {}
+    return failure;
+  }
+}
+
+// Place the backup folder in the *same Drive parent* as the spreadsheet so
+// moving the data file later carries the backup folder context along visually.
+function getOrCreateBackupFolder_(ssFile) {
+  var parents = ssFile.getParents();
+  var parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+
+  var existing = parent.getFoldersByName(BACKUP_FOLDER_NAME);
+  if (existing.hasNext()) return existing.next();
+  return parent.createFolder(BACKUP_FOLDER_NAME);
+}
+
+// Trash older copies, keep the most recent `keep` ones (by creation date).
+// Returns counts so the status entry stays informative.
+function rotateBackupFiles_(folder, prefix, keep) {
+  var matched = [];
+  var iter = folder.getFiles();
+  while (iter.hasNext()) {
+    var f = iter.next();
+    if (String(f.getName() || "").indexOf(prefix) === 0) {
+      matched.push({ file: f, time: f.getDateCreated().getTime() });
+    }
+  }
+  matched.sort(function (a, b) { return b.time - a.time; }); // newest first
+
+  var deleted = 0;
+  for (var i = keep; i < matched.length; i++) {
+    matched[i].file.setTrashed(true);
+    deleted += 1;
+  }
+  return { kept: Math.min(matched.length, keep), deleted: deleted };
+}
+
+// Create (or replace) a daily ~03:00 trigger for backupSpreadsheet.
+// Removes any existing triggers for the same handler so re-running is idempotent.
+function setupDailyBackupTrigger() {
+  try {
+    var existing = ScriptApp.getProjectTriggers();
+    var removed = 0;
+    for (var i = 0; i < existing.length; i++) {
+      if (existing[i].getHandlerFunction() === "backupSpreadsheet") {
+        ScriptApp.deleteTrigger(existing[i]);
+        removed += 1;
+      }
+    }
+
+    // ClockTriggerBuilder for daily triggers: everyDays + atHour. GAS runs it
+    // within a one-hour window of the chosen hour. No nearMinute (incompatible
+    // with everyDays in some runtimes).
+    var trigger = ScriptApp.newTrigger("backupSpreadsheet")
+      .timeBased()
+      .everyDays(1)
+      .atHour(3)
+      .inTimezone("Asia/Taipei")
+      .create();
+
+    var result = {
+      ok: true,
+      handler: "backupSpreadsheet",
+      schedule: "daily 03:00-04:00 Asia/Taipei",
+      triggerId: trigger.getUniqueId(),
+      removedDuplicates: removed,
+      triggersNow: ScriptApp.getProjectTriggers().length
+    };
+    Logger.log("setupDailyBackupTrigger OK: " + JSON.stringify(result));
+    return result;
+  } catch (err) {
+    var failure = {
+      ok: false,
+      error: err && err.toString ? err.toString() : String(err),
+      stack: err && err.stack ? String(err.stack).slice(0, 500) : ""
+    };
+    Logger.log("setupDailyBackupTrigger FAILED: " + JSON.stringify(failure));
+    return failure;
+  }
+}
+
+function listProjectTriggers() {
+  var arr = [];
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var t = triggers[i];
+    arr.push({
+      id: t.getUniqueId(),
+      handler: t.getHandlerFunction(),
+      eventType: String(t.getEventType()),
+      triggerSource: String(t.getTriggerSource())
+    });
+  }
+  return { count: arr.length, triggers: arr };
 }
 
 
