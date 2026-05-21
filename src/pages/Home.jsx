@@ -775,38 +775,50 @@ const Home = () => {
                                     </div>
                                 )}
 
-                                {/* Footer: Closing Time + Countdown */}
-                                {closingInfo && (() => {
-                                    const s = CLOSING_STYLE[closingInfo.level];
-                                    return (
-                                        <div className="mt-6 text-center">
+                            </div>
+
+                            {/* Closing Time + Countdown — on white card, below the menu (per design spec) */}
+                            {closingInfo && (() => {
+                                const s = CLOSING_STYLE[closingInfo.level];
+                                return (
+                                    <div style={{ textAlign: 'center', padding: '12px 16px 8px' }}>
+                                        <span
+                                            className={s.pulse ? 'animate-status-pulse' : ''}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '6px 16px',
+                                                borderRadius: '12px',
+                                                fontWeight: 900,
+                                                fontSize: '0.92rem',
+                                                letterSpacing: '0.04em',
+                                                whiteSpace: 'nowrap',
+                                                boxShadow: '0 3px 8px rgba(0,0,0,0.08)',
+                                                backgroundColor: s.bg,
+                                                border: `2px solid ${s.border}`,
+                                                color: s.color,
+                                            }}
+                                        >
+                                            <span style={{ whiteSpace: 'nowrap' }}>
+                                                {closingInfo.isClosed ? '✕' : '⏰'} 結單 {closingInfo.whenText}
+                                            </span>
                                             <span
-                                                className={`inline-flex items-center gap-2 px-5 py-1.5 rounded-xl font-black text-base shadow-md tracking-wide ${s.pulse ? 'animate-status-pulse' : ''}`}
                                                 style={{
-                                                    backgroundColor: s.bg,
-                                                    border: `2px solid ${s.border}`,
-                                                    color: s.color,
+                                                    fontSize: '0.72rem',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '9999px',
+                                                    background: 'rgba(255,255,255,0.65)',
+                                                    border: `1px solid ${s.border}`,
+                                                    whiteSpace: 'nowrap',
                                                 }}
                                             >
-                                                <span>
-                                                    {closingInfo.isClosed ? '✕' : '⏰'} 結單 {closingInfo.whenText}
-                                                </span>
-                                                <span
-                                                    style={{
-                                                        fontSize: '0.78rem',
-                                                        padding: '2px 8px',
-                                                        borderRadius: '999px',
-                                                        background: 'rgba(255,255,255,0.6)',
-                                                        border: `1px solid ${s.border}`,
-                                                    }}
-                                                >
-                                                    {closingInfo.remainingText}
-                                                </span>
+                                                {closingInfo.remainingText}
                                             </span>
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+                                        </span>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
 
