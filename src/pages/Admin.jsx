@@ -118,7 +118,8 @@ const Admin = () => {
         if (isFirstLibraryLoad) {
             setIsLibraryBootLoading(true);
         }
-        if (activeTab === 'stats') {
+        const isFirstStatsLoad = activeTab === 'stats' && (data?.orders || []).length === 0;
+        if (isFirstStatsLoad) {
             setIsStatsLoading(true);
         }
 
@@ -137,7 +138,7 @@ const Admin = () => {
                 if (!cancelled && isFirstLibraryLoad) {
                     setIsLibraryBootLoading(false);
                 }
-                if (!cancelled && activeTab === 'stats') {
+                if (!cancelled && isFirstStatsLoad) {
                     setIsStatsLoading(false);
                 }
             }
@@ -2212,11 +2213,38 @@ const StatsManager = ({ data, isLoading = false }) => {
 
             <div ref={statsPrintRef} className="flex flex-col gap-4">
                 {roundOptions.length === 0 && (
-                    <EmptyState
-                        icon={BarChart3}
-                        title="目前沒有可統計的訂單輪次"
-                        hint="發佈菜單並有人下單後，統計資料會顯示在這裡。"
-                    />
+                    isLoading ? (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '20px 16px',
+                            textAlign: 'center',
+                            color: '#9CA3AF',
+                        }}>
+                            <div style={{
+                                width: '56px',
+                                height: '56px',
+                                borderRadius: '50%',
+                                background: '#F3F4F6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}>
+                                <Loader size={28} className="animate-spin" color="#9CA3AF" strokeWidth={2} />
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#4B5563' }}>載入中...</div>
+                            <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>正在讀取訂單資料</div>
+                        </div>
+                    ) : (
+                        <EmptyState
+                            icon={BarChart3}
+                            title="目前沒有可統計的訂單輪次"
+                            hint="發佈菜單並有人下單後，統計資料會顯示在這裡。"
+                        />
+                    )
                 )}
 
                 {/* 2-KPI row */}
@@ -2254,12 +2282,6 @@ const StatsManager = ({ data, isLoading = false }) => {
 
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
-                        {isLoading && (
-                            <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
-                                <Loader size={16} className="animate-spin" />
-                                載入中...
-                            </div>
-                        )}
                         {itemStats.map((stat) => (
                             <div key={stat.name} className="ac-stat-item">
                                 <div className="ac-stat-item-head">
