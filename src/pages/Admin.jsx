@@ -272,9 +272,15 @@ const Admin = () => {
                             {tab.id === 'menu' && activeTab !== 'menu' && data?.menu?.posted && (
                                 <span className="admin-tab-badge admin-tab-badge--posted">已上架</span>
                             )}
-                            {tab.id === 'stats' && activeTab !== 'stats' && (data?.orders || []).length > 0 && (
-                                <span className="admin-tab-badge admin-tab-badge--count">{(data.orders || []).length}</span>
-                            )}
+                            {tab.id === 'stats' && activeTab !== 'stats' && (() => {
+                                const roundMenuId = String(data?.menu?.lastUpdated || '').trim();
+                                const currentRoundCount = roundMenuId
+                                    ? (data?.orders || []).filter(o => String(o?.menuId || '').trim() === roundMenuId).length
+                                    : 0;
+                                return currentRoundCount > 0 ? (
+                                    <span className="admin-tab-badge admin-tab-badge--count">{currentRoundCount}</span>
+                                ) : null;
+                            })()}
                         </button>
                     ))}
                 </div>
@@ -596,7 +602,7 @@ const MenuManager = ({ data, actions }) => {
         const today = new Date();
         const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         const name = storeInfo.name ? storeInfo.name : '未命名店家';
-        const autoSaveName = `${dateStr} 結單存檔 - ${name}`;
+        const autoSaveName = `${dateStr} - ${name}`;
         actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
         // Unpost
@@ -949,7 +955,7 @@ const MenuManager = ({ data, actions }) => {
                                 pagedHistory.map(hist => (
                                         <div key={hist.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
                                             <div className="min-w-0">
-                                                <div className="font-bold text-ac-brown truncate">{hist.name || '未命名菜單'}</div>
+                                                <div className="font-bold text-ac-brown truncate">{(hist.name || '未命名菜單').replace(/\s*結單存檔\s*-\s*/g, ' - ').replace(/\s{2,}/g, ' ').trim()}</div>
                                                 <div className="text-xs text-gray-500">
                                                     {(hist.items || []).length} 項
                                                     {' · '}
@@ -2017,7 +2023,7 @@ const StatsManager = ({ data, isLoading = false }) => {
     const getRoundLabel = (round) => {
         const startStr = _formatDateTime(round.startTs);
         const storeName = resolveRoundStoreName(round);
-        return `上架：${startStr}｜店名：${storeName}｜${round.count}筆`;
+        return `${startStr}｜店名：${storeName}｜${round.count}筆`;
     };
 
     const effectiveRoundKey = useMemo(() => {
