@@ -45,7 +45,7 @@ const CLOSING_STYLE = {
 };
 
 const Home = () => {
-    const { data, actions, loading } = useDing();
+    const { data, actions, loading, bootstrapped } = useDing();
     const location = useLocation();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
     const loadOrdersForMember = () => {
@@ -350,9 +350,9 @@ const Home = () => {
         }, 80);
     };
 
-    // Safety check: Only show full-page loader if initial data hasn't arrived yet.
-    // We check !data.menu.lastUpdated because that is null initially and populated after first fetch.
-    const isInitialLoad = loading && (!data.menu || !data.menu.lastUpdated);
+    // Show loader until bootstrap has confirmed the menu state. Prevents the
+    // "今日尚未開放點餐" empty state from flashing before the first fetch resolves.
+    const isInitialLoad = !bootstrapped;
 
 
 
