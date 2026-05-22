@@ -272,16 +272,20 @@ export const DingProvider = ({ children }) => {
   );
 
   const writeCoreCache = useCallback(
-    (payload = {}) => writeTimedCache(CORE_CACHE_KEY, payload),
-    [writeTimedCache]
+    (partialPayload = {}) => {
+      const existing = readCoreCache();
+      const mergedPayload = { ...(existing?.payload || {}), ...partialPayload };
+      writeTimedCache(CORE_CACHE_KEY, mergedPayload);
+    },
+    [readCoreCache, writeTimedCache]
   );
 
   const hydrateCoreFromCache = useCallback(() => {
     const cached = readCoreCache();
-    if (!cached) return { hadCache: false, isStale: false };
+    if (!cached) return { hadCache: false, isStale: false, payload: null };
 
     setData(prev => mergeRemoteData(prev, cached.payload));
-    return { hadCache: true, isStale: cached.isStale };
+    return { hadCache: true, isStale: cached.isStale, payload: cached.payload };
   }, [mergeRemoteData, readCoreCache]);
 
   const hydrateBackofficeFromCache = useCallback(() => {
@@ -337,16 +341,16 @@ export const DingProvider = ({ children }) => {
       }
       if (!res) throw lastErr || new Error('Fetch failed');
       const json = await res.json();
-      const requestedCore = sectionList.some(section => section === 'core' || section === 'all');
-      if (requestedCore) {
-        const coreSnapshot = {
-          ...(hasOwn(json, 'menu') ? { menu: json.menu } : {}),
-          ...(hasOwn(json, 'members') ? { members: json.members } : {}),
-          ...(hasOwn(json, 'announcement') ? { announcement: json.announcement } : {}),
-        };
-        if (Object.keys(coreSnapshot).length > 0) {
-          writeCoreCache(coreSnapshot);
-        }
+      // Persist whatever core fields came back — not just when `core/all` was
+      // requested. Home page fetches `['menu']` and we want the menu cached too
+      // so the next refresh can fast-path past the loader.
+      const coreSnapshot = {
+        ...(hasOwn(json, 'menu') ? { menu: json.menu } : {}),
+        ...(hasOwn(json, 'members') ? { members: json.members } : {}),
+        ...(hasOwn(json, 'announcement') ? { announcement: json.announcement } : {}),
+      };
+      if (Object.keys(coreSnapshot).length > 0) {
+        writeCoreCache(coreSnapshot);
       }
       if (hasOwn(json, 'menuLibrary')) {
         writeTimedCache(LIBRARY_CACHE_KEY, { menuLibrary: json.menuLibrary || [] });
@@ -411,7 +415,10 @@ export const DingProvider = ({ children }) => {
 
       // Cache-hit fast path: if cache already says the menu is posted, treat
       // bootstrap as done so returning visitors see the menu without a loader.
-      if (!cancelled && coreCacheState?.payload?.menu?.posted === true) {
+      // Do NOT gate on `cancelled`: in React StrictMode the first effect run is
+      // cancelled before this fires, but the cache hydration is already done
+      // and there's no race — we just need to flip the flag so the loader hides.
+      if (coreCacheState?.payload?.menu?.posted === true) {
         setBootstrapped(true);
       }
 

@@ -781,7 +781,7 @@ const Home = () => {
                             {closingInfo && (() => {
                                 const s = CLOSING_STYLE[closingInfo.level];
                                 return (
-                                    <div style={{ textAlign: 'center', padding: '12px 16px 8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 16px' }}>
                                         <span
                                             className={s.pulse ? 'animate-status-pulse' : ''}
                                             style={{
