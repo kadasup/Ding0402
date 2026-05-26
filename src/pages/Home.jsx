@@ -45,7 +45,7 @@ const CLOSING_STYLE = {
 };
 
 const Home = () => {
-    const { data, actions, loading } = useDing();
+    const { data, actions, loading, ui } = useDing();
     const location = useLocation();
     const [selectedMember, setSelectedMember] = useState(() => localStorage.getItem('ding_member') || null);
     const loadOrdersForMember = () => {
@@ -226,6 +226,7 @@ const Home = () => {
             localStorage.setItem('ding_member', name);
             actions.loginMember(name);
             loadOrdersForMember();
+            ui?.pushToast?.('info', `📢 已切換為 ${name}`);
         } else {
             localStorage.removeItem('ding_member');
             actions.logout();
