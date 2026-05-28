@@ -48,6 +48,7 @@ export const DingProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [data, setData] = useState(INITIAL_DATA);
   const [loading, setLoading] = useState(false);
+  const [bootstrapped, setBootstrapped] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [toast, setToast] = useState(null);
@@ -271,16 +272,20 @@ export const DingProvider = ({ children }) => {
   );
 
   const writeCoreCache = useCallback(
-    (payload = {}) => writeTimedCache(CORE_CACHE_KEY, payload),
-    [writeTimedCache]
+    (partialPayload = {}) => {
+      const existing = readCoreCache();
+      const mergedPayload = { ...(existing?.payload || {}), ...partialPayload };
+      writeTimedCache(CORE_CACHE_KEY, mergedPayload);
+    },
+    [readCoreCache, writeTimedCache]
   );
 
   const hydrateCoreFromCache = useCallback(() => {
     const cached = readCoreCache();
-    if (!cached) return { hadCache: false, isStale: false };
+    if (!cached) return { hadCache: false, isStale: false, payload: null };
 
     setData(prev => mergeRemoteData(prev, cached.payload));
-    return { hadCache: true, isStale: cached.isStale };
+    return { hadCache: true, isStale: cached.isStale, payload: cached.payload };
   }, [mergeRemoteData, readCoreCache]);
 
   const hydrateBackofficeFromCache = useCallback(() => {
@@ -336,16 +341,16 @@ export const DingProvider = ({ children }) => {
       }
       if (!res) throw lastErr || new Error('Fetch failed');
       const json = await res.json();
-      const requestedCore = sectionList.some(section => section === 'core' || section === 'all');
-      if (requestedCore) {
-        const coreSnapshot = {
-          ...(hasOwn(json, 'menu') ? { menu: json.menu } : {}),
-          ...(hasOwn(json, 'members') ? { members: json.members } : {}),
-          ...(hasOwn(json, 'announcement') ? { announcement: json.announcement } : {}),
-        };
-        if (Object.keys(coreSnapshot).length > 0) {
-          writeCoreCache(coreSnapshot);
-        }
+      // Persist whatever core fields came back — not just when `core/all` was
+      // requested. Home page fetches `['menu']` and we want the menu cached too
+      // so the next refresh can fast-path past the loader.
+      const coreSnapshot = {
+        ...(hasOwn(json, 'menu') ? { menu: json.menu } : {}),
+        ...(hasOwn(json, 'members') ? { members: json.members } : {}),
+        ...(hasOwn(json, 'announcement') ? { announcement: json.announcement } : {}),
+      };
+      if (Object.keys(coreSnapshot).length > 0) {
+        writeCoreCache(coreSnapshot);
       }
       if (hasOwn(json, 'menuLibrary')) {
         writeTimedCache(LIBRARY_CACHE_KEY, { menuLibrary: json.menuLibrary || [] });
@@ -408,6 +413,15 @@ export const DingProvider = ({ children }) => {
         hydrateBackofficeFromCache();
       }
 
+      // Cache-hit fast path: if cache already says the menu is posted, treat
+      // bootstrap as done so returning visitors see the menu without a loader.
+      // Do NOT gate on `cancelled`: in React StrictMode the first effect run is
+      // cancelled before this fires, but the cache hydration is already done
+      // and there's no race — we just need to flip the flag so the loader hides.
+      if (coreCacheState?.payload?.menu?.posted === true) {
+        setBootstrapped(true);
+      }
+
       // Stale-while-revalidate: if we hydrated from any cache (even stale), show UI
       // immediately and refetch silently in the background. Only show the blocking
       // loader when there was no cache at all to hydrate from.
@@ -415,17 +429,25 @@ export const DingProvider = ({ children }) => {
       // Home route only needs menu for first paint; members/announcement come in a
       // second pass so first paint isn't blocked on members payload.
       const firstPassSections = isHomeRoute ? ['menu'] : INITIAL_SECTIONS;
-      const coreData = await fetchData(
-        firstPassSections,
-        showLoader ? { retries: 0, timeoutMs: 8000 } : { silent: true, retries: 0, timeoutMs: 8000 }
-      );
-      const coreMenuId = String(coreData?.menu?.lastUpdated || '');
-      if (!cancelled && coreMenuId) {
-        hydrateOrdersFromCache(coreMenuId);
-      }
-      // Second pass on home: fill in members + announcement silently after first paint.
-      if (!cancelled && isHomeRoute) {
-        void fetchData(['members', 'announcement'], { silent: true, retries: 0, timeoutMs: 8000 });
+      try {
+        const coreData = await fetchData(
+          firstPassSections,
+          showLoader ? { retries: 0, timeoutMs: 8000 } : { silent: true, retries: 0, timeoutMs: 8000 }
+        );
+        const coreMenuId = String(coreData?.menu?.lastUpdated || '');
+        if (!cancelled && coreMenuId) {
+          hydrateOrdersFromCache(coreMenuId);
+        }
+        // Second pass on home: fill in members + announcement silently after first paint.
+        if (!cancelled && isHomeRoute) {
+          void fetchData(['members', 'announcement'], { silent: true, retries: 0, timeoutMs: 8000 });
+        }
+      } finally {
+        // Always flip bootstrapped: in React StrictMode the first effect run is
+        // cancelled before completion, but the in-flight fetch still resolves
+        // and updates state via fetchData. Gating on `cancelled` here would
+        // leave the loader stuck forever in dev.
+        setBootstrapped(true);
       }
     };
 
@@ -917,7 +939,7 @@ export const DingProvider = ({ children }) => {
   }), [clearToast, pendingCount, pushToast, statusText, toast]);
 
   return (
-    <DingContext.Provider value={{ user, data, loading, gasUrl, actions, getTodayOrders, ui }}>
+    <DingContext.Provider value={{ user, data, loading, bootstrapped, gasUrl, actions, getTodayOrders, ui }}>
       {children}
     </DingContext.Provider>
   );

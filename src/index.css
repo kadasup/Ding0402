@@ -704,6 +704,7 @@ body {
   padding: 10px;
   border-radius: 12px;
   border: 1px solid var(--gray-100);
+  min-width: 0;
 }
 
 .ac-stats-filter-label {
@@ -715,7 +716,9 @@ body {
 }
 
 .ac-stats-filter-select {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
   padding: 8px 12px;
   border-radius: 10px;
   border: 2px solid var(--gray-200);
@@ -725,6 +728,9 @@ body {
   color: var(--ac-text);
   font-weight: var(--fw-bold);
   outline: none;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .ac-stats-filter-select:focus {

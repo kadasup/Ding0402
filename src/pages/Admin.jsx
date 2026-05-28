@@ -118,7 +118,8 @@ const Admin = () => {
         if (isFirstLibraryLoad) {
             setIsLibraryBootLoading(true);
         }
-        if (activeTab === 'stats') {
+        const isFirstStatsLoad = activeTab === 'stats' && (data?.orders || []).length === 0;
+        if (isFirstStatsLoad) {
             setIsStatsLoading(true);
         }
 
@@ -137,7 +138,7 @@ const Admin = () => {
                 if (!cancelled && isFirstLibraryLoad) {
                     setIsLibraryBootLoading(false);
                 }
-                if (!cancelled && activeTab === 'stats') {
+                if (!cancelled && isFirstStatsLoad) {
                     setIsStatsLoading(false);
                 }
             }
@@ -272,9 +273,15 @@ const Admin = () => {
                             {tab.id === 'menu' && activeTab !== 'menu' && data?.menu?.posted && (
                                 <span className="admin-tab-badge admin-tab-badge--posted">已上架</span>
                             )}
-                            {tab.id === 'stats' && activeTab !== 'stats' && (data?.orders || []).length > 0 && (
-                                <span className="admin-tab-badge admin-tab-badge--count">{(data.orders || []).length}</span>
-                            )}
+                            {tab.id === 'stats' && activeTab !== 'stats' && (() => {
+                                const roundMenuId = String(data?.menu?.lastUpdated || '').trim();
+                                const currentRoundCount = roundMenuId
+                                    ? (data?.orders || []).filter(o => String(o?.menuId || '').trim() === roundMenuId).length
+                                    : 0;
+                                return currentRoundCount > 0 ? (
+                                    <span className="admin-tab-badge admin-tab-badge--count">{currentRoundCount}</span>
+                                ) : null;
+                            })()}
                         </button>
                     ))}
                 </div>
@@ -596,7 +603,7 @@ const MenuManager = ({ data, actions }) => {
         const today = new Date();
         const dateStr = `${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         const name = storeInfo.name ? storeInfo.name : '未命名店家';
-        const autoSaveName = `${dateStr} 結單存檔 - ${name}`;
+        const autoSaveName = `${dateStr} - ${name}`;
         actions.addMenuHistory(autoSaveName, draftItems, menuImage, storeInfo, menuRemark);
 
         // Unpost
@@ -949,7 +956,7 @@ const MenuManager = ({ data, actions }) => {
                                 pagedHistory.map(hist => (
                                         <div key={hist.id} className="bg-white rounded-xl border border-gray-200 p-3 flex items-center justify-between gap-3">
                                             <div className="min-w-0">
-                                                <div className="font-bold text-ac-brown truncate">{hist.name || '未命名菜單'}</div>
+                                                <div className="font-bold text-ac-brown truncate">{(hist.name || '未命名菜單').replace(/\s*結單存檔\s*-\s*/g, ' - ').replace(/\s{2,}/g, ' ').trim()}</div>
                                                 <div className="text-xs text-gray-500">
                                                     {(hist.items || []).length} 項
                                                     {' · '}
@@ -2017,7 +2024,7 @@ const StatsManager = ({ data, isLoading = false }) => {
     const getRoundLabel = (round) => {
         const startStr = _formatDateTime(round.startTs);
         const storeName = resolveRoundStoreName(round);
-        return `上架：${startStr}｜店名：${storeName}｜${round.count}筆`;
+        return `${startStr}｜店名：${storeName}｜${round.count}筆`;
     };
 
     const effectiveRoundKey = useMemo(() => {
@@ -2206,11 +2213,38 @@ const StatsManager = ({ data, isLoading = false }) => {
 
             <div ref={statsPrintRef} className="flex flex-col gap-4">
                 {roundOptions.length === 0 && (
-                    <EmptyState
-                        icon={BarChart3}
-                        title="目前沒有可統計的訂單輪次"
-                        hint="發佈菜單並有人下單後，統計資料會顯示在這裡。"
-                    />
+                    isLoading ? (
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            padding: '20px 16px',
+                            textAlign: 'center',
+                            color: '#9CA3AF',
+                        }}>
+                            <div style={{
+                                width: '56px',
+                                height: '56px',
+                                borderRadius: '50%',
+                                background: '#F3F4F6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}>
+                                <Loader size={28} className="animate-spin" color="#9CA3AF" strokeWidth={2} />
+                            </div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#4B5563' }}>載入中...</div>
+                            <div style={{ fontSize: '0.78rem', color: '#9CA3AF' }}>正在讀取訂單資料</div>
+                        </div>
+                    ) : (
+                        <EmptyState
+                            icon={BarChart3}
+                            title="目前沒有可統計的訂單輪次"
+                            hint="發佈菜單並有人下單後，統計資料會顯示在這裡。"
+                        />
+                    )
                 )}
 
                 {/* 2-KPI row */}
@@ -2248,12 +2282,6 @@ const StatsManager = ({ data, isLoading = false }) => {
 
                 {statsTab === 'item' && (
                     <div className="flex flex-col gap-2">
-                        {isLoading && (
-                            <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg px-3 py-2 text-sm font-bold flex items-center gap-2">
-                                <Loader size={16} className="animate-spin" />
-                                載入中...
-                            </div>
-                        )}
                         {itemStats.map((stat) => (
                             <div key={stat.name} className="ac-stat-item">
                                 <div className="ac-stat-item-head">
