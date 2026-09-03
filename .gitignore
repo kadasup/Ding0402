@@ -29,3 +29,21 @@ dist-ssr
 .env.development
 .env.production
 .env.test
+
+# 敏感資料
+*.key
+credentials.*
+
+# Claude Code 本地設定（含 permissions，絕不上雲）
+.claude/
+
+# Google Drive 系統檔
+desktop.ini
+*.tmp
+~$*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
